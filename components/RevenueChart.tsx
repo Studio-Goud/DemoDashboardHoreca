@@ -285,7 +285,10 @@ export default function RevenueChart({ data, kleur, hex }: Props) {
 
   const vergelijkLabel =
     VERGELIJK_OPTIES.find((o) => o.key === vergelijk)?.label ?? "";
-  const gebruikBar = aggregatie !== "dag";
+  // Staafdiagram alleen voor per-jaar (weinig kolommen, dikke balken);
+  // voor alle andere granulariteiten de Area+Line chart zodat je een
+  // lijn-vergelijking krijgt.
+  const gebruikBar = aggregatie === "jaar";
 
   return (
     <div className="card">
