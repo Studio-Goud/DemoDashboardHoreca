@@ -21,6 +21,7 @@ import CruiseAgenda from "@/components/CruiseAgenda";
 import WeerImpact from "@/components/WeerImpact";
 import ProductCombinaties from "@/components/ProductCombinaties";
 import BtwExport from "@/components/BtwExport";
+import PushAanmelden from "@/components/PushAanmelden";
 import type { Bedrijf } from "@/lib/sumup";
 import {
   getZettleJaaroverzicht,
@@ -262,6 +263,8 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
       {heeftData && (
         <RecenteTransacties bedrijf={config.slug} hex={config.hex} />
       )}
+
+      <PushAanmelden hex={config.hex} />
 
       <BtwExport bedrijf={config.slug} hex={config.hex} />
 

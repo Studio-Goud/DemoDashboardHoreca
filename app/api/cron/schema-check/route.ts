@@ -85,7 +85,8 @@ export async function GET(req: NextRequest) {
   ) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (!heeftNotifyConfig().telegram && !heeftNotifyConfig().email) {
+  const cfg = heeftNotifyConfig();
+  if (!cfg.webpush && !cfg.telegram && !cfg.email) {
     return NextResponse.json({ status: "skipped", reden: "Geen notify-config" });
   }
 
@@ -103,6 +104,8 @@ export async function GET(req: NextRequest) {
   const resultaten = await notify({
     onderwerp: "Achter op schema",
     tekstPlatte: berichten.join("\n\n"),
+    url: "/bb",
+    tag: "schema-check",
   });
 
   return NextResponse.json({

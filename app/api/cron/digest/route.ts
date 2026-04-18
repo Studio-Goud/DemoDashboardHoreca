@@ -78,11 +78,11 @@ export async function GET(req: NextRequest) {
   }
 
   const cfg = heeftNotifyConfig();
-  if (!cfg.telegram && !cfg.email) {
+  if (!cfg.webpush && !cfg.telegram && !cfg.email) {
     return NextResponse.json({
       status: "skipped",
       reden:
-        "Geen notify-config. Zet TELEGRAM_BOT_TOKEN+TELEGRAM_CHAT_IDS of RESEND_API_KEY+DIGEST_EMAILS in Vercel env.",
+        "Geen notify-config. Zet push (VAPID+KV), Telegram, of e-mail op in Vercel env.",
     });
   }
 
@@ -104,6 +104,8 @@ export async function GET(req: NextRequest) {
   const resultaten = await notify({
     onderwerp: `Omzet dagoverzicht · ${format(new Date(), "dd-MM-yyyy")}`,
     tekstPlatte: tekst,
+    url: "/bb",
+    tag: "digest",
   });
 
   return NextResponse.json({

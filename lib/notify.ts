@@ -1,6 +1,8 @@
-// Verzendt notificaties via Telegram (als TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_IDS
-// gezet zijn) en/of e-mail via Resend (als RESEND_API_KEY + DIGEST_EMAILS gezet).
-// Beide kanalen zijn optioneel en werken naast elkaar.
+// Verzendt notificaties via Web Push (PWA, primair), Telegram (optioneel)
+// en/of e-mail via Resend (optioneel). Alle kanalen zijn onafhankelijk en
+// kunnen naast elkaar actief zijn.
+
+import { stuurPush as stuurWebPush, pushGeconfigureerd } from "./push";
 
 interface NotificatieResultaat {
   kanaal: string;
@@ -10,8 +12,10 @@ interface NotificatieResultaat {
 
 export interface Notificatie {
   onderwerp: string;
-  tekstPlatte: string;     // voor Telegram / plain-text email
+  tekstPlatte: string;     // voor Telegram / plain-text email / web push body
   htmlLichaam?: string;    // voor email; als leeg gebruiken we tekstPlatte
+  url?: string;            // web push click-target
+  tag?: string;            // web push tag (dedup)
 }
 
 // ---------- Telegram ----------
@@ -113,18 +117,50 @@ async function verstuurEmail(n: Notificatie): Promise<NotificatieResultaat[]> {
 
 // ---------- Publieke API ----------
 
+async function verstuurWebPush(n: Notificatie): Promise<NotificatieResultaat[]> {
+  const cfg = pushGeconfigureerd();
+  if (!cfg.vapid || !cfg.kv) return [];
+  try {
+    const res = await stuurWebPush(n.onderwerp, n.tekstPlatte, {
+      url: n.url ?? "/",
+      tag: n.tag ?? "omzet",
+    });
+    return [
+      {
+        kanaal: "webpush",
+        gelukt: true,
+        fout: res.verzonden === 0 ? "geen abonnees" : undefined,
+      },
+    ];
+  } catch (e) {
+    return [
+      {
+        kanaal: "webpush",
+        gelukt: false,
+        fout: e instanceof Error ? e.message : "onbekend",
+      },
+    ];
+  }
+}
+
 export async function notify(n: Notificatie): Promise<NotificatieResultaat[]> {
   const resultaten = [
+    ...(await verstuurWebPush(n)),
     ...(await verstuurTelegram(n)),
     ...(await verstuurEmail(n)),
   ];
-  // Console log zodat Vercel-logs altijd laten zien wat er zou zijn verstuurd
   console.log("[notify]", n.onderwerp, resultaten);
   return resultaten;
 }
 
-export function heeftNotifyConfig(): { telegram: boolean; email: boolean } {
+export function heeftNotifyConfig(): {
+  webpush: boolean;
+  telegram: boolean;
+  email: boolean;
+} {
+  const p = pushGeconfigureerd();
   return {
+    webpush: p.vapid && p.kv,
     telegram: !!telegramConfig(),
     email: !!resendConfig(),
   };
