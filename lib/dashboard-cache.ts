@@ -13,9 +13,11 @@ import {
   berekenWeekdagCurve,
   verrijkEvents,
   genereerSuggesties,
+  berekenProductCombinaties,
   type DagOmzet,
   type UurData,
   type ProductData,
+  type ProductCombi,
   type MaandOmzet,
   type Prognose,
   type Schommeling,
@@ -37,6 +39,7 @@ export interface DashboardAggregaten {
   dagOmzet: DagOmzet[];
   piekuren: UurData[];
   topProducten: ProductData[];
+  productCombinaties: ProductCombi[];
   maandOmzet: MaandOmzet[];
   prognose: Prognose[];
   schommelingen: Schommeling[];
@@ -94,6 +97,7 @@ async function berekenDashboardAggregaten(
   const dagOmzet       = heeftData ? berekenDagOmzet(alle)                       : [];
   const piekuren       = heeftData ? berekenPiekuren(alle)                       : [];
   const topProducten   = heeftData ? berekenTopProducten(alle)                   : [];
+  const productCombinaties = heeftData ? berekenProductCombinaties(alle)         : [];
   const maandOmzet     = heeftData ? berekenMaandOmzet(alle)                     : [];
   const prognose       = heeftData ? berekenPrognose(alle, bedrijf)              : [];
   const schommelingen  = heeftData ? detecteerSchommelingen(dagOmzet)            : [];
@@ -149,6 +153,7 @@ async function berekenDashboardAggregaten(
     dagOmzet,
     piekuren,
     topProducten,
+    productCombinaties,
     maandOmzet,
     prognose,
     schommelingen,

@@ -13,11 +13,21 @@ interface CruiseHint {
   aantal: number;
 }
 
+interface WeerHint {
+  datum: string;
+  tempMax: number;
+  tempMin: number;
+  neerslag: number;
+  emoji: string;
+  categorie: string;
+}
+
 interface Props {
   data: Prognose[];
   omzetVandaag: number;
   bedrijf: Bedrijf;
   cruises?: CruiseHint[];
+  weer?: WeerHint[];
 }
 
 const drukStyle: Record<DrukLevel, { bar: string; text: string }> = {
@@ -30,12 +40,14 @@ const drukStyle: Record<DrukLevel, { bar: string; text: string }> = {
 
 const DAG_AFK = ["Zo", "Ma", "Di", "Wo", "Do", "Vr", "Za"];
 
-export default function Forecast({ data, omzetVandaag, bedrijf, cruises = [] }: Props) {
+export default function Forecast({ data, omzetVandaag, bedrijf, cruises = [], weer = [] }: Props) {
   if (data.length === 0) return null;
 
   const g = DRUKTE_GRENS[bedrijf];
   const cruiseMap = new Map<string, CruiseHint>();
   for (const c of cruises) cruiseMap.set(c.datum, c);
+  const weerMap = new Map<string, WeerHint>();
+  for (const w of weer) weerMap.set(w.datum, w);
 
   const totaalVerwacht = data.reduce((s, p) => s + p.verwacht, 0);
   const bruikbaarheid = data.filter((d) => d.verwacht > 0).length;
@@ -119,6 +131,15 @@ export default function Forecast({ data, omzetVandaag, bedrijf, cruises = [] }: 
                       )}
                     </p>
                     <div className="flex flex-wrap gap-1 mt-0.5">
+                      {weerMap.get(dag.datum) && (
+                        <span
+                          className="text-[10px] text-slate-600 bg-slate-50 border border-slate-200 px-1.5 rounded"
+                          title={`${weerMap.get(dag.datum)!.categorie} · ${Math.round(weerMap.get(dag.datum)!.tempMax)}°C, neerslag ${weerMap.get(dag.datum)!.neerslag.toFixed(1)}mm`}
+                        >
+                          {weerMap.get(dag.datum)!.emoji}{" "}
+                          {Math.round(weerMap.get(dag.datum)!.tempMax)}°
+                        </span>
+                      )}
                       {dag.feestdag && (
                         <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 rounded">
                           {dag.feestdag}

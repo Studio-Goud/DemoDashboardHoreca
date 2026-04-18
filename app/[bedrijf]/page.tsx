@@ -18,12 +18,16 @@ import RecenteTransacties from "@/components/RecenteTransacties";
 import FeestdagenKalender from "@/components/FeestdagenKalender";
 import Vergelijken from "@/components/Vergelijken";
 import CruiseAgenda from "@/components/CruiseAgenda";
+import WeerImpact from "@/components/WeerImpact";
+import ProductCombinaties from "@/components/ProductCombinaties";
+import BtwExport from "@/components/BtwExport";
 import type { Bedrijf } from "@/lib/sumup";
 import {
   getZettleJaaroverzicht,
   getProductLevenshistorie,
 } from "@/lib/zettle-excel";
 import { dashboardAggregaten } from "@/lib/dashboard-cache";
+import { getWeer, weerInfo } from "@/lib/weer";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -75,10 +79,11 @@ export default function DashboardPage({ params }: { params: Params }) {
 async function DashboardData({ config }: { config: BedrijfConfig }) {
   // Zware data + aggregaties komen uit de gedeelde server-cache (5 min TTL).
   // Eerste request per 5 min is traag; volgende requests instant.
-  const [agg, jaaroverzicht, productLevens] = await Promise.all([
+  const [agg, jaaroverzicht, productLevens, weerData] = await Promise.all([
     dashboardAggregaten(config.slug),
     Promise.resolve(getZettleJaaroverzicht(config.slug)),
     Promise.resolve(getProductLevenshistorie(config.slug)),
+    getWeer().catch(() => []),
   ]);
 
   const {
@@ -89,6 +94,7 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
     dagOmzet,
     piekuren,
     topProducten,
+    productCombinaties,
     maandOmzet,
     prognose,
     schommelingen,
@@ -102,6 +108,18 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
     eersteDatum,
     laatsteDatum,
   } = agg;
+
+  const weerHints = weerData.map((w) => {
+    const info = weerInfo(w.weerCode);
+    return {
+      datum: w.datum,
+      tempMax: w.tempMax,
+      tempMin: w.tempMin,
+      neerslag: w.neerslag,
+      emoji: info.emoji,
+      categorie: info.categorie,
+    };
+  });
 
   const heeftData = dagOmzet.length > 0;
 
@@ -215,13 +233,22 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
           omzetVandaag={kerncijfers.vandaag.omzet}
           bedrijf={config.slug}
           cruises={cruiseHints}
+          weer={weerHints}
         />
       )}
 
       <Schommelingen data={schommelingen} />
 
+      {weerData.length > 0 && dagOmzet.length > 0 && (
+        <WeerImpact dagOmzet={dagOmzet} weer={weerData} hex={config.hex} />
+      )}
+
       {topProducten.length > 0 && (
         <ProductsTable data={topProducten} hex={config.hex} />
+      )}
+
+      {productCombinaties.length > 0 && (
+        <ProductCombinaties data={productCombinaties} hex={config.hex} />
       )}
 
       {productLevens.length > 0 && (
@@ -235,6 +262,8 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
       {heeftData && (
         <RecenteTransacties bedrijf={config.slug} hex={config.hex} />
       )}
+
+      <BtwExport bedrijf={config.slug} hex={config.hex} />
 
       <div className="text-center text-slate-300 text-xs pb-6 space-y-1">
         <p>

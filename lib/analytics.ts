@@ -812,6 +812,72 @@ export function detecteerSchommelingen(
     .slice(0, 12);
 }
 
+// --------------------------------------------------------------------------
+// Product-combinaties (market basket analysis)
+// Voor elke tx met ≥2 producten tellen we alle unieke paren. We rekenen:
+//  - samen:      aantal bonnen waarin A én B voorkomen
+//  - confidence: % van bonnen met A waarin ook B zat → "als A, dan vaak B"
+//  - lift:       afwijking t.o.v. willekeurig toeval (>1 = meer dan kans)
+// --------------------------------------------------------------------------
+export interface ProductCombi {
+  a: string;
+  b: string;
+  samen: number;
+  aVolume: number;       // bonnen waar A in zit
+  bVolume: number;       // bonnen waar B in zit
+  confidenceAB: number;  // P(B|A) = samen / aVolume
+  confidenceBA: number;  // P(A|B) = samen / bVolume
+  lift: number;
+}
+
+export function berekenProductCombinaties(
+  txs: SumUpTransaction[]
+): ProductCombi[] {
+  const perBon: Set<string>[] = [];
+  for (const tx of txs) {
+    if (!tx.products || tx.products.length < 2) continue;
+    const uniek = new Set<string>();
+    for (const p of tx.products) if (p.name) uniek.add(p.name);
+    if (uniek.size >= 2) perBon.push(uniek);
+  }
+
+  const productCount = new Map<string, number>();
+  const paarCount = new Map<string, number>();
+
+  for (const bon of perBon) {
+    const arr = Array.from(bon).sort();
+    for (const p of arr) productCount.set(p, (productCount.get(p) ?? 0) + 1);
+    for (let i = 0; i < arr.length; i++) {
+      for (let j = i + 1; j < arr.length; j++) {
+        const key = `${arr[i]}|${arr[j]}`;
+        paarCount.set(key, (paarCount.get(key) ?? 0) + 1);
+      }
+    }
+  }
+
+  const totaal = Math.max(perBon.length, 1);
+  return Array.from(paarCount.entries())
+    .map(([key, samen]) => {
+      const [a, b] = key.split("|");
+      const aVol = productCount.get(a) ?? 1;
+      const bVol = productCount.get(b) ?? 1;
+      const lift = (samen / totaal) / ((aVol / totaal) * (bVol / totaal));
+      return {
+        a,
+        b,
+        samen,
+        aVolume: aVol,
+        bVolume: bVol,
+        confidenceAB: samen / aVol,
+        confidenceBA: samen / bVol,
+        lift,
+      };
+    })
+    // Min. support: combi moet ≥25 keer voorkomen om betekenisvol te zijn
+    .filter((c) => c.samen >= 25)
+    .sort((a, b) => b.lift - a.lift);
+}
+
 export interface Suggestie {
   titel: string;
   detail: string;
