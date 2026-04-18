@@ -170,7 +170,7 @@ export function detecteerSchommelingen(dagOmzet: DagOmzet[]): Array<{
     .map((d) => ({
       datum: d.datum,
       omzet: d.omzet,
-      type: d.omzet > gemiddeld ? "piek" : "dal",
+      type: (d.omzet > gemiddeld ? "piek" : "dal") as "piek" | "dal",
       afwijking: Math.round(((d.omzet - gemiddeld) / gemiddeld) * 100),
     }))
     .slice(-10);
