@@ -18,6 +18,10 @@ import FeestdagenKalender from "@/components/FeestdagenKalender";
 import Vergelijken from "@/components/Vergelijken";
 import { fetchAllTransactions, type Bedrijf } from "@/lib/sumup";
 import {
+  fetchAllZettlePurchases,
+  normalizeZettleToSumUp,
+} from "@/lib/zettle";
+import {
   getZettleJaaroverzicht,
   getProductLevenshistorie,
 } from "@/lib/zettle-excel";
@@ -99,18 +103,38 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
   const jaaroverzicht = getZettleJaaroverzicht(config.slug);
   const productLevens = getProductLevenshistorie(config.slug);
 
-  const sumupResult = await Promise.allSettled([
+  const [sumupResult, zettleResult] = await Promise.allSettled([
     fetchAllTransactions(config.slug),
+    fetchAllZettlePurchases(config.slug),
   ]);
 
   const sumupTxs =
-    sumupResult[0].status === "fulfilled" ? sumupResult[0].value : [];
+    sumupResult.status === "fulfilled" ? sumupResult.value : [];
   const sumupFout =
-    sumupResult[0].status === "rejected"
-      ? (sumupResult[0].reason as Error).message
+    sumupResult.status === "rejected"
+      ? (sumupResult.reason as Error).message
       : null;
 
-  const alle = [...sumupTxs].sort(
+  const zettleTxs =
+    zettleResult.status === "fulfilled"
+      ? normalizeZettleToSumUp(zettleResult.value)
+      : [];
+  const zettleFout =
+    zettleResult.status === "rejected"
+      ? (zettleResult.reason as Error).message
+      : null;
+
+  // Combineer Zettle historie + SumUp actueel, ontdubbel op timestamp-amount.
+  // Zettle heeft de volledige historie, SumUp de meest recente live data.
+  // Bij overlap (migratie-moment) kunnen beide dezelfde tx bevatten, dus
+  // we ontdubbelen. SumUp wint bij overlap omdat die actueler is.
+  const sumupSleutels = new Set(
+    sumupTxs.map((tx) => `${tx.timestamp.slice(0, 19)}|${tx.amount.toFixed(2)}`)
+  );
+  const zettleUniek = zettleTxs.filter(
+    (tx) => !sumupSleutels.has(`${tx.timestamp.slice(0, 19)}|${tx.amount.toFixed(2)}`)
+  );
+  const alle = [...zettleUniek, ...sumupTxs].sort(
     (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
   );
 
@@ -198,12 +222,24 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
           </p>
         </div>
       )}
+      {zettleFout && (
+        <div className="card border-amber-300 py-3">
+          <p className="text-amber-700 text-sm">
+            <strong>Zettle historie:</strong> {zettleFout}
+          </p>
+          <p className="text-amber-700/80 text-[11px] mt-1">
+            App werkt door met alleen SumUp-data. Zet ZETTLE_CLIENT_ID_* en
+            ZETTLE_TOKEN_* in Vercel environment variables.
+          </p>
+        </div>
+      )}
 
       <div className="flex justify-end">
         <p className="text-slate-400 text-[11px]">
-          {alle.length.toLocaleString("nl-NL")} SumUp tx ·{" "}
-          {jaaroverzicht.length} Zettle jaren · {productLevens.length} producten
-          · {fmtDatumTijd(opgehaald)}
+          {sumupTxs.length.toLocaleString("nl-NL")} SumUp tx ·{" "}
+          {zettleUniek.length.toLocaleString("nl-NL")} Zettle tx ·{" "}
+          {jaaroverzicht.length} Zettle jaaroverzichten ·{" "}
+          {productLevens.length} producten · {fmtDatumTijd(opgehaald)}
         </p>
       </div>
 
@@ -271,13 +307,14 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
 
       <div className="text-center text-slate-300 text-xs pb-6 space-y-1">
         <p>
-          SumUp: {sumupTxs.length.toLocaleString("nl-NL")} tx · Zettle Excel:{" "}
-          {jaaroverzicht.length} jaren · Product Excel: {productLevens.length}{" "}
-          items
+          SumUp: {sumupTxs.length.toLocaleString("nl-NL")} tx · Zettle API:{" "}
+          {zettleUniek.length.toLocaleString("nl-NL")} tx · Zettle Excel:{" "}
+          {jaaroverzicht.length} jaren · Product Excel:{" "}
+          {productLevens.length} items
         </p>
         {eersteDatum && laatsteDatum && (
           <p>
-            SumUp periode:{" "}
+            Periode:{" "}
             {format(eersteDatum, "dd-MM-yyyy", { locale: nl })} –{" "}
             {format(laatsteDatum, "dd-MM-yyyy", { locale: nl })} ·{" "}
             {dagOmzet.length} dagen met omzet

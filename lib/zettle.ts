@@ -12,12 +12,45 @@ function getAssertion(bedrijf: Bedrijf): string {
   return token;
 }
 
-// Wissel de user-assertion JWT in voor een echte access token
+function getClientId(bedrijf: Bedrijf): string | null {
+  const id =
+    bedrijf === "bb"
+      ? process.env.ZETTLE_CLIENT_ID_BB
+      : process.env.ZETTLE_CLIENT_ID_SL;
+  return id ?? null;
+}
+
+// Als client_id niet via env is gezet, fallback: haal client_id uit de JWT
+// payload zelf. Dit maakt migraties van het ene naar het andere setje env
+// vars makkelijker.
+function clientIdUitAssertion(assertion: string): string | null {
+  try {
+    const [, payload] = assertion.split(".");
+    if (!payload) return null;
+    const decoded = Buffer.from(
+      payload.replace(/-/g, "+").replace(/_/g, "/"),
+      "base64"
+    ).toString("utf-8");
+    const parsed = JSON.parse(decoded) as { client_id?: string };
+    return parsed.client_id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function getAccessToken(bedrijf: Bedrijf): Promise<string> {
   const assertion = getAssertion(bedrijf);
+  const clientId = getClientId(bedrijf) ?? clientIdUitAssertion(assertion);
+
+  if (!clientId) {
+    throw new Error(
+      `Geen Zettle client_id bekend voor ${bedrijf} — zet ZETTLE_CLIENT_ID_${bedrijf.toUpperCase()} in de env`
+    );
+  }
 
   const body = new URLSearchParams({
     grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+    client_id: clientId,
     assertion,
   });
 
@@ -88,8 +121,10 @@ export async function fetchAllZettlePurchases(
 
   const all: ZettlePurchase[] = [];
   let lastPurchaseHash: string | undefined;
+  let veiligheidsteller = 0;
 
-  while (true) {
+  while (veiligheidsteller < 500) {
+    veiligheidsteller++;
     const { purchases, lastPurchaseHash: nextHash } =
       await fetchZettlePurchasesPage(accessToken, lastPurchaseHash);
 
@@ -109,8 +144,8 @@ export function normalizeZettleToSumUp(purchases: ZettlePurchase[]) {
     amount: p.amount / 100,
     currency: p.currency ?? "EUR",
     timestamp: p.timestamp,
-    status: "SUCCESSFUL",
-    payment_type: "card",
+    status: "SUCCESSFUL" as const,
+    payment_type: "card" as const,
     products: (p.products ?? []).map((prod) => ({
       name: prod.name,
       price: prod.unitPrice / 100,
