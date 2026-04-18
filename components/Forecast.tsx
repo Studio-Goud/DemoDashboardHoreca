@@ -3,23 +3,30 @@
 import { format, parseISO, isToday } from "date-fns";
 import { nl } from "date-fns/locale";
 import type { Prognose } from "@/lib/analytics";
+import type { DrukLevel } from "@/lib/drukte";
+import { drukteLabel, DRUKTE_GRENS } from "@/lib/drukte";
+import type { Bedrijf } from "@/lib/sumup";
 
 interface Props {
   data: Prognose[];
   omzetVandaag: number;
+  bedrijf: Bedrijf;
 }
 
-const drukStyle: Record<Prognose["druk"], { bar: string; text: string; label: string }> = {
-  laag: { bar: "#E2E8F0", text: "text-slate-500", label: "Rustig" },
-  normaal: { bar: "#BAE6FD", text: "text-sky-700", label: "Normaal" },
-  druk: { bar: "#FDBA74", text: "text-orange-700", label: "Druk" },
-  "zeer druk": { bar: "#FCA5A5", text: "text-red-700", label: "Zeer druk" },
+const drukStyle: Record<DrukLevel, { bar: string; text: string }> = {
+  laag:        { bar: "#E2E8F0", text: "text-slate-500" },
+  normaal:     { bar: "#BAE6FD", text: "text-sky-700" },
+  druk:        { bar: "#FDBA74", text: "text-orange-700" },
+  "zeer druk": { bar: "#FCA5A5", text: "text-red-700" },
+  gesloten:    { bar: "#CBD5E1", text: "text-slate-500" },
 };
 
 const DAG_AFK = ["Zo", "Ma", "Di", "Wo", "Do", "Vr", "Za"];
 
-export default function Forecast({ data, omzetVandaag }: Props) {
+export default function Forecast({ data, omzetVandaag, bedrijf }: Props) {
   if (data.length === 0) return null;
+
+  const g = DRUKTE_GRENS[bedrijf];
 
   const totaalVerwacht = data.reduce((s, p) => s + p.verwacht, 0);
   const bruikbaarheid = data.filter((d) => d.verwacht > 0).length;
@@ -53,7 +60,7 @@ export default function Forecast({ data, omzetVandaag }: Props) {
           <h3 className="font-semibold text-slate-700">14-daagse prognose</h3>
           <p className="text-[11px] text-slate-400">
             Gem. zelfde weekdag laatste 8 weken · feestdagen uit historie
-            vorig jaar
+            vorig jaar · druk vanaf €{g.druk}, zeer druk vanaf €{g.zeerDruk}
           </p>
         </div>
         <div className="text-right">
@@ -114,7 +121,7 @@ export default function Forecast({ data, omzetVandaag }: Props) {
                         </span>
                       )}
                       <span className={`text-[10px] ${stijl.text}`}>
-                        {stijl.label}
+                        {drukteLabel(dag.druk)}
                       </span>
                     </div>
                   </div>

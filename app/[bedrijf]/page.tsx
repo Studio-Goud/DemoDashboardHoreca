@@ -31,7 +31,9 @@ import {
   berekenKerncijfers,
   berekenMaandOmzet,
   berekenWeekdagCurve,
+  verrijkEvents,
 } from "@/lib/analytics";
+import { komendeEvents } from "@/lib/feestdagen";
 
 // Altijd verse data — geen cache
 export const dynamic = "force-dynamic";
@@ -112,13 +114,14 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
 
   const heeftData = alle.length > 0;
 
-  const dagOmzet       = heeftData ? berekenDagOmzet(alle)            : [];
-  const piekuren       = heeftData ? berekenPiekuren(alle)            : [];
-  const topProducten   = heeftData ? berekenTopProducten(alle)        : [];
-  const maandOmzet     = heeftData ? berekenMaandOmzet(alle)          : [];
-  const prognose       = heeftData ? berekenPrognose(alle)            : [];
-  const schommelingen  = heeftData ? detecteerSchommelingen(dagOmzet) : [];
-  const kerncijfers    = heeftData ? berekenKerncijfers(alle)         : null;
+  const dagOmzet       = heeftData ? berekenDagOmzet(alle)                       : [];
+  const piekuren       = heeftData ? berekenPiekuren(alle)                       : [];
+  const topProducten   = heeftData ? berekenTopProducten(alle)                   : [];
+  const maandOmzet     = heeftData ? berekenMaandOmzet(alle)                     : [];
+  const prognose       = heeftData ? berekenPrognose(alle, config.slug)          : [];
+  const schommelingen  = heeftData ? detecteerSchommelingen(dagOmzet)            : [];
+  const kerncijfers    = heeftData ? berekenKerncijfers(alle)                    : null;
+  const verrijkteEvents = verrijkEvents(komendeEvents(90), alle, config.slug);
   const weekdagCurve   = heeftData
     ? berekenWeekdagCurve(alle, getDay(new Date()))
     : new Array(24).fill(0);
@@ -216,14 +219,18 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
         />
       )}
 
-      <FeestdagenKalender />
+      <FeestdagenKalender events={verrijkteEvents} bedrijf={config.slug} />
 
       {suggesties.length > 0 && (
         <OptimizatieSuggesties suggesties={suggesties} />
       )}
 
       {prognose.length > 0 && kerncijfers && (
-        <Forecast data={prognose} omzetVandaag={kerncijfers.vandaag.omzet} />
+        <Forecast
+          data={prognose}
+          omzetVandaag={kerncijfers.vandaag.omzet}
+          bedrijf={config.slug}
+        />
       )}
 
       <Schommelingen data={schommelingen} />

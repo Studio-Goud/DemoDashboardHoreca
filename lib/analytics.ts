@@ -1,4 +1,4 @@
-import { SumUpTransaction } from "./sumup";
+import { SumUpTransaction, type Bedrijf } from "./sumup";
 import {
   format,
   startOfDay,
@@ -15,17 +15,23 @@ import {
   differenceInCalendarDays,
   differenceInMinutes,
   addDays,
+  subYears,
   isSameDay,
 } from "date-fns";
 import { nl } from "date-fns/locale";
 import { OPENINGSUREN, isBinnenOpeningstijden } from "./openingsuren";
-import { feestdagOpDatum, vakantieOpDatum } from "./feestdagen";
+import {
+  feestdagOpDatum,
+  vakantieOpDatum,
+  type KomendEvent,
+} from "./feestdagen";
 import {
   getHoursNL as getHours,
   getDayNL as getDay,
   nlDagKey,
   nlDate,
 } from "./tz";
+import { drukteVoorOmzet, type DrukLevel } from "./drukte";
 
 export interface DagOmzet {
   datum: string;
@@ -55,7 +61,7 @@ export interface Prognose {
   datum: string;
   dagNaam: string;
   verwacht: number;
-  druk: "laag" | "normaal" | "druk" | "zeer druk";
+  druk: DrukLevel;
   weekdag: number;
   feestdag?: string | null;
   vakantie?: string | null;
@@ -292,7 +298,10 @@ export function berekenTopProducten(txs: SumUpTransaction[]): ProductData[] {
     .sort((a, b) => b.omzet - a.omzet);
 }
 
-export function berekenPrognose(txs: SumUpTransaction[]): Prognose[] {
+export function berekenPrognose(
+  txs: SumUpTransaction[],
+  bedrijf: Bedrijf
+): Prognose[] {
   // Bouw per-dag omzet map (volledige historie)
   const perDag = new Map<string, number>();
   for (const tx of txs) {
@@ -308,13 +317,12 @@ export function berekenPrognose(txs: SumUpTransaction[]): Prognose[] {
   for (const [dagKey, omzet] of Array.from(perDag.entries())) {
     const d = parseISO(dagKey);
     if (d < grens8w) continue;
-    if (feestdagOpDatum(d)) continue; // feestdagen apart
+    if (feestdagOpDatum(d)) continue;
     weekdagOmzetten[getDay(d)].push(omzet);
   }
   const weekdagGem = weekdagOmzetten.map((v) =>
     v.length > 0 ? v.reduce((a, b) => a + b, 0) / v.length : 0
   );
-  const maxGem = Math.max(...weekdagGem, 1);
 
   const prognoses: Prognose[] = [];
   for (let i = 0; i <= 13; i++) {
@@ -323,7 +331,6 @@ export function berekenPrognose(txs: SumUpTransaction[]): Prognose[] {
     const feest = feestdagOpDatum(datum);
     const vak = vakantieOpDatum(datum);
 
-    // Feestdag? Probeer zelfde feestdag vorig jaar te gebruiken
     let verwacht = weekdagGem[wd];
     if (feest) {
       const vorigJaar = new Date(
@@ -331,7 +338,7 @@ export function berekenPrognose(txs: SumUpTransaction[]): Prognose[] {
         datum.getMonth(),
         datum.getDate()
       );
-      const vorigOmzet = perDag.get(format(vorigJaar, "yyyy-MM-dd"));
+      const vorigOmzet = perDag.get(nlDagKey(vorigJaar));
       if (vorigOmzet !== undefined) {
         verwacht = vorigOmzet;
       } else if (feest.impact === "dicht") {
@@ -339,28 +346,150 @@ export function berekenPrognose(txs: SumUpTransaction[]): Prognose[] {
       }
     }
 
-    const ratio = verwacht / maxGem;
+    const verwachtAfgerond = Math.round(verwacht * 100) / 100;
+    const drukLevel: Prognose["druk"] =
+      feest?.impact === "dicht" && verwachtAfgerond === 0
+        ? "gesloten"
+        : drukteVoorOmzet(verwachtAfgerond, bedrijf);
+
     prognoses.push({
-      datum: format(datum, "yyyy-MM-dd"),
+      datum: nlDagKey(datum),
       dagNaam: format(datum, "EEEE d MMM", { locale: nl }),
-      verwacht: Math.round(verwacht * 100) / 100,
+      verwacht: verwachtAfgerond,
       weekdag: wd,
       feestdag: feest?.naam ?? null,
       vakantie: vak?.naam ?? null,
-      druk:
-        feest?.impact === "dicht"
-          ? "laag"
-          : ratio > 0.85
-          ? "zeer druk"
-          : ratio > 0.6
-          ? "druk"
-          : ratio > 0.3
-          ? "normaal"
-          : "laag",
+      druk: drukLevel,
     });
   }
 
   return prognoses;
+}
+
+// Agenda-event verrijkt met verwachte omzet + revenue-gebaseerde drukte
+export interface VerrijktEvent extends KomendEvent {
+  verwachteOmzet: number | null;
+  verwachteOmzetPerDag?: number | null;
+  minPerDag?: number | null;
+  maxPerDag?: number | null;
+  dagenGemeten?: number;
+  dagenDrukOfHoger?: number;          // aantal dagen op/boven "druk"-drempel
+  bron: "vorig-jaar" | "weekdag-gem" | "dicht" | "onbekend";
+  drukte: DrukLevel;
+}
+
+export function verrijkEvents(
+  events: KomendEvent[],
+  txs: SumUpTransaction[],
+  bedrijf: Bedrijf
+): VerrijktEvent[] {
+  // Per-dag omzet-index
+  const perDag = new Map<string, number>();
+  for (const tx of txs) {
+    const d = nlDagKey(tx.timestamp);
+    perDag.set(d, (perDag.get(d) ?? 0) + tx.amount);
+  }
+
+  // Gem. per weekdag, laatste 8 weken, excl. feestdagen
+  const nu = new Date();
+  const grens = subDays(nu, 56);
+  const weekdagOmzetten: number[][] = Array.from({ length: 7 }, () => []);
+  for (const [key, omzet] of Array.from(perDag.entries())) {
+    const d = parseISO(key);
+    if (d < grens) continue;
+    if (feestdagOpDatum(d)) continue;
+    weekdagOmzetten[getDay(d)].push(omzet);
+  }
+  const weekdagGem = weekdagOmzetten.map((v) =>
+    v.length > 0 ? v.reduce((a, b) => a + b, 0) / v.length : 0
+  );
+
+  return events.map((event) => {
+    let verwacht: number | null = null;
+    let verwachtPerDag: number | null = null;
+    let bron: VerrijktEvent["bron"] = "onbekend";
+
+    if (event.soort === "feestdag" || event.soort === "herdenking") {
+      if (event.impact === "dicht") {
+        verwacht = 0;
+        bron = "dicht";
+      } else {
+        const vorig = subYears(event.datum, 1);
+        const vorigOmzet = perDag.get(nlDagKey(vorig));
+        if (vorigOmzet !== undefined && vorigOmzet > 0) {
+          verwacht = vorigOmzet;
+          bron = "vorig-jaar";
+        } else {
+          const wd = getDay(event.datum);
+          verwacht = weekdagGem[wd] > 0 ? weekdagGem[wd] : null;
+          bron = verwacht !== null ? "weekdag-gem" : "onbekend";
+        }
+      }
+    } else if (event.soort === "vakantie" && event.range) {
+      // Vorige jaar dezelfde vakantie-periode
+      const vorigVan = subYears(event.range.van, 1);
+      const vorigTot = subYears(event.range.tot, 1);
+      let som = 0;
+      let dagenMetData = 0;
+      let minDag = Infinity;
+      let maxDag = -Infinity;
+      let drukOfHoger = 0;
+      const drempelDruk = bedrijf === "bb" ? 1300 : 900;
+
+      for (
+        let d = new Date(vorigVan);
+        d <= vorigTot;
+        d = addDays(d, 1)
+      ) {
+        const omzet = perDag.get(nlDagKey(d));
+        if (omzet !== undefined) {
+          som += omzet;
+          dagenMetData++;
+          if (omzet < minDag) minDag = omzet;
+          if (omzet > maxDag) maxDag = omzet;
+          if (omzet >= drempelDruk) drukOfHoger++;
+        }
+      }
+      if (dagenMetData > 0) {
+        verwacht = Math.round(som * 100) / 100;
+        verwachtPerDag = Math.round((som / dagenMetData) * 100) / 100;
+        bron = "vorig-jaar";
+      }
+
+      const drukteVakantie: DrukLevel =
+        verwachtPerDag !== null
+          ? drukteVoorOmzet(verwachtPerDag, bedrijf)
+          : "laag";
+
+      return {
+        ...event,
+        verwachteOmzet:
+          verwacht !== null ? Math.round(verwacht * 100) / 100 : null,
+        verwachteOmzetPerDag: verwachtPerDag,
+        minPerDag: minDag === Infinity ? null : Math.round(minDag * 100) / 100,
+        maxPerDag: maxDag === -Infinity ? null : Math.round(maxDag * 100) / 100,
+        dagenGemeten: dagenMetData,
+        dagenDrukOfHoger: drukOfHoger,
+        bron,
+        drukte: drukteVakantie,
+      };
+    }
+
+    const drukte: DrukLevel =
+      bron === "dicht"
+        ? "gesloten"
+        : verwacht !== null
+        ? drukteVoorOmzet(verwacht, bedrijf)
+        : "laag";
+
+    return {
+      ...event,
+      verwachteOmzet: verwacht !== null ? Math.round(verwacht * 100) / 100 : null,
+      verwachteOmzetPerDag: verwachtPerDag,
+      bron,
+      drukte,
+    };
+  });
 }
 
 export function berekenWeekdagCurve(

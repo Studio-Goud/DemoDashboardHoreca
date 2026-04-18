@@ -2,25 +2,37 @@
 
 import { format } from "date-fns";
 import { nl } from "date-fns/locale";
-import { komendeEvents, type KomendEvent } from "@/lib/feestdagen";
+import type { VerrijktEvent } from "@/lib/analytics";
+import type { DrukLevel } from "@/lib/drukte";
+import { drukteLabel, DRUKTE_GRENS } from "@/lib/drukte";
+import type { Bedrijf } from "@/lib/sumup";
 
-const impactStyle: Record<KomendEvent["impact"], { bg: string; border: string; tekst: string; label: string }> = {
-  hoog:    { bg: "bg-red-50",     border: "border-red-200",     tekst: "text-red-700",     label: "Hoge drukte" },
-  middel:  { bg: "bg-amber-50",   border: "border-amber-200",   tekst: "text-amber-700",   label: "Middel" },
-  laag:    { bg: "bg-emerald-50", border: "border-emerald-200", tekst: "text-emerald-700", label: "Laag" },
-  dicht:   { bg: "bg-slate-100",  border: "border-slate-300",   tekst: "text-slate-600",   label: "Gesloten (NL)" },
+interface Props {
+  events: VerrijktEvent[];
+  bedrijf: Bedrijf;
+}
+
+const drukStyle: Record<DrukLevel, { bg: string; border: string; tekst: string }> = {
+  "zeer druk": { bg: "bg-red-50",     border: "border-red-200",     tekst: "text-red-700" },
+  druk:        { bg: "bg-orange-50",  border: "border-orange-200",  tekst: "text-orange-700" },
+  normaal:     { bg: "bg-sky-50",     border: "border-sky-200",     tekst: "text-sky-700" },
+  laag:        { bg: "bg-emerald-50", border: "border-emerald-200", tekst: "text-emerald-700" },
+  gesloten:    { bg: "bg-slate-100",  border: "border-slate-300",   tekst: "text-slate-500" },
 };
 
-export default function FeestdagenKalender() {
-  const events = komendeEvents(90).slice(0, 10);
+function fmtEur(n: number): string {
+  return `€${n.toLocaleString("nl-NL", { maximumFractionDigits: 0 })}`;
+}
 
-  if (events.length === 0) {
-    return null;
-  }
+export default function FeestdagenKalender({ events, bedrijf }: Props) {
+  if (events.length === 0) return null;
+
+  const lijst = events.slice(0, 10);
+  const g = DRUKTE_GRENS[bedrijf];
 
   return (
     <div className="card">
-      <div className="flex items-baseline justify-between mb-3">
+      <div className="flex items-baseline justify-between mb-1">
         <h3 className="font-semibold text-slate-700">
           Feestdagen &amp; vakanties (komende 90 dagen)
         </h3>
@@ -28,10 +40,15 @@ export default function FeestdagenKalender() {
           NL · regio midden
         </span>
       </div>
+      <p className="text-[11px] text-slate-400 mb-3">
+        Drukte op basis van verwachte omzet: normaal vanaf {fmtEur(g.normaal)},
+        druk vanaf {fmtEur(g.druk)}, zeer druk vanaf {fmtEur(g.zeerDruk)}.
+        Prognose uit historie (vorig jaar of gem. weekdag).
+      </p>
 
       <div className="space-y-1.5">
-        {events.map((e, i) => {
-          const stijl = impactStyle[e.impact];
+        {lijst.map((e, i) => {
+          const stijl = drukStyle[e.drukte];
           return (
             <div
               key={i}
@@ -45,6 +62,7 @@ export default function FeestdagenKalender() {
                   {format(e.datum, "dd")}
                 </p>
               </div>
+
               <div className="min-w-0">
                 <p className={`text-sm font-semibold ${stijl.tekst}`}>
                   {e.naam}
@@ -60,12 +78,38 @@ export default function FeestdagenKalender() {
                     ? "morgen"
                     : `over ${e.dagenVanNu} dagen`}
                 </p>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  {e.bron === "dicht" ? (
+                    "Gesloten"
+                  ) : e.verwachteOmzet === null ? (
+                    "Geen historische referentie beschikbaar"
+                  ) : e.soort === "vakantie" && e.verwachteOmzetPerDag ? (
+                    <>
+                      Vorig jaar: gem. {fmtEur(e.verwachteOmzetPerDag)}/dag
+                      {e.minPerDag != null && e.maxPerDag != null && (
+                        <>
+                          {" "}(min {fmtEur(e.minPerDag)} · max {fmtEur(e.maxPerDag)})
+                        </>
+                      )}
+                      {e.dagenGemeten != null && e.dagenDrukOfHoger != null && (
+                        <>
+                          {" · "}
+                          {e.dagenDrukOfHoger} van {e.dagenGemeten} dagen druk
+                          of hoger
+                        </>
+                      )}
+                    </>
+                  ) : (
+                    `Verwacht ${fmtEur(e.verwachteOmzet)}${e.bron === "vorig-jaar" ? " (vorig jaar)" : " (gem. weekdag)"}`
+                  )}
+                </p>
               </div>
+
               <div className="text-right">
                 <span
                   className={`text-[10px] uppercase tracking-wide font-semibold ${stijl.tekst}`}
                 >
-                  {stijl.label}
+                  {drukteLabel(e.drukte)}
                 </span>
                 <p className="text-[10px] text-slate-400 capitalize">
                   {e.soort}
