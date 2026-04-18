@@ -4,6 +4,7 @@ import { getDay, format } from "date-fns";
 import { nl } from "date-fns/locale";
 import PullToRefresh from "@/components/PullToRefresh";
 import BedrijfTabs from "@/components/BedrijfTabs";
+import WelkomBanner from "@/components/WelkomBanner";
 import DashboardSkeleton from "@/components/DashboardSkeleton";
 import LiveRevenue from "@/components/LiveRevenue";
 import RevenueChart from "@/components/RevenueChart";
@@ -16,9 +17,9 @@ import KerncijfersGrid from "@/components/KerncijfersGrid";
 import RecenteTransacties from "@/components/RecenteTransacties";
 import FeestdagenKalender from "@/components/FeestdagenKalender";
 import Vergelijken from "@/components/Vergelijken";
-import { fetchAllTransactions, type Bedrijf } from "@/lib/sumup";
+import { fetchAllTransactionsCached, type Bedrijf } from "@/lib/sumup";
 import {
-  fetchAllZettlePurchases,
+  fetchAllZettlePurchasesCached,
   normalizeZettleToSumUp,
 } from "@/lib/zettle";
 import {
@@ -83,6 +84,7 @@ export default function DashboardPage({ params }: { params: Params }) {
         {/* Header met tab-switcher — direct zichtbaar */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
           <BedrijfTabs actief={config.slug} />
+          <WelkomBanner />
         </div>
 
         <Suspense fallback={<DashboardSkeleton hex={config.hex} />}>
@@ -104,8 +106,8 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
   const productLevens = getProductLevenshistorie(config.slug);
 
   const [sumupResult, zettleResult] = await Promise.allSettled([
-    fetchAllTransactions(config.slug),
-    fetchAllZettlePurchases(config.slug),
+    fetchAllTransactionsCached(config.slug),
+    fetchAllZettlePurchasesCached(config.slug),
   ]);
 
   const sumupTxs =

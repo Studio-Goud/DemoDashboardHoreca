@@ -1,3 +1,5 @@
+import { unstable_cache } from "next/cache";
+
 const SUMUP_BASE = "https://api.sumup.com";
 
 export type Bedrijf = "bb" | "sl";
@@ -110,3 +112,12 @@ export async function fetchAllTransactions(
 
   return all;
 }
+
+// Gecached op server (60s TTL). De live /api/sumup endpoint blijft uncached
+// voor actuele omzet-per-minuut. Dit pad voedt de historische KPI's en
+// de 14-daagse prognose, waar 60s vertraging geen probleem is.
+export const fetchAllTransactionsCached = unstable_cache(
+  async (bedrijf: Bedrijf) => fetchAllTransactions(bedrijf),
+  ["sumup-all-transactions-v1"],
+  { revalidate: 60, tags: ["sumup"] }
+);

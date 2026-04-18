@@ -2,8 +2,13 @@
 
 import { useState, useEffect } from "react";
 
-const PIN = "2026";
+const PIN_NAMEN: Record<string, string> = {
+  "2026": "Ricardo",
+  "2580": "Matthieu",
+};
+
 const STORAGE_KEY = "sg_auth";
+const USER_KEY = "sg_user";
 
 export default function PinGate({ children }: { children: React.ReactNode }) {
   const [unlocked, setUnlocked] = useState(false);
@@ -23,8 +28,14 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
     setFout(false);
 
     if (nieuw.length === 4) {
-      if (nieuw === PIN) {
+      const naam = PIN_NAMEN[nieuw];
+      if (naam) {
         sessionStorage.setItem(STORAGE_KEY, "1");
+        sessionStorage.setItem(USER_KEY, naam);
+        // Trigger welkom-banner via custom event zodat toast direct verschijnt
+        window.dispatchEvent(
+          new CustomEvent("sg:welkom", { detail: { naam } })
+        );
         setUnlocked(true);
       } else {
         setFout(true);

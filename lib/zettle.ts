@@ -1,3 +1,5 @@
+import { unstable_cache } from "next/cache";
+
 const ZETTLE_AUTH_URL = "https://oauth.izettle.com/token";
 const ZETTLE_PURCHASE_BASE = "https://purchase.izettle.com";
 
@@ -135,6 +137,15 @@ export async function fetchAllZettlePurchases(
 
   return all;
 }
+
+// Server-side gecached: Zettle historie verandert niet meer, dus 1h TTL
+// is ruim voldoende. Eerste bezoeker na een expire betaalt de paginering,
+// daarna serveren alle requests uit de cache.
+export const fetchAllZettlePurchasesCached = unstable_cache(
+  async (bedrijf: Bedrijf) => fetchAllZettlePurchases(bedrijf),
+  ["zettle-all-purchases-v1"],
+  { revalidate: 3600, tags: ["zettle"] }
+);
 
 export function normalizeZettleToSumUp(purchases: ZettlePurchase[]) {
   return purchases.map((p) => ({
