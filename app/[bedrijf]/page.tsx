@@ -18,6 +18,7 @@ import RecenteTransacties from "@/components/RecenteTransacties";
 import FeestdagenKalender from "@/components/FeestdagenKalender";
 import Vergelijken from "@/components/Vergelijken";
 import CruiseAgenda from "@/components/CruiseAgenda";
+import ChatBot from "@/components/ChatBot";
 import type { Bedrijf } from "@/lib/sumup";
 import {
   getZettleJaaroverzicht,
@@ -68,6 +69,12 @@ export default function DashboardPage({ params }: { params: Params }) {
           <DashboardData config={config} />
         </Suspense>
       </main>
+
+      <ChatBot
+        bedrijf={config.slug}
+        hex={config.hex}
+        naam={config.naam}
+      />
     </PullToRefresh>
   );
 }
