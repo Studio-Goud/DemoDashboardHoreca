@@ -217,20 +217,26 @@ function laadSnapshot(bedrijf: Bedrijf): SnapshotBestand {
   }
 }
 
-// Publieke functie: snapshot + alleen nieuwere purchases via API.
+// Cutoff: we laden alleen purchases vanaf 2023-01-01. Scheelt ~20% data
+// en 2022 is toch niet relevant meer voor dag-op-dag vergelijkingen nu.
+const VANAF_DATUM = "2023-01-01T00:00:00.000Z";
+
+// Publieke functie: snapshot (vanaf 2023) + alleen nieuwere purchases via API.
 export async function fetchAllZettlePurchases(
   bedrijf: Bedrijf
 ): Promise<ZettlePurchase[]> {
   const snapshot = laadSnapshot(bedrijf);
 
   if (snapshot.aantal > 0 && snapshot.laatsteTimestamp) {
-    // Snapshot aanwezig: alleen de delta ophalen
+    const historisch = snapshot.purchases.filter(
+      (p) => p.timestamp >= VANAF_DATUM
+    );
     const recent = await fetchZettleSinds(bedrijf, snapshot.laatsteTimestamp);
-    return [...snapshot.purchases, ...recent];
+    return [...historisch, ...recent];
   }
 
-  // Geen snapshot (of leeg): volledige fetch. Traag, maar werkt out-of-the-box.
-  return fetchZettleVolledig(bedrijf);
+  const alles = await fetchZettleVolledig(bedrijf);
+  return alles.filter((p) => p.timestamp >= VANAF_DATUM);
 }
 
 // Server-side cache rond de bovenstaande functie. Met een actieve snapshot is

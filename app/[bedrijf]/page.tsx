@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { getDay, format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { nl } from "date-fns/locale";
 import PullToRefresh from "@/components/PullToRefresh";
 import BedrijfTabs from "@/components/BedrijfTabs";
@@ -17,32 +17,14 @@ import KerncijfersGrid from "@/components/KerncijfersGrid";
 import RecenteTransacties from "@/components/RecenteTransacties";
 import FeestdagenKalender from "@/components/FeestdagenKalender";
 import Vergelijken from "@/components/Vergelijken";
-import { fetchAllTransactionsCached, type Bedrijf } from "@/lib/sumup";
-import {
-  fetchAllZettlePurchasesCached,
-  normalizeZettleToSumUp,
-} from "@/lib/zettle";
+import CruiseAgenda from "@/components/CruiseAgenda";
+import type { Bedrijf } from "@/lib/sumup";
 import {
   getZettleJaaroverzicht,
   getProductLevenshistorie,
 } from "@/lib/zettle-excel";
-import {
-  berekenDagOmzet,
-  berekenPiekuren,
-  berekenTopProducten,
-  berekenPrognose,
-  detecteerSchommelingen,
-  genereerSuggesties,
-  berekenKerncijfers,
-  berekenMaandOmzet,
-  berekenWeekdagCurve,
-  verrijkEvents,
-} from "@/lib/analytics";
-import { komendeEvents } from "@/lib/feestdagen";
-import { komendeCruises } from "@/lib/cruises";
-import CruiseAgenda from "@/components/CruiseAgenda";
+import { dashboardAggregaten } from "@/lib/dashboard-cache";
 
-// Altijd verse data — geen cache
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
@@ -70,10 +52,6 @@ function fmtDatumTijd(d: Date): string {
   return format(d, "dd-MM-yyyy HH:mm:ss", { locale: nl });
 }
 
-// ---------------------------------------------------------------------------
-// Shell — rendert direct. Data binnenin streamt via Suspense.
-// ---------------------------------------------------------------------------
-
 export default function DashboardPage({ params }: { params: Params }) {
   const config = BEDRIJVEN[params.bedrijf as keyof typeof BEDRIJVEN];
   if (!config) notFound();
@@ -81,7 +59,6 @@ export default function DashboardPage({ params }: { params: Params }) {
   return (
     <PullToRefresh>
       <main className="min-h-screen p-4 sm:p-6 max-w-7xl mx-auto">
-        {/* Header met tab-switcher — direct zichtbaar */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
           <BedrijfTabs actief={config.slug} />
           <WelkomBanner />
@@ -95,112 +72,64 @@ export default function DashboardPage({ params }: { params: Params }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Data section — async, streamt in zodra SumUp klaar is.
-// ---------------------------------------------------------------------------
-
 async function DashboardData({ config }: { config: BedrijfConfig }) {
-  const opgehaald = new Date();
-
-  const jaaroverzicht = getZettleJaaroverzicht(config.slug);
-  const productLevens = getProductLevenshistorie(config.slug);
-
-  const [sumupResult, zettleResult] = await Promise.allSettled([
-    fetchAllTransactionsCached(config.slug),
-    fetchAllZettlePurchasesCached(config.slug),
+  // Zware data + aggregaties komen uit de gedeelde server-cache (5 min TTL).
+  // Eerste request per 5 min is traag; volgende requests instant.
+  const [agg, jaaroverzicht, productLevens] = await Promise.all([
+    dashboardAggregaten(config.slug),
+    Promise.resolve(getZettleJaaroverzicht(config.slug)),
+    Promise.resolve(getProductLevenshistorie(config.slug)),
   ]);
 
-  const sumupTxs =
-    sumupResult.status === "fulfilled" ? sumupResult.value : [];
-  const sumupFout =
-    sumupResult.status === "rejected"
-      ? (sumupResult.reason as Error).message
-      : null;
+  const {
+    sumupTxAantal,
+    zettleTxAantal,
+    sumupFout,
+    zettleFout,
+    dagOmzet,
+    piekuren,
+    topProducten,
+    maandOmzet,
+    prognose,
+    schommelingen,
+    kerncijfers,
+    weekdagCurve,
+    verrijkteEvents,
+    cruiseDagen,
+    suggesties,
+    jaarTotalen: jaarTotalenAgg,
+    gegenereerd,
+    eersteDatum,
+    laatsteDatum,
+  } = agg;
 
-  const zettleTxs =
-    zettleResult.status === "fulfilled"
-      ? normalizeZettleToSumUp(zettleResult.value)
-      : [];
-  const zettleFout =
-    zettleResult.status === "rejected"
-      ? (zettleResult.reason as Error).message
-      : null;
+  const heeftData = dagOmzet.length > 0;
 
-  // Combineer Zettle historie + SumUp actueel, ontdubbel op timestamp-amount.
-  // Zettle heeft de volledige historie, SumUp de meest recente live data.
-  // Bij overlap (migratie-moment) kunnen beide dezelfde tx bevatten, dus
-  // we ontdubbelen. SumUp wint bij overlap omdat die actueler is.
-  const sumupSleutels = new Set(
-    sumupTxs.map((tx) => `${tx.timestamp.slice(0, 19)}|${tx.amount.toFixed(2)}`)
+  // Jaartotalen combineren: Excel historie + SumUp/Zettle aggregaat
+  const jaarTotalenMap = new Map<number, { jaar: number; omzet: number; txs: number }>();
+  for (const j of jaaroverzicht) {
+    jaarTotalenMap.set(j.jaar, {
+      jaar: j.jaar,
+      omzet: j.omzetInclBtw,
+      txs: j.aantalTransacties,
+    });
+  }
+  for (const j of jaarTotalenAgg) {
+    if (!jaarTotalenMap.has(j.jaar) || j.omzet > (jaarTotalenMap.get(j.jaar)?.omzet ?? 0)) {
+      jaarTotalenMap.set(j.jaar, j);
+    }
+  }
+  const jaarTotalen = Array.from(jaarTotalenMap.values()).sort(
+    (a, b) => a.jaar - b.jaar
   );
-  const zettleUniek = zettleTxs.filter(
-    (tx) => !sumupSleutels.has(`${tx.timestamp.slice(0, 19)}|${tx.amount.toFixed(2)}`)
-  );
-  const alle = [...zettleUniek, ...sumupTxs].sort(
-    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-  );
 
-  const heeftData = alle.length > 0;
-
-  const dagOmzet       = heeftData ? berekenDagOmzet(alle)                       : [];
-  const piekuren       = heeftData ? berekenPiekuren(alle)                       : [];
-  const topProducten   = heeftData ? berekenTopProducten(alle)                   : [];
-  const maandOmzet     = heeftData ? berekenMaandOmzet(alle)                     : [];
-  const prognose       = heeftData ? berekenPrognose(alle, config.slug)          : [];
-  const schommelingen  = heeftData ? detecteerSchommelingen(dagOmzet)            : [];
-  const kerncijfers    = heeftData ? berekenKerncijfers(alle)                    : null;
-  const verrijkteEvents = verrijkEvents(komendeEvents(90), alle, config.slug);
-  const cruiseDagen = komendeCruises(14);
   const cruiseHints = cruiseDagen.map((d) => ({
     datum: d.datum,
     totaalPassagiers: d.totaalPassagiers,
     aantal: d.cruises.length,
   }));
-  const weekdagCurve   = heeftData
-    ? berekenWeekdagCurve(alle, getDay(new Date()))
-    : new Array(24).fill(0);
-  const cruiseSuggestieHints = cruiseDagen.map((d) => ({
-    datum: d.datum,
-    totaalPassagiers: d.totaalPassagiers,
-    aantal: d.cruises.length,
-    dagenVanNu: d.dagenVanNu,
-  }));
-  const suggesties =
-    heeftData && kerncijfers
-      ? genereerSuggesties(
-          piekuren,
-          topProducten,
-          prognose,
-          kerncijfers,
-          schommelingen,
-          cruiseSuggestieHints
-        )
-      : [];
-
-  // Jaartotalen voor Vergelijken
-  const huidigJaar = new Date().getFullYear();
-  const jaarTotalen = [
-    ...jaaroverzicht.map((j) => ({
-      jaar: j.jaar,
-      omzet: j.omzetInclBtw,
-      txs: j.aantalTransacties,
-    })),
-  ];
-  if (kerncijfers && !jaarTotalen.some((j) => j.jaar === huidigJaar)) {
-    jaarTotalen.push({
-      jaar: huidigJaar,
-      omzet: kerncijfers.ditJaar.omzet,
-      txs: kerncijfers.ditJaar.txs,
-    });
-  }
-
   const kleurNaam = config.slug === "bb" ? "bb-primary" : "sl-primary";
-  const eersteDatum =
-    dagOmzet.length > 0 ? new Date(dagOmzet[0].datum) : null;
-  const laatsteDatum =
-    dagOmzet.length > 0
-      ? new Date(dagOmzet[dagOmzet.length - 1].datum)
-      : null;
+  const opgehaald = parseISO(gegenereerd);
 
   if (!heeftData && jaaroverzicht.length === 0) {
     return (
@@ -238,10 +167,10 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
 
       <div className="flex justify-end">
         <p className="text-slate-400 text-[11px]">
-          {sumupTxs.length.toLocaleString("nl-NL")} SumUp tx ·{" "}
-          {zettleUniek.length.toLocaleString("nl-NL")} Zettle tx ·{" "}
+          {sumupTxAantal.toLocaleString("nl-NL")} SumUp tx ·{" "}
+          {zettleTxAantal.toLocaleString("nl-NL")} Zettle tx ·{" "}
           {jaaroverzicht.length} Zettle jaaroverzichten ·{" "}
-          {productLevens.length} producten · {fmtDatumTijd(opgehaald)}
+          {productLevens.length} producten · data van {fmtDatumTijd(opgehaald)}
         </p>
       </div>
 
@@ -309,16 +238,16 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
 
       <div className="text-center text-slate-300 text-xs pb-6 space-y-1">
         <p>
-          SumUp: {sumupTxs.length.toLocaleString("nl-NL")} tx · Zettle API:{" "}
-          {zettleUniek.length.toLocaleString("nl-NL")} tx · Zettle Excel:{" "}
+          SumUp: {sumupTxAantal.toLocaleString("nl-NL")} tx · Zettle API:{" "}
+          {zettleTxAantal.toLocaleString("nl-NL")} tx · Zettle Excel:{" "}
           {jaaroverzicht.length} jaren · Product Excel:{" "}
           {productLevens.length} items
         </p>
         {eersteDatum && laatsteDatum && (
           <p>
-            Periode:{" "}
-            {format(eersteDatum, "dd-MM-yyyy", { locale: nl })} –{" "}
-            {format(laatsteDatum, "dd-MM-yyyy", { locale: nl })} ·{" "}
+            Periode vanaf 2023-01-01:{" "}
+            {format(parseISO(eersteDatum), "dd-MM-yyyy", { locale: nl })} –{" "}
+            {format(parseISO(laatsteDatum), "dd-MM-yyyy", { locale: nl })} ·{" "}
             {dagOmzet.length} dagen met omzet
           </p>
         )}
