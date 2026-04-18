@@ -9,34 +9,70 @@ interface Props {
   data: JaarOmzet[];
   hex: string;
   huidigJaar?: number;
-  huidigJaarOmzet?: number;
+  huidigJaarOmzet?: number;    // SumUp YTD
+  huidigJaarTx?: number;        // SumUp YTD
 }
 
-export default function HistorischOverzicht({ data, hex, huidigJaar, huidigJaarOmzet }: Props) {
-  if (data.length === 0) return null;
+function fmtEur(n: number): string {
+  return n.toLocaleString("nl-NL", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
 
-  // Combineer Zettle historisch + huidig SumUp jaar
+function fmtK(n: number): string {
+  return `€${(n / 1000).toFixed(1)}k`;
+}
+
+export default function HistorischOverzicht({
+  data,
+  hex,
+  huidigJaar,
+  huidigJaarOmzet,
+  huidigJaarTx,
+}: Props) {
+  if (data.length === 0 && !(huidigJaar && huidigJaarOmzet)) return null;
+
+  // Voeg huidig jaar (SumUp) toe als het ontbreekt in Zettle-data
   const alles = [...data];
-  if (huidigJaar && huidigJaarOmzet && huidigJaarOmzet > 0) {
-    const bestaatAl = alles.find((d) => d.jaar === huidigJaar);
-    if (!bestaatAl) {
-      alles.push({
-        jaar: huidigJaar,
-        omzetInclBtw: huidigJaarOmzet,
-        aantalTransacties: 0,
-        gemiddeldeBon: 0,
-        bron: "zettle",
-      });
-    }
+  if (
+    huidigJaar &&
+    huidigJaarOmzet &&
+    huidigJaarOmzet > 0 &&
+    !alles.some((d) => d.jaar === huidigJaar)
+  ) {
+    alles.push({
+      jaar: huidigJaar,
+      omzetInclBtw: huidigJaarOmzet,
+      omzetExclBtw: 0,
+      btw: 0,
+      aantalTransacties: huidigJaarTx ?? 0,
+      gemiddeldeBon:
+        huidigJaarTx && huidigJaarTx > 0
+          ? Math.round((huidigJaarOmzet / huidigJaarTx) * 100) / 100
+          : 0,
+      itemsPerBon: 0,
+      omzetPos: 0,
+      omzetContant: 0,
+      kortingen: 0,
+      bron: "zettle",
+    });
+    alles.sort((a, b) => a.jaar - b.jaar);
   }
 
-  const max = Math.max(...alles.map((d) => d.omzetInclBtw));
   const huidig = new Date().getFullYear();
 
   return (
     <div className="card">
-      <h3 className="font-semibold mb-1 text-white/80">Historisch jaaroverzicht (Zettle)</h3>
-      <p className="text-white/30 text-xs mb-4">Omzet inclusief BTW per jaar</p>
+      <div className="flex items-baseline justify-between mb-1">
+        <h3 className="font-semibold text-white/80">Historisch jaaroverzicht</h3>
+        <span className="text-[11px] text-white/30">
+          Bron: Zettle verkooprapport ({alles.filter((d) => d.aantalTransacties > 0).length}× jaar) · huidig jaar via SumUp
+        </span>
+      </div>
+      <p className="text-white/30 text-xs mb-4">
+        Omzet inclusief BTW · {alles.length} jaren
+      </p>
 
       <ResponsiveContainer width="100%" height={200}>
         <BarChart data={alles} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
@@ -58,9 +94,10 @@ export default function HistorischOverzicht({ data, hex, huidigJaar, huidigJaarO
               backgroundColor: "#1a1a1a",
               border: "1px solid rgba(255,255,255,0.1)",
               borderRadius: "8px",
+              fontSize: "12px",
             }}
             formatter={(value: number) => [
-              `€${value.toLocaleString("nl-NL", { minimumFractionDigits: 2 })}`,
+              `€${fmtEur(value)}`,
               "Omzet incl. BTW",
             ]}
           />
@@ -69,40 +106,78 @@ export default function HistorischOverzicht({ data, hex, huidigJaar, huidigJaarO
               <Cell
                 key={i}
                 fill={hex}
-                fillOpacity={entry.jaar === huidig ? 0.5 : 0.85}
+                fillOpacity={entry.jaar === huidig ? 0.45 : 0.9}
               />
             ))}
           </Bar>
         </BarChart>
       </ResponsiveContainer>
 
-      {/* Kaarten per jaar */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-4">
-        {alles.map((d) => (
-          <div key={d.jaar} className="bg-white/5 rounded-xl p-3">
-            <p className="text-white/40 text-xs mb-1">
-              {d.jaar}{d.jaar === huidig ? " (lopend)" : ""}
-            </p>
-            <p className="font-bold text-lg">
-              €{(d.omzetInclBtw / 1000).toFixed(1)}k
-            </p>
-            {d.aantalTransacties > 0 && (
-              <p className="text-white/30 text-xs mt-0.5">
-                {d.aantalTransacties.toLocaleString("nl-NL")} tx · gem. €{d.gemiddeldeBon}
-              </p>
-            )}
-            {d.jaar > (alles[0]?.jaar ?? 0) && (() => {
-              const vorig = alles.find((x) => x.jaar === d.jaar - 1);
-              if (!vorig) return null;
-              const groei = ((d.omzetInclBtw - vorig.omzetInclBtw) / vorig.omzetInclBtw) * 100;
-              return (
-                <p className={`text-xs mt-1 ${groei >= 0 ? "text-green-400" : "text-red-400"}`}>
-                  {groei >= 0 ? "+" : ""}{groei.toFixed(1)}% vs {vorig.jaar}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mt-4">
+        {alles.map((d, idx) => {
+          const vorig = alles[idx - 1];
+          const groei =
+            vorig && vorig.omzetInclBtw > 0
+              ? ((d.omzetInclBtw - vorig.omzetInclBtw) / vorig.omzetInclBtw) * 100
+              : null;
+          return (
+            <div key={d.jaar} className="bg-white/5 rounded-xl p-3">
+              <div className="flex items-baseline justify-between">
+                <p className="text-white/40 text-xs">
+                  {d.jaar}
+                  {d.jaar === huidig ? " (YTD)" : ""}
                 </p>
-              );
-            })()}
-          </div>
-        ))}
+                {groei !== null && (
+                  <span
+                    className={`text-[10px] ${
+                      groei >= 0 ? "text-green-400" : "text-red-400"
+                    }`}
+                  >
+                    {groei >= 0 ? "+" : ""}
+                    {groei.toFixed(1)}%
+                  </span>
+                )}
+              </div>
+              <p className="font-bold text-lg tabular-nums">
+                {fmtK(d.omzetInclBtw)}
+              </p>
+              {d.aantalTransacties > 0 && (
+                <p className="text-white/40 text-[11px] mt-0.5">
+                  {d.aantalTransacties.toLocaleString("nl-NL")} tx · gem. €
+                  {d.gemiddeldeBon.toFixed(2)}
+                </p>
+              )}
+              {d.omzetPos > 0 && (
+                <div className="mt-2 pt-2 border-t border-white/10 text-[10px] text-white/40 space-y-0.5">
+                  <div className="flex justify-between">
+                    <span>Kaart</span>
+                    <span className="tabular-nums">
+                      {fmtK(d.omzetPos)} ·{" "}
+                      {Math.round(
+                        (d.omzetPos / (d.omzetPos + d.omzetContant)) * 100
+                      )}
+                      %
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Contant</span>
+                    <span className="tabular-nums">
+                      {fmtK(d.omzetContant)}
+                    </span>
+                  </div>
+                  {d.kortingen > 0 && (
+                    <div className="flex justify-between text-white/30">
+                      <span>Kortingen</span>
+                      <span className="tabular-nums">
+                        −€{Math.round(d.kortingen).toLocaleString("nl-NL")}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

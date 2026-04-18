@@ -27,6 +27,37 @@ export default function Forecast({ data, omzetVandaag }: Props) {
   if (data.length === 0) return null;
 
   const totaalVerwacht = data.reduce((s, p) => s + p.verwacht, 0);
+  const bruikbaarheid = data.filter((d) => d.verwacht > 0).length;
+
+  // Onvoldoende historie om te voorspellen
+  if (totaalVerwacht === 0 || bruikbaarheid < 3) {
+    return (
+      <div className="card">
+        <h3 className="font-semibold mb-1 text-white/80">14-daagse prognose</h3>
+        <p className="text-[11px] text-white/30 mb-3">
+          Nog onvoldoende historie in de laatste 8 weken om betrouwbaar te
+          voorspellen. Prognose verschijnt zodra er ≥ 3 weken historie per
+          weekdag beschikbaar is.
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
+          {data.slice(0, 7).map((dag, i) => (
+            <div
+              key={i}
+              className="rounded-xl p-3 text-center border border-white/5 bg-white/[0.02] text-white/40"
+            >
+              <p className="text-[10px] font-medium uppercase tracking-wide">
+                {format(parseISO(dag.datum), "EEE", { locale: nl })}
+              </p>
+              <p className="text-[11px] opacity-60">
+                {format(parseISO(dag.datum), "d MMM", { locale: nl })}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   const druksteDag = data.reduce((a, b) => (a.verwacht > b.verwacht ? a : b));
 
   return (

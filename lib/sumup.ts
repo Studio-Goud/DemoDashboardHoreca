@@ -23,10 +23,16 @@ export interface SumUpTransaction {
   products?: Array<{ name: string; price: number; quantity: number }>;
 }
 
-export async function fetchTransactions(
+interface FetchResult {
+  items: SumUpTransaction[];     // gefilterd op SUCCESSFUL
+  rawCount: number;              // aantal ruwe items in deze pagina (vóór filter)
+  oldest?: SumUpTransaction;     // oudste ruwe item in deze pagina
+}
+
+async function fetchPage(
   bedrijf: Bedrijf,
   options: { oldest_time?: string; newest_time?: string; limit?: number } = {}
-): Promise<SumUpTransaction[]> {
+): Promise<FetchResult> {
   const params = new URLSearchParams({
     limit: String(options.limit ?? 100),
     order: "descending",
@@ -48,33 +54,58 @@ export async function fetchTransactions(
   }
 
   const data = await res.json();
-  return (data.items ?? []).filter(
-    (tx: SumUpTransaction) => tx.status === "SUCCESSFUL"
-  );
+  const raw: SumUpTransaction[] = data.items ?? [];
+  return {
+    items: raw.filter((tx) => tx.status === "SUCCESSFUL"),
+    rawCount: raw.length,
+    oldest: raw[raw.length - 1],
+  };
 }
 
-// Pagineer achteruit door de volledige geschiedenis (descending = nieuwste eerst)
+// Backwards-compatible: returnt alleen successful items
+export async function fetchTransactions(
+  bedrijf: Bedrijf,
+  options: { oldest_time?: string; newest_time?: string; limit?: number } = {}
+): Promise<SumUpTransaction[]> {
+  const { items } = await fetchPage(bedrijf, options);
+  return items;
+}
+
+// Pagineer achteruit door de volledige geschiedenis.
+// Beslissing om door te gaan is gebaseerd op rawCount (vóór filter),
+// niet op het aantal successful items — anders stopt de loop zodra er
+// ook maar één refund of failed tx tussen zit.
 export async function fetchAllTransactions(
   bedrijf: Bedrijf
 ): Promise<SumUpTransaction[]> {
+  const LIMIT = 200;
   const all: SumUpTransaction[] = [];
   let newestTime: string | undefined;
+  let veiligheidsteller = 0;
 
-  while (true) {
-    const batch = await fetchTransactions(bedrijf, {
+  while (veiligheidsteller < 500) {
+    veiligheidsteller++;
+    const { items, rawCount, oldest } = await fetchPage(bedrijf, {
       newest_time: newestTime,
-      limit: 100,
+      limit: LIMIT,
     });
 
-    if (batch.length === 0) break;
-    all.push(...batch);
-    if (batch.length < 100) break;
+    all.push(...items);
 
-    // Batch is descending: laatste item = oudste in deze batch
-    const oudste = batch[batch.length - 1];
-    const oudsteDatum = new Date(oudste.timestamp);
+    // Geen ruwe items terug → klaar
+    if (rawCount === 0 || !oldest) break;
+
+    // Pagina was niet vol → we zijn bij het einde
+    if (rawCount < LIMIT) break;
+
+    // Volgende pagina: stap net voor de oudste timestamp in deze batch
+    const oudsteDatum = new Date(oldest.timestamp);
     oudsteDatum.setMilliseconds(oudsteDatum.getMilliseconds() - 1);
-    newestTime = oudsteDatum.toISOString();
+    const volgendeNewest = oudsteDatum.toISOString();
+
+    // Voorkomt een oneindige lus als de cursor niet verder komt
+    if (volgendeNewest === newestTime) break;
+    newestTime = volgendeNewest;
   }
 
   return all;
