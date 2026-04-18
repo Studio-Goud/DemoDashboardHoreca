@@ -113,13 +113,24 @@ export default async function DashboardPage({ params }: { params: Params }) {
           )}
 
           {/* Footer info */}
-          <div className="text-center text-white/20 text-xs pb-6">
-            Gebaseerd op volledige SumUp-geschiedenis ·{" "}
+          <div className="text-center text-white/20 text-xs pb-6 space-y-1">
+            <p>
+              {data.bronnen?.sumup > 0 && `SumUp: ${data.bronnen.sumup} tx`}
+              {data.bronnen?.zettle > 0 && ` · Zettle: ${data.bronnen.zettle} tx`}
+              {" · "}
+              {data.totaalTransacties.toLocaleString("nl-NL")} totaal
+            </p>
             {data.periodeVan && (
-              <>
-                Vanaf{" "}
-                {new Date(data.periodeVan).toLocaleDateString("nl-NL")}
-              </>
+              <p>
+                Periode:{" "}
+                {new Date(data.periodeVan).toLocaleDateString("nl-NL")} –{" "}
+                {data.periodeTot
+                  ? new Date(data.periodeTot).toLocaleDateString("nl-NL")
+                  : "heden"}
+              </p>
+            )}
+            {data.bronnen?.zettleFout && (
+              <p className="text-red-400/40">Zettle: {data.bronnen.zettleFout}</p>
             )}
           </div>
         </div>

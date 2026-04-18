@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchTransactions, fetchAllTransactions, type Bedrijf } from "@/lib/sumup";
+import { fetchAllZettlePurchases, normalizeZettleToSumUp } from "@/lib/zettle";
 import {
   berekenDagOmzet,
   berekenPiekuren,
@@ -8,7 +9,7 @@ import {
   detecteerSchommelingen,
   genereerSuggesties,
 } from "@/lib/analytics";
-import { format, startOfDay, endOfDay } from "date-fns";
+import { startOfDay, endOfDay } from "date-fns";
 
 export async function GET(
   req: NextRequest,
@@ -23,7 +24,6 @@ export async function GET(
 
   try {
     if (type === "live") {
-      // Laatste transactie + omzet van vandaag
       const vandaag = new Date();
       const [laatste, vandaagTxs] = await Promise.all([
         fetchTransactions(bedrijf, { limit: 1 }),
@@ -35,19 +35,40 @@ export async function GET(
       ]);
 
       const omzetVandaag = vandaagTxs.reduce((sum, tx) => sum + tx.amount, 0);
-      const aantalVandaag = vandaagTxs.length;
 
       return NextResponse.json({
         omzetVandaag: Math.round(omzetVandaag * 100) / 100,
-        aantalTransactiesVandaag: aantalVandaag,
+        aantalTransactiesVandaag: vandaagTxs.length,
         laasteSale: laatste[0] ?? null,
         timestamp: new Date().toISOString(),
       });
     }
 
     if (type === "dashboard") {
-      // Volledige geschiedenis ophalen voor analyses
-      const alle = await fetchAllTransactions(bedrijf);
+      // Haal SumUp (huidig) en Zettle (historisch) parallel op
+      const [sumupTxs, zettlePurchases] = await Promise.allSettled([
+        fetchAllTransactions(bedrijf),
+        fetchAllZettlePurchases(bedrijf),
+      ]);
+
+      const sumup = sumupTxs.status === "fulfilled" ? sumupTxs.value : [];
+      const zettle =
+        zettlePurchases.status === "fulfilled"
+          ? normalizeZettleToSumUp(zettlePurchases.value)
+          : [];
+
+      // Combineer: Zettle is historisch (ouder), SumUp is actueel
+      // Dedupliceer op datum — SumUp data heeft voorrang voor overlap
+      const sumupDatums = new Set(
+        sumup.map((tx) => tx.timestamp.slice(0, 10))
+      );
+      const zettleUniek = zettle.filter(
+        (tx) => !sumupDatums.has(tx.timestamp.slice(0, 10))
+      );
+
+      const alle = [...zettleUniek, ...sumup].sort(
+        (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      );
 
       const dagOmzet = berekenDagOmzet(alle);
       const piekuren = berekenPiekuren(alle);
@@ -64,8 +85,15 @@ export async function GET(
         schommelingen,
         suggesties,
         totaalTransacties: alle.length,
-        periodeVan: alle.length > 0 ? alle[alle.length - 1].timestamp : null,
-        periodeTot: alle.length > 0 ? alle[0].timestamp : null,
+        bronnen: {
+          sumup: sumup.length,
+          zettle: zettleUniek.length,
+          zettleFout: zettlePurchases.status === "rejected"
+            ? (zettlePurchases.reason as Error).message
+            : null,
+        },
+        periodeVan: alle.length > 0 ? alle[0].timestamp : null,
+        periodeTot: alle.length > 0 ? alle[alle.length - 1].timestamp : null,
       });
     }
 
