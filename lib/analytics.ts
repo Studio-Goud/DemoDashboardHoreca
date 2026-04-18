@@ -799,12 +799,20 @@ export interface Suggestie {
   toon: "positief" | "attentie" | "neutraal" | "waarschuwing";
 }
 
+export interface CruiseHint {
+  datum: string;
+  totaalPassagiers: number;
+  aantal: number;
+  dagenVanNu: number;
+}
+
 export function genereerSuggesties(
   piekuren: UurData[],
   topProducten: ProductData[],
   prognose: Prognose[],
   kerncijfers: KernCijfers,
-  schommelingen: Schommeling[] = []
+  schommelingen: Schommeling[] = [],
+  cruises: CruiseHint[] = []
 ): Suggestie[] {
   const s: Suggestie[] = [];
   const k = kerncijfers;
@@ -958,6 +966,27 @@ export function genereerSuggesties(
       titel: `Drukste dag: ${druksteDag.dagNaam}`,
       detail: `Verwacht €${druksteDag.verwacht.toFixed(0)}. Prep op tijd.`,
       toon: "neutraal",
+    });
+  }
+
+  // Grote cruise in komende 7 dagen
+  const komendeCruise = cruises
+    .filter((c) => c.dagenVanNu >= 0 && c.dagenVanNu <= 7)
+    .sort((a, b) => b.totaalPassagiers - a.totaalPassagiers)[0];
+  if (komendeCruise && komendeCruise.totaalPassagiers >= 1500) {
+    const label =
+      komendeCruise.dagenVanNu === 0
+        ? "vandaag"
+        : komendeCruise.dagenVanNu === 1
+        ? "morgen"
+        : `over ${komendeCruise.dagenVanNu} dagen`;
+    s.push({
+      titel: `Cruise ${label}: ${komendeCruise.totaalPassagiers.toLocaleString("nl-NL")} passagiers`,
+      detail:
+        komendeCruise.aantal > 1
+          ? `${komendeCruise.aantal} schepen in Rotterdam. Reken op extra loopverkeer naar de Markthal.`
+          : "Groot cruiseschip in Rotterdam. Reken op extra loopverkeer naar de Markthal.",
+      toon: "attentie",
     });
   }
 

@@ -34,6 +34,8 @@ import {
   verrijkEvents,
 } from "@/lib/analytics";
 import { komendeEvents } from "@/lib/feestdagen";
+import { komendeCruises } from "@/lib/cruises";
+import CruiseAgenda from "@/components/CruiseAgenda";
 
 // Altijd verse data — geen cache
 export const dynamic = "force-dynamic";
@@ -122,9 +124,21 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
   const schommelingen  = heeftData ? detecteerSchommelingen(dagOmzet)            : [];
   const kerncijfers    = heeftData ? berekenKerncijfers(alle)                    : null;
   const verrijkteEvents = verrijkEvents(komendeEvents(90), alle, config.slug);
+  const cruiseDagen = komendeCruises(14);
+  const cruiseHints = cruiseDagen.map((d) => ({
+    datum: d.datum,
+    totaalPassagiers: d.totaalPassagiers,
+    aantal: d.cruises.length,
+  }));
   const weekdagCurve   = heeftData
     ? berekenWeekdagCurve(alle, getDay(new Date()))
     : new Array(24).fill(0);
+  const cruiseSuggestieHints = cruiseDagen.map((d) => ({
+    datum: d.datum,
+    totaalPassagiers: d.totaalPassagiers,
+    aantal: d.cruises.length,
+    dagenVanNu: d.dagenVanNu,
+  }));
   const suggesties =
     heeftData && kerncijfers
       ? genereerSuggesties(
@@ -132,7 +146,8 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
           topProducten,
           prognose,
           kerncijfers,
-          schommelingen
+          schommelingen,
+          cruiseSuggestieHints
         )
       : [];
 
@@ -221,6 +236,8 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
 
       <FeestdagenKalender events={verrijkteEvents} bedrijf={config.slug} />
 
+      <CruiseAgenda dagen={cruiseDagen} />
+
       {suggesties.length > 0 && (
         <OptimizatieSuggesties suggesties={suggesties} />
       )}
@@ -230,6 +247,7 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
           data={prognose}
           omzetVandaag={kerncijfers.vandaag.omzet}
           bedrijf={config.slug}
+          cruises={cruiseHints}
         />
       )}
 

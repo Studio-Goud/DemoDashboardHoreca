@@ -7,10 +7,17 @@ import type { DrukLevel } from "@/lib/drukte";
 import { drukteLabel, DRUKTE_GRENS } from "@/lib/drukte";
 import type { Bedrijf } from "@/lib/sumup";
 
+interface CruiseHint {
+  datum: string;
+  totaalPassagiers: number;
+  aantal: number;
+}
+
 interface Props {
   data: Prognose[];
   omzetVandaag: number;
   bedrijf: Bedrijf;
+  cruises?: CruiseHint[];
 }
 
 const drukStyle: Record<DrukLevel, { bar: string; text: string }> = {
@@ -23,10 +30,12 @@ const drukStyle: Record<DrukLevel, { bar: string; text: string }> = {
 
 const DAG_AFK = ["Zo", "Ma", "Di", "Wo", "Do", "Vr", "Za"];
 
-export default function Forecast({ data, omzetVandaag, bedrijf }: Props) {
+export default function Forecast({ data, omzetVandaag, bedrijf, cruises = [] }: Props) {
   if (data.length === 0) return null;
 
   const g = DRUKTE_GRENS[bedrijf];
+  const cruiseMap = new Map<string, CruiseHint>();
+  for (const c of cruises) cruiseMap.set(c.datum, c);
 
   const totaalVerwacht = data.reduce((s, p) => s + p.verwacht, 0);
   const bruikbaarheid = data.filter((d) => d.verwacht > 0).length;
@@ -118,6 +127,11 @@ export default function Forecast({ data, omzetVandaag, bedrijf }: Props) {
                       {!dag.feestdag && dag.vakantie && (
                         <span className="text-[10px] text-sky-700 bg-sky-50 border border-sky-200 px-1.5 rounded">
                           {dag.vakantie}
+                        </span>
+                      )}
+                      {cruiseMap.get(dag.datum) && (
+                        <span className="text-[10px] text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 rounded">
+                          🛳 {cruiseMap.get(dag.datum)!.totaalPassagiers.toLocaleString("nl-NL")} pax
                         </span>
                       )}
                       <span className={`text-[10px] ${stijl.text}`}>
