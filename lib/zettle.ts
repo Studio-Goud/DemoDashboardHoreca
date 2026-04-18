@@ -1,4 +1,6 @@
 import { unstable_cache } from "next/cache";
+import fs from "node:fs";
+import path from "node:path";
 
 const ZETTLE_AUTH_URL = "https://oauth.izettle.com/token";
 const ZETTLE_PURCHASE_BASE = "https://purchase.izettle.com";
@@ -22,9 +24,6 @@ function getClientId(bedrijf: Bedrijf): string | null {
   return id ?? null;
 }
 
-// Als client_id niet via env is gezet, fallback: haal client_id uit de JWT
-// payload zelf. Dit maakt migraties van het ene naar het andere setje env
-// vars makkelijker.
 function clientIdUitAssertion(assertion: string): string | null {
   try {
     const [, payload] = assertion.split(".");
@@ -92,7 +91,11 @@ export interface ZettlePurchase {
 async function fetchZettlePurchasesPage(
   accessToken: string,
   lastPurchaseHash?: string
-): Promise<{ purchases: ZettlePurchase[]; lastPurchaseHash?: string }> {
+): Promise<{
+  purchases: ZettlePurchase[];
+  lastPurchaseHash?: string;
+  ruwe: ZettlePurchase[];
+}> {
   const params = new URLSearchParams({ limit: "1000" });
   if (lastPurchaseHash) params.set("lastPurchaseHash", lastPurchaseHash);
 
@@ -110,17 +113,21 @@ async function fetchZettlePurchasesPage(
   }
 
   const data = await res.json();
+  const ruwe = (data.purchases ?? []) as ZettlePurchase[];
   return {
-    purchases: (data.purchases ?? []).filter((p: ZettlePurchase) => !p.refund),
+    ruwe,
+    purchases: ruwe.filter((p) => !p.refund),
     lastPurchaseHash: data.lastPurchaseHash,
   };
 }
 
-export async function fetchAllZettlePurchases(
+// Volledige paginatie — elke purchase, ongeacht leeftijd. Gebruikt door
+// het snapshot-script; in productie willen we dit vermijden want het is
+// traag.
+export async function fetchZettleVolledig(
   bedrijf: Bedrijf
 ): Promise<ZettlePurchase[]> {
   const accessToken = await getAccessToken(bedrijf);
-
   const all: ZettlePurchase[] = [];
   let lastPurchaseHash: string | undefined;
   let veiligheidsteller = 0;
@@ -129,7 +136,6 @@ export async function fetchAllZettlePurchases(
     veiligheidsteller++;
     const { purchases, lastPurchaseHash: nextHash } =
       await fetchZettlePurchasesPage(accessToken, lastPurchaseHash);
-
     all.push(...purchases);
     if (!nextHash || purchases.length === 0) break;
     lastPurchaseHash = nextHash;
@@ -138,20 +144,108 @@ export async function fetchAllZettlePurchases(
   return all;
 }
 
-// Server-side gecached: Zettle historie verandert niet meer, dus 1h TTL
-// is ruim voldoende. Eerste bezoeker na een expire betaalt de paginering,
-// daarna serveren alle requests uit de cache.
+// Incrementele paginatie — stopt zodra de API purchases teruggeeft die
+// ouder zijn dan `sinds`. Zettle's purchases/v2 levert purchases in
+// omgekeerd chronologische volgorde (newest first), dus we kunnen snel
+// stoppen zodra we langs de snapshot-grens gaan.
+export async function fetchZettleSinds(
+  bedrijf: Bedrijf,
+  sinds: string
+): Promise<ZettlePurchase[]> {
+  const accessToken = await getAccessToken(bedrijf);
+  const all: ZettlePurchase[] = [];
+  let lastPurchaseHash: string | undefined;
+  let veiligheidsteller = 0;
+
+  while (veiligheidsteller < 500) {
+    veiligheidsteller++;
+    const { purchases, ruwe, lastPurchaseHash: nextHash } =
+      await fetchZettlePurchasesPage(accessToken, lastPurchaseHash);
+
+    // Behoud alleen purchases strikt nieuwer dan de snapshot-grens
+    const nieuwer = purchases.filter((p) => p.timestamp > sinds);
+    all.push(...nieuwer);
+
+    // Als de oudste purchase in de batch niet nieuwer meer is → klaar
+    const oudste = ruwe[ruwe.length - 1];
+    if (oudste && oudste.timestamp <= sinds) break;
+    if (!nextHash || ruwe.length === 0) break;
+    lastPurchaseHash = nextHash;
+  }
+
+  return all;
+}
+
+// ---------------------------------------------------------------------------
+// Snapshot: historische Zettle data (2022-nu tot snapshot-moment) staat
+// vast in data/zettle-snapshot-{bb,sl}.json. Runtime haalt alleen nieuwere
+// purchases via de API op. Dit maakt cold-starts drastisch sneller.
+// ---------------------------------------------------------------------------
+
+interface SnapshotBestand {
+  bedrijf: string;
+  gegenereerd: string | null;
+  laatsteTimestamp: string | null;
+  aantal: number;
+  purchases: ZettlePurchase[];
+}
+
+const snapshotCache: Partial<Record<Bedrijf, SnapshotBestand>> = {};
+
+function laadSnapshot(bedrijf: Bedrijf): SnapshotBestand {
+  if (snapshotCache[bedrijf]) return snapshotCache[bedrijf]!;
+  try {
+    const pad = path.join(
+      process.cwd(),
+      "data",
+      `zettle-snapshot-${bedrijf}.json`
+    );
+    const inhoud = fs.readFileSync(pad, "utf-8");
+    const parsed = JSON.parse(inhoud) as SnapshotBestand;
+    snapshotCache[bedrijf] = parsed;
+    return parsed;
+  } catch {
+    const leeg: SnapshotBestand = {
+      bedrijf,
+      gegenereerd: null,
+      laatsteTimestamp: null,
+      aantal: 0,
+      purchases: [],
+    };
+    snapshotCache[bedrijf] = leeg;
+    return leeg;
+  }
+}
+
+// Publieke functie: snapshot + alleen nieuwere purchases via API.
+export async function fetchAllZettlePurchases(
+  bedrijf: Bedrijf
+): Promise<ZettlePurchase[]> {
+  const snapshot = laadSnapshot(bedrijf);
+
+  if (snapshot.aantal > 0 && snapshot.laatsteTimestamp) {
+    // Snapshot aanwezig: alleen de delta ophalen
+    const recent = await fetchZettleSinds(bedrijf, snapshot.laatsteTimestamp);
+    return [...snapshot.purchases, ...recent];
+  }
+
+  // Geen snapshot (of leeg): volledige fetch. Traag, maar werkt out-of-the-box.
+  return fetchZettleVolledig(bedrijf);
+}
+
+// Server-side cache rond de bovenstaande functie. Met een actieve snapshot is
+// de onderliggende call snel; zonder snapshot is de cache vangnet tegen zware
+// cold starts. 24u TTL want historie-data verandert niet meer.
 export const fetchAllZettlePurchasesCached = unstable_cache(
   async (bedrijf: Bedrijf) => fetchAllZettlePurchases(bedrijf),
-  ["zettle-all-purchases-v1"],
-  { revalidate: 3600, tags: ["zettle"] }
+  ["zettle-all-purchases-v2"],
+  { revalidate: 86400, tags: ["zettle"] }
 );
 
 export function normalizeZettleToSumUp(purchases: ZettlePurchase[]) {
   return purchases.map((p) => ({
     id: p.purchaseUUID,
     transaction_code: p.purchaseUUID,
-    // Zettle geeft bedragen in minor units (centen)
     amount: Number(p.amount) / 100,
     currency: p.currency ?? "EUR",
     timestamp: p.timestamp,

@@ -11,8 +11,8 @@ const nextConfig = {
   // in productie ("file not found").
   experimental: {
     outputFileTracingIncludes: {
-      "/[bedrijf]": ["./*.xlsx"],
-      "/[bedrijf]/page": ["./*.xlsx"],
+      "/[bedrijf]": ["./*.xlsx", "./data/*.json"],
+      "/[bedrijf]/page": ["./*.xlsx", "./data/*.json"],
     },
   },
 };
