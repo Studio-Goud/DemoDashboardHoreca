@@ -93,7 +93,7 @@ function BedrijfRij({ slug, naam, emoji }: { slug: string; naam: string; emoji: 
         {/* Statistieken */}
         <div
           className="grid grid-cols-3 divide-x px-0"
-          style={{ borderTop: "1px solid #1e2530", divideColor: "#1e2530" }}
+          style={{ borderTop: "1px solid #1e2530" }}
         >
           {[
             { label: "Transacties", val: data ? String(data.aantalTransactiesVandaag) : "–" },
