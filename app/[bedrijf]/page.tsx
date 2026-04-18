@@ -10,6 +10,8 @@ import Schommelingen from "@/components/Schommelingen";
 import OptimizatieSuggesties from "@/components/OptimizatieSuggesties";
 import { fetchAllTransactions, type Bedrijf } from "@/lib/sumup";
 import { fetchAllZettlePurchases, normalizeZettleToSumUp } from "@/lib/zettle";
+import { getZettleJaaroverzicht } from "@/lib/zettle-excel";
+import HistorischOverzicht from "@/components/HistorischOverzicht";
 import {
   berekenDagOmzet,
   berekenPiekuren,
@@ -34,6 +36,8 @@ export default async function DashboardPage({ params }: { params: Params }) {
   if (!config) notFound();
 
   // Haal SumUp en Zettle parallel op — als één faalt gaat de rest gewoon door
+  const jaaroverzicht = getZettleJaaroverzicht(config.slug);
+
   const [sumupResult, zettleResult] = await Promise.allSettled([
     fetchAllTransactions(config.slug),
     fetchAllZettlePurchases(config.slug),
@@ -116,6 +120,16 @@ export default async function DashboardPage({ params }: { params: Params }) {
 
             {dagOmzet.length > 0 && (
               <RevenueChart data={dagOmzet} kleur={config.slug === "bb" ? "bb-primary" : "sl-primary"} hex={config.hex} />
+            )}
+
+            {/* Historisch jaaroverzicht uit Zettle Excel */}
+            {jaaroverzicht.length > 0 && (
+              <HistorischOverzicht
+                data={jaaroverzicht}
+                hex={config.hex}
+                huidigJaar={new Date().getFullYear()}
+                huidigJaarOmzet={sumupTxs.reduce((s, tx) => s + tx.amount, 0)}
+              />
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
