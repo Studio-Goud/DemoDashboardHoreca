@@ -57,7 +57,12 @@ export default function LiveRevenue({ bedrijf, kleur }: Props) {
   useEffect(() => {
     fetchLive();
     const interval = setInterval(fetchLive, 30_000);
-    return () => clearInterval(interval);
+    const onRefresh = () => fetchLive();
+    window.addEventListener("dashboard:refresh", onRefresh);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("dashboard:refresh", onRefresh);
+    };
   }, [fetchLive]);
 
   if (loading) {

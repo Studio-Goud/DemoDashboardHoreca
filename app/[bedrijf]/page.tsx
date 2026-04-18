@@ -1,4 +1,5 @@
 import Link from "next/link";
+import PullToRefresh from "@/components/PullToRefresh";
 import LiveRevenue from "@/components/LiveRevenue";
 import RevenueChart from "@/components/RevenueChart";
 import PeakHoursHeatmap from "@/components/PeakHoursHeatmap";
@@ -48,6 +49,7 @@ export default async function DashboardPage({ params }: { params: Params }) {
   const data = await getDashboardData(params.bedrijf);
 
   return (
+    <PullToRefresh>
     <main className="min-h-screen p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
@@ -123,5 +125,6 @@ export default async function DashboardPage({ params }: { params: Params }) {
         </div>
       )}
     </main>
+    </PullToRefresh>
   );
 }
