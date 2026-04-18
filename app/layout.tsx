@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Great_Vibes } from "next/font/google";
 import "./globals.css";
 import PinGate from "@/components/PinGate";
+import LiveBalk from "@/components/LiveBalk";
 
 const greatVibes = Great_Vibes({
   weight: "400",
@@ -37,7 +38,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="nl" className={greatVibes.variable}>
       <body className="min-h-screen">
-        <PinGate>{children}</PinGate>
+        <PinGate>
+          <LiveBalk />
+          {children}
+        </PinGate>
       </body>
     </html>
   );

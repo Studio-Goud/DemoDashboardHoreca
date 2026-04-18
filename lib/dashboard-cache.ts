@@ -174,6 +174,6 @@ async function berekenDashboardAggregaten(
 // per 5 minuten wat rekenwerk, verder instant.
 export const dashboardAggregaten = unstable_cache(
   berekenDashboardAggregaten,
-  ["dashboard-aggregaten-v1"],
+  ["dashboard-aggregaten-v2"],
   { revalidate: 300, tags: ["dashboard"] }
 );

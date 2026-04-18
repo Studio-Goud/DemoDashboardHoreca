@@ -4,15 +4,12 @@ const SUMUP_BASE = "https://api.sumup.com";
 
 export type Bedrijf = "bb" | "sl" | "kl";
 
-function getKey(bedrijf: Bedrijf): string {
-  const key =
-    bedrijf === "bb"
-      ? process.env.SUMUP_KEY_BB
-      : bedrijf === "sl"
-      ? process.env.SUMUP_KEY_SL
-      : process.env.SUMUP_KEY_KL;
-  if (!key) throw new Error(`Geen SumUp key voor ${bedrijf}`);
-  return key;
+function getKey(bedrijf: Bedrijf): string | undefined {
+  return bedrijf === "bb"
+    ? process.env.SUMUP_KEY_BB
+    : bedrijf === "sl"
+    ? process.env.SUMUP_KEY_SL
+    : process.env.SUMUP_KEY_KL;
 }
 
 export interface SumUpTransaction {
@@ -44,10 +41,13 @@ async function fetchPage(
     ...(options.newest_time && { newest_time: options.newest_time }),
   });
 
+  const key = getKey(bedrijf);
+  if (!key) return { items: [], rawCount: 0, oldest: undefined };
+
   const res = await fetch(
     `${SUMUP_BASE}/v0.1/me/transactions/history?${params}`,
     {
-      headers: { Authorization: `Bearer ${getKey(bedrijf)}` },
+      headers: { Authorization: `Bearer ${key}` },
       cache: "no-store",
     }
   );
@@ -75,22 +75,28 @@ export async function fetchTransactions(
   return items;
 }
 
-// Pagineer achteruit door de volledige geschiedenis.
-// Beslissing om door te gaan is gebaseerd op rawCount (vóór filter),
-// niet op het aantal successful items — anders stopt de loop zodra er
-// ook maar één refund of failed tx tussen zit.
+// Pagineer achteruit door de SumUp-geschiedenis, begrensd tot 2 jaar terug.
+// Zettle-snapshot dekt oudere data — geen reden om die ook via SumUp op te
+// halen. Grotere page-size (500) vermindert het aantal API-calls en voorkomt
+// dat SumUp de verbinding verbreekt na te veel opeenvolgende requests.
 export async function fetchAllTransactions(
   bedrijf: Bedrijf
 ): Promise<SumUpTransaction[]> {
-  const LIMIT = 200;
+  const LIMIT = 500;
   const all: SumUpTransaction[] = [];
   let newestTime: string | undefined;
   let veiligheidsteller = 0;
 
-  while (veiligheidsteller < 500) {
+  // Haal max 2 jaar terug; Zettle-snapshot dekt de rest.
+  const vroegsteGrens = new Date(
+    Date.now() - 2 * 365.25 * 24 * 3600 * 1000
+  ).toISOString();
+
+  while (veiligheidsteller < 100) {
     veiligheidsteller++;
     const { items, rawCount, oldest } = await fetchPage(bedrijf, {
       newest_time: newestTime,
+      oldest_time: vroegsteGrens,
       limit: LIMIT,
     });
 
@@ -99,7 +105,7 @@ export async function fetchAllTransactions(
     // Geen ruwe items terug → klaar
     if (rawCount === 0 || !oldest) break;
 
-    // Pagina was niet vol → we zijn bij het einde
+    // Pagina was niet vol → we zijn bij het einde van het venster
     if (rawCount < LIMIT) break;
 
     // Volgende pagina: stap net voor de oudste timestamp in deze batch
@@ -120,6 +126,6 @@ export async function fetchAllTransactions(
 // de 14-daagse prognose, waar 60s vertraging geen probleem is.
 export const fetchAllTransactionsCached = unstable_cache(
   async (bedrijf: Bedrijf) => fetchAllTransactions(bedrijf),
-  ["sumup-all-transactions-v1"],
+  ["sumup-all-transactions-v2"],
   { revalidate: 60, tags: ["sumup"] }
 );
