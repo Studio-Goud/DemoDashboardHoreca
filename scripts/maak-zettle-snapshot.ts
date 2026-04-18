@@ -49,15 +49,34 @@ async function main() {
       `\n→ Zettle ${bedrijf.toUpperCase()}: ophalen volledige historie…`
     );
     const start = Date.now();
-    let purchases: Awaited<ReturnType<typeof fetchZettleVolledig>>;
+    let purchasesRuw: Awaited<ReturnType<typeof fetchZettleVolledig>>;
     try {
-      purchases = await fetchZettleVolledig(bedrijf);
+      purchasesRuw = await fetchZettleVolledig(bedrijf);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`  ✗ Fout bij ${bedrijf}: ${msg}`);
       continue;
     }
     const duurSec = ((Date.now() - start) / 1000).toFixed(1);
+
+    // Strip tot enkel de velden die de app daadwerkelijk leest. Zettle
+    // retourneert ruim 25 velden per purchase waarvan we er 4 nodig hebben.
+    // Door zelf te mappen blijft de JSON klein genoeg voor Git (<100 MB).
+    const purchases = purchasesRuw
+      .filter((p) => !p.refund)
+      .map((p) => ({
+        purchaseUUID: p.purchaseUUID,
+        timestamp: p.timestamp,
+        amount: Number(p.amount),
+        vatAmount: Number(p.vatAmount) || 0,
+        currency: p.currency ?? "EUR",
+        refund: false,
+        products: (p.products ?? []).map((prod) => ({
+          name: prod.name,
+          unitPrice: Number(prod.unitPrice) || 0,
+          quantity: Number(prod.quantity) || 0,
+        })),
+      }));
 
     const laatsteTimestamp = purchases.reduce<string>(
       (max, p) => (p.timestamp > max ? p.timestamp : max),
