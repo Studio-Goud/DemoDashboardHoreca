@@ -39,7 +39,7 @@ export async function fetchTransactions(
     `${SUMUP_BASE}/v0.1/me/transactions/history?${params}`,
     {
       headers: { Authorization: `Bearer ${getKey(bedrijf)}` },
-      next: { revalidate: 30 },
+      cache: "no-store",
     }
   );
 
@@ -52,31 +52,28 @@ export async function fetchTransactions(
   return data.items ?? [];
 }
 
-// Haalt de volledige geschiedenis op (geen datelimit) door te pagineren
+// Pagineer achteruit door de volledige geschiedenis (descending = nieuwste eerst)
 export async function fetchAllTransactions(
   bedrijf: Bedrijf
 ): Promise<SumUpTransaction[]> {
   const all: SumUpTransaction[] = [];
-  // SumUp gaat terug tot het allereerste account-gebruik
-  let oldestTime = "2018-01-01T00:00:00.000Z";
-  let keepGoing = true;
+  let newestTime: string | undefined;
 
-  while (keepGoing) {
+  while (true) {
     const batch = await fetchTransactions(bedrijf, {
-      oldest_time: oldestTime,
+      newest_time: newestTime,
       limit: 100,
     });
+
     if (batch.length === 0) break;
     all.push(...batch);
-    if (batch.length < 100) {
-      keepGoing = false;
-    } else {
-      // Volgende batch na de laatste timestamp
-      const last = batch[batch.length - 1];
-      const lastDate = new Date(last.timestamp);
-      lastDate.setMilliseconds(lastDate.getMilliseconds() + 1);
-      oldestTime = lastDate.toISOString();
-    }
+    if (batch.length < 100) break;
+
+    // Batch is descending: laatste item = oudste in deze batch
+    const oudste = batch[batch.length - 1];
+    const oudsteDatum = new Date(oudste.timestamp);
+    oudsteDatum.setMilliseconds(oudsteDatum.getMilliseconds() - 1);
+    newestTime = oudsteDatum.toISOString();
   }
 
   return all;

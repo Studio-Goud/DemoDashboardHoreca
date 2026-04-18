@@ -36,7 +36,7 @@ export default function LiveRevenue({ bedrijf, kleur }: Props) {
 
   const fetchLive = useCallback(async () => {
     try {
-      const res = await fetch(`/api/sumup/${bedrijf}?type=live`, {
+      const res = await fetch(`/api/sumup/${bedrijf}`, {
         cache: "no-store",
       });
       const json = await res.json();
