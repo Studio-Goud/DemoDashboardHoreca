@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchTransactions, type Bedrijf } from "@/lib/sumup";
-import { startOfDay, endOfDay, parseISO, getHours } from "date-fns";
+import {
+  nlStartOfDayISO,
+  nlEndOfDayISO,
+  getHoursNL,
+  nlDagKey,
+} from "@/lib/tz";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -15,25 +20,38 @@ export async function GET(
   }
 
   try {
-    const vandaag = new Date();
-    const [laatste, vandaagTxs] = await Promise.all([
+    const nu = new Date();
+    const vandaagStart = nlStartOfDayISO(nu);
+    const vandaagEind = nlEndOfDayISO(nu);
+
+    // Extra marge rond de dag-grenzen omdat SumUp in UTC indexeert maar we
+    // filteren op NL-dag; dit voorkomt dat een tx net voor middernacht NL
+    // verloren gaat.
+    const ruimOud = new Date(new Date(vandaagStart).getTime() - 3 * 3600_000).toISOString();
+    const ruimNieuw = new Date(new Date(vandaagEind).getTime() + 3 * 3600_000).toISOString();
+
+    const [laatste, ruweVandaagTxs] = await Promise.all([
       fetchTransactions(bedrijf, { limit: 1 }),
       fetchTransactions(bedrijf, {
-        oldest_time: startOfDay(vandaag).toISOString(),
-        newest_time: endOfDay(vandaag).toISOString(),
+        oldest_time: ruimOud,
+        newest_time: ruimNieuw,
         limit: 250,
       }),
     ]);
+
+    // Strikt filter op NL-kalenderdag
+    const vandaagSleutel = nlDagKey(nu);
+    const vandaagTxs = ruweVandaagTxs.filter(
+      (t) => nlDagKey(t.timestamp) === vandaagSleutel
+    );
 
     const omzetVandaag = vandaagTxs.reduce((sum, tx) => sum + tx.amount, 0);
     const gemBonVandaag =
       vandaagTxs.length > 0 ? omzetVandaag / vandaagTxs.length : 0;
 
-    // Uur-verdeling vandaag
+    // Uur-verdeling — gebaseerd op NL-uren
     const uurVerdeling = Array.from({ length: 24 }, (_, uur) => {
-      const inUur = vandaagTxs.filter(
-        (t) => getHours(parseISO(t.timestamp)) === uur
-      );
+      const inUur = vandaagTxs.filter((t) => getHoursNL(t.timestamp) === uur);
       return {
         uur,
         omzet:

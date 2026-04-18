@@ -3,8 +3,6 @@ import {
   format,
   startOfDay,
   endOfDay,
-  getHours,
-  getDay,
   parseISO,
   subDays,
   startOfWeek,
@@ -22,6 +20,12 @@ import {
 import { nl } from "date-fns/locale";
 import { OPENINGSUREN, isBinnenOpeningstijden } from "./openingsuren";
 import { feestdagOpDatum, vakantieOpDatum } from "./feestdagen";
+import {
+  getHoursNL as getHours,
+  getDayNL as getDay,
+  nlDagKey,
+  nlDate,
+} from "./tz";
 
 export interface DagOmzet {
   datum: string;
@@ -146,7 +150,7 @@ export function berekenDagOmzet(txs: SumUpTransaction[]): DagOmzet[] {
   const map = new Map<string, { omzet: number; aantal: number }>();
 
   for (const tx of txs) {
-    const dag = format(parseISO(tx.timestamp), "yyyy-MM-dd");
+    const dag = nlDagKey(tx.timestamp);
     const bestaand = map.get(dag) ?? { omzet: 0, aantal: 0 };
     map.set(dag, {
       omzet: bestaand.omzet + tx.amount,
@@ -170,7 +174,7 @@ export function berekenPiekuren(txs: SumUpTransaction[]): UurData[] {
   for (const tx of txs) {
     const dt = parseISO(tx.timestamp);
     const uur = getHours(dt);
-    const dag = format(dt, "yyyy-MM-dd");
+    const dag = nlDagKey(dt);
     uurTotaal[uur] += tx.amount;
     uurDagen[uur].add(dag);
   }
@@ -198,7 +202,7 @@ export function berekenWeekdagUur(txs: SumUpTransaction[]): WeekdagUur[] {
     const dt = parseISO(tx.timestamp);
     const wd = getDay(dt);
     const uur = getHours(dt);
-    const dag = format(dt, "yyyy-MM-dd");
+    const dag = nlDagKey(dt);
     totaal[wd][uur] += tx.amount;
     dagenSet[wd][uur].add(dag);
   }
@@ -223,7 +227,7 @@ export function berekenWeekdagUur(txs: SumUpTransaction[]): WeekdagUur[] {
 export function berekenMaandOmzet(txs: SumUpTransaction[]): MaandOmzet[] {
   const map = new Map<string, { omzet: number; txs: number }>();
   for (const tx of txs) {
-    const dt = parseISO(tx.timestamp);
+    const dt = nlDate(tx.timestamp);
     const key = `${dt.getFullYear()}-${dt.getMonth() + 1}`;
     const bestaand = map.get(key) ?? { omzet: 0, txs: 0 };
     bestaand.omzet += tx.amount;
@@ -292,7 +296,7 @@ export function berekenPrognose(txs: SumUpTransaction[]): Prognose[] {
   // Bouw per-dag omzet map (volledige historie)
   const perDag = new Map<string, number>();
   for (const tx of txs) {
-    const dag = format(parseISO(tx.timestamp), "yyyy-MM-dd");
+    const dag = nlDagKey(tx.timestamp);
     perDag.set(dag, (perDag.get(dag) ?? 0) + tx.amount);
   }
 
@@ -382,7 +386,7 @@ export function berekenWeekdagCurve(
     // Buiten openingsuren? sla over
     if (uur < uren.open || uur >= uren.close) continue;
     uurTotaal[uur] += tx.amount;
-    uniekeDagen.add(format(dt, "yyyy-MM-dd"));
+    uniekeDagen.add(nlDagKey(dt));
   }
 
   const dagen = Math.max(uniekeDagen.size, 1);
@@ -397,7 +401,7 @@ export function berekenVerwachtVandaag(txs: SumUpTransaction[]): number {
 
   const perDag = new Map<string, number>();
   for (const tx of recent) {
-    const dag = format(parseISO(tx.timestamp), "yyyy-MM-dd");
+    const dag = nlDagKey(tx.timestamp);
     perDag.set(dag, (perDag.get(dag) ?? 0) + tx.amount);
   }
 

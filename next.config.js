@@ -1,3 +1,8 @@
+// Forceer NL-tijdzone voor alle Date-operaties in server-code. Vercel
+// serverless functions draaien standaard in UTC; zonder deze regel zouden
+// uur-buckets en "vandaag" verkeerd vallen.
+process.env.TZ = "Europe/Amsterdam";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Zorg dat de historische Excel-bestanden worden meegebundeld in de
