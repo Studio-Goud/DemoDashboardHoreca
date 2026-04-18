@@ -1,8 +1,10 @@
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import { getDay, format } from "date-fns";
 import { nl } from "date-fns/locale";
 import PullToRefresh from "@/components/PullToRefresh";
 import BedrijfTabs from "@/components/BedrijfTabs";
+import DashboardSkeleton from "@/components/DashboardSkeleton";
 import LiveRevenue from "@/components/LiveRevenue";
 import RevenueChart from "@/components/RevenueChart";
 import ProductsTable from "@/components/ProductsTable";
@@ -53,15 +55,41 @@ const BEDRIJVEN = {
 };
 
 type Params = { bedrijf: string };
+type BedrijfConfig = (typeof BEDRIJVEN)[keyof typeof BEDRIJVEN];
 
 function fmtDatumTijd(d: Date): string {
   return format(d, "dd-MM-yyyy HH:mm:ss", { locale: nl });
 }
 
-export default async function DashboardPage({ params }: { params: Params }) {
+// ---------------------------------------------------------------------------
+// Shell — rendert direct. Data binnenin streamt via Suspense.
+// ---------------------------------------------------------------------------
+
+export default function DashboardPage({ params }: { params: Params }) {
   const config = BEDRIJVEN[params.bedrijf as keyof typeof BEDRIJVEN];
   if (!config) notFound();
 
+  return (
+    <PullToRefresh>
+      <main className="min-h-screen p-4 sm:p-6 max-w-7xl mx-auto">
+        {/* Header met tab-switcher — direct zichtbaar */}
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+          <BedrijfTabs actief={config.slug} />
+        </div>
+
+        <Suspense fallback={<DashboardSkeleton hex={config.hex} />}>
+          <DashboardData config={config} />
+        </Suspense>
+      </main>
+    </PullToRefresh>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Data section — async, streamt in zodra SumUp klaar is.
+// ---------------------------------------------------------------------------
+
+async function DashboardData({ config }: { config: BedrijfConfig }) {
   const opgehaald = new Date();
 
   const jaaroverzicht = getZettleJaaroverzicht(config.slug);
@@ -105,7 +133,7 @@ export default async function DashboardPage({ params }: { params: Params }) {
         )
       : [];
 
-  // Jaartotalen voor Vergelijken: combineer Zettle historisch + huidig SumUp jaar
+  // Jaartotalen voor Vergelijken
   const huidigJaar = new Date().getFullYear();
   const jaarTotalen = [
     ...jaaroverzicht.map((j) => ({
@@ -123,7 +151,6 @@ export default async function DashboardPage({ params }: { params: Params }) {
   }
 
   const kleurNaam = config.slug === "bb" ? "bb-primary" : "sl-primary";
-
   const eersteDatum =
     dagOmzet.length > 0 ? new Date(dagOmzet[0].datum) : null;
   const laatsteDatum =
@@ -131,129 +158,107 @@ export default async function DashboardPage({ params }: { params: Params }) {
       ? new Date(dagOmzet[dagOmzet.length - 1].datum)
       : null;
 
+  if (!heeftData && jaaroverzicht.length === 0) {
+    return (
+      <div className="card text-center py-12">
+        <p className="text-slate-500 mb-2">
+          Geen transactiedata beschikbaar.
+        </p>
+        <p className="text-slate-400 text-sm">
+          Controleer SumUp API keys in Vercel environment variables.
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <PullToRefresh>
-      <main className="min-h-screen p-4 sm:p-6 max-w-7xl mx-auto">
-        {/* Header met tab-switcher */}
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-          <BedrijfTabs actief={config.slug} />
-          <div className="text-right">
-            <p className="text-slate-500 text-sm tabular-nums">
-              {alle.length.toLocaleString("nl-NL")} SumUp tx ·{" "}
-              {jaaroverzicht.length} Zettle jaren ·{" "}
-              {productLevens.length} producten (historisch)
-            </p>
-            <p className="text-slate-400 text-[11px]">
-              Data opgehaald: {fmtDatumTijd(opgehaald)}
-            </p>
-          </div>
+    <div className="space-y-6">
+      {sumupFout && (
+        <div className="card border-red-500/30 py-3">
+          <p className="text-red-600 text-sm">
+            <strong>SumUp:</strong> {sumupFout}
+          </p>
         </div>
+      )}
 
-        {sumupFout && (
-          <div className="card border-red-500/30 mb-4 py-3">
-            <p className="text-red-600 text-sm">
-              <strong>SumUp:</strong> {sumupFout}
-            </p>
-          </div>
+      <div className="flex justify-end">
+        <p className="text-slate-400 text-[11px]">
+          {alle.length.toLocaleString("nl-NL")} SumUp tx ·{" "}
+          {jaaroverzicht.length} Zettle jaren · {productLevens.length} producten
+          · {fmtDatumTijd(opgehaald)}
+        </p>
+      </div>
+
+      {heeftData && (
+        <LiveRevenue
+          bedrijf={config.slug}
+          kleur={kleurNaam}
+          hex={config.hex}
+          verwachtVandaag={kerncijfers?.verwachtVandaag ?? 0}
+          weekdagCurve={weekdagCurve}
+        />
+      )}
+
+      {kerncijfers && (
+        <KerncijfersGrid kerncijfers={kerncijfers} hex={config.hex} />
+      )}
+
+      {dagOmzet.length > 0 && (
+        <RevenueChart data={dagOmzet} kleur={kleurNaam} hex={config.hex} />
+      )}
+
+      {dagOmzet.length > 0 && (
+        <Vergelijken
+          dagOmzet={dagOmzet}
+          maandOmzet={maandOmzet}
+          jaarTotalen={jaarTotalen}
+          hex={config.hex}
+        />
+      )}
+
+      <FeestdagenKalender />
+
+      {suggesties.length > 0 && (
+        <OptimizatieSuggesties suggesties={suggesties} />
+      )}
+
+      {prognose.length > 0 && kerncijfers && (
+        <Forecast data={prognose} omzetVandaag={kerncijfers.vandaag.omzet} />
+      )}
+
+      <Schommelingen data={schommelingen} />
+
+      {topProducten.length > 0 && (
+        <ProductsTable data={topProducten} hex={config.hex} />
+      )}
+
+      {productLevens.length > 0 && (
+        <ProductenLevenslang
+          data={productLevens}
+          hex={config.hex}
+          periodeLabel={config.paypalPeriode}
+        />
+      )}
+
+      {heeftData && (
+        <RecenteTransacties bedrijf={config.slug} hex={config.hex} />
+      )}
+
+      <div className="text-center text-slate-300 text-xs pb-6 space-y-1">
+        <p>
+          SumUp: {sumupTxs.length.toLocaleString("nl-NL")} tx · Zettle Excel:{" "}
+          {jaaroverzicht.length} jaren · Product Excel: {productLevens.length}{" "}
+          items
+        </p>
+        {eersteDatum && laatsteDatum && (
+          <p>
+            SumUp periode:{" "}
+            {format(eersteDatum, "dd-MM-yyyy", { locale: nl })} –{" "}
+            {format(laatsteDatum, "dd-MM-yyyy", { locale: nl })} ·{" "}
+            {dagOmzet.length} dagen met omzet
+          </p>
         )}
-
-        {!heeftData && jaaroverzicht.length === 0 ? (
-          <div className="card text-center py-12">
-            <p className="text-slate-500 mb-2">
-              Geen transactiedata beschikbaar.
-            </p>
-            <p className="text-slate-400 text-sm">
-              Controleer SumUp API keys in Vercel environment variables.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {heeftData && (
-              <LiveRevenue
-                bedrijf={config.slug}
-                kleur={kleurNaam}
-                hex={config.hex}
-                verwachtVandaag={kerncijfers?.verwachtVandaag ?? 0}
-                weekdagCurve={weekdagCurve}
-              />
-            )}
-
-            {kerncijfers && (
-              <KerncijfersGrid kerncijfers={kerncijfers} hex={config.hex} />
-            )}
-
-            {dagOmzet.length > 0 && (
-              <RevenueChart
-                data={dagOmzet}
-                kleur={kleurNaam}
-                hex={config.hex}
-              />
-            )}
-
-            {/* Vergelijken: dag / maand / jaar / seizoen */}
-            {dagOmzet.length > 0 && (
-              <Vergelijken
-                dagOmzet={dagOmzet}
-                maandOmzet={maandOmzet}
-                jaarTotalen={jaarTotalen}
-                hex={config.hex}
-              />
-            )}
-
-            {/* Feestdagen + vakanties agenda */}
-            <FeestdagenKalender />
-
-            {/* Signalen & suggesties */}
-            {suggesties.length > 0 && (
-              <OptimizatieSuggesties suggesties={suggesties} />
-            )}
-
-            {/* Prognose */}
-            {prognose.length > 0 && kerncijfers && (
-              <Forecast
-                data={prognose}
-                omzetVandaag={kerncijfers.vandaag.omzet}
-              />
-            )}
-
-            {/* Schommelingen */}
-            <Schommelingen data={schommelingen} />
-
-            {/* Producten */}
-            {topProducten.length > 0 && (
-              <ProductsTable data={topProducten} hex={config.hex} />
-            )}
-
-            {productLevens.length > 0 && (
-              <ProductenLevenslang
-                data={productLevens}
-                hex={config.hex}
-                periodeLabel={config.paypalPeriode}
-              />
-            )}
-
-            {heeftData && (
-              <RecenteTransacties bedrijf={config.slug} hex={config.hex} />
-            )}
-
-            <div className="text-center text-slate-300 text-xs pb-6 space-y-1">
-              <p>
-                SumUp: {sumupTxs.length.toLocaleString("nl-NL")} tx · Zettle
-                Excel: {jaaroverzicht.length} jaren · Product Excel:{" "}
-                {productLevens.length} items
-              </p>
-              {eersteDatum && laatsteDatum && (
-                <p>
-                  SumUp periode:{" "}
-                  {format(eersteDatum, "dd-MM-yyyy", { locale: nl })} –{" "}
-                  {format(laatsteDatum, "dd-MM-yyyy", { locale: nl })} ·{" "}
-                  {dagOmzet.length} dagen met omzet
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-      </main>
-    </PullToRefresh>
+      </div>
+    </div>
   );
 }

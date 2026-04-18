@@ -38,7 +38,13 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
     setFout(false);
   }
 
-  if (checking) return null;
+  if (checking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-slate-200 border-t-slate-500 rounded-full animate-spin" />
+      </div>
+    );
+  }
   if (unlocked) return <>{children}</>;
 
   return (
