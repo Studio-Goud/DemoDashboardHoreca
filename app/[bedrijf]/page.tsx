@@ -1,13 +1,18 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getDay } from "date-fns";
 import PullToRefresh from "@/components/PullToRefresh";
 import LiveRevenue from "@/components/LiveRevenue";
 import RevenueChart from "@/components/RevenueChart";
 import PeakHoursHeatmap from "@/components/PeakHoursHeatmap";
+import WeekdagHeatmap from "@/components/WeekdagHeatmap";
 import ProductsTable from "@/components/ProductsTable";
 import Forecast from "@/components/Forecast";
 import Schommelingen from "@/components/Schommelingen";
 import OptimizatieSuggesties from "@/components/OptimizatieSuggesties";
+import KerncijfersGrid from "@/components/KerncijfersGrid";
+import JaarVergelijking from "@/components/JaarVergelijking";
+import RecenteTransacties from "@/components/RecenteTransacties";
 import { fetchAllTransactions, type Bedrijf } from "@/lib/sumup";
 import { fetchAllZettlePurchases, normalizeZettleToSumUp } from "@/lib/zettle";
 import { getZettleJaaroverzicht } from "@/lib/zettle-excel";
@@ -19,10 +24,15 @@ import {
   berekenPrognose,
   detecteerSchommelingen,
   genereerSuggesties,
+  berekenKerncijfers,
+  berekenWeekdagUur,
+  berekenMaandOmzet,
+  berekenWeekdagCurve,
 } from "@/lib/analytics";
 
-// Pagina wordt elke 5 minuten opnieuw gegenereerd op Vercel
-export const revalidate = 300;
+// Altijd verse data — geen cache
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 const BEDRIJVEN = {
   bb: { naam: "Brunch & Brew", emoji: "☕", hex: "#C8963E", slug: "bb" as Bedrijf },
@@ -31,11 +41,22 @@ const BEDRIJVEN = {
 
 type Params = { bedrijf: string };
 
+function fmtDatumTijd(d: Date): string {
+  return d.toLocaleString("nl-NL", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
 export default async function DashboardPage({ params }: { params: Params }) {
   const config = BEDRIJVEN[params.bedrijf as keyof typeof BEDRIJVEN];
   if (!config) notFound();
 
-  // Haal SumUp en Zettle parallel op — als één faalt gaat de rest gewoon door
+  const opgehaald = new Date();
   const jaaroverzicht = getZettleJaaroverzicht(config.slug);
 
   const [sumupResult, zettleResult] = await Promise.allSettled([
@@ -49,14 +70,16 @@ export default async function DashboardPage({ params }: { params: Params }) {
       ? normalizeZettleToSumUp(zettleResult.value)
       : [];
 
-  const sumupFout = sumupResult.status === "rejected"
-    ? (sumupResult.reason as Error).message
-    : null;
-  const zettleFout = zettleResult.status === "rejected"
-    ? (zettleResult.reason as Error).message
-    : null;
+  const sumupFout =
+    sumupResult.status === "rejected"
+      ? (sumupResult.reason as Error).message
+      : null;
+  const zettleFout =
+    zettleResult.status === "rejected"
+      ? (zettleResult.reason as Error).message
+      : null;
 
-  // Combineer: Zettle historisch + SumUp actueel, dedupliceer op datum
+  // Combineer Zettle historie + SumUp actueel, ontdubbel op datum
   const sumupDatums = new Set(sumupTxs.map((tx) => tx.timestamp.slice(0, 10)));
   const zettleUniek = zettleTxs.filter(
     (tx) => !sumupDatums.has(tx.timestamp.slice(0, 10))
@@ -67,59 +90,109 @@ export default async function DashboardPage({ params }: { params: Params }) {
 
   const heeftData = alle.length > 0;
 
-  const dagOmzet     = heeftData ? berekenDagOmzet(alle)         : [];
-  const piekuren     = heeftData ? berekenPiekuren(alle)          : [];
-  const topProducten = heeftData ? berekenTopProducten(alle)      : [];
-  const prognose     = heeftData ? berekenPrognose(alle)          : [];
-  const schommelingen = heeftData ? detecteerSchommelingen(dagOmzet) : [];
-  const suggesties   = heeftData
-    ? genereerSuggesties(piekuren, topProducten, prognose)
+  const dagOmzet        = heeftData ? berekenDagOmzet(alle)               : [];
+  const piekuren        = heeftData ? berekenPiekuren(alle)               : [];
+  const weekdagUurData  = heeftData ? berekenWeekdagUur(alle)             : [];
+  const topProducten    = heeftData ? berekenTopProducten(alle)           : [];
+  const maandOmzet      = heeftData ? berekenMaandOmzet(alle)             : [];
+  const prognose        = heeftData ? berekenPrognose(alle)               : [];
+  const schommelingen   = heeftData ? detecteerSchommelingen(dagOmzet)    : [];
+  const kerncijfers     = heeftData ? berekenKerncijfers(alle)            : null;
+  const weekdagCurve    = heeftData
+    ? berekenWeekdagCurve(alle, getDay(new Date()))
+    : new Array(24).fill(0);
+  const suggesties      = heeftData && kerncijfers
+    ? genereerSuggesties(piekuren, topProducten, prognose, kerncijfers)
     : [];
+
+  const kleurNaam = config.slug === "bb" ? "bb-primary" : "sl-primary";
 
   return (
     <PullToRefresh>
-      <main className="min-h-screen p-6 max-w-7xl mx-auto">
-
+      <main className="min-h-screen p-4 sm:p-6 max-w-7xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
           <div className="flex items-center gap-3">
-            <Link href="/" className="text-white/30 hover:text-white/60 text-sm transition-colors">
+            <Link
+              href="/"
+              className="text-white/30 hover:text-white/60 text-sm transition-colors"
+            >
               ← Terug
             </Link>
             <span className="text-white/20">|</span>
             <span className="text-2xl">{config.emoji}</span>
-            <h1 className="text-2xl font-bold" style={{ color: config.hex }}>
+            <h1
+              className="text-2xl font-bold"
+              style={{ color: config.hex }}
+            >
               {config.naam}
             </h1>
           </div>
-          {heeftData && (
-            <p className="text-white/30 text-sm">
-              {alle.length.toLocaleString("nl-NL")} transacties totaal
+          <div className="text-right">
+            {heeftData && (
+              <p className="text-white/50 text-sm tabular-nums">
+                {alle.length.toLocaleString("nl-NL")} transacties totaal
+              </p>
+            )}
+            <p className="text-white/30 text-[11px]">
+              Data opgehaald: {fmtDatumTijd(opgehaald)}
             </p>
-          )}
+          </div>
         </div>
 
-        {/* Alleen SumUp fouten tonen — Zettle is optioneel */}
-        {sumupFout && (
-          <div className="card border-red-500/20 mb-6">
-            <p className="text-red-400 text-sm">SumUp: {sumupFout}</p>
+        {/* Fouten */}
+        {(sumupFout || zettleFout) && (
+          <div className="space-y-2 mb-4">
+            {sumupFout && (
+              <div className="card border-red-500/30 py-3">
+                <p className="text-red-300 text-sm">
+                  <strong>SumUp:</strong> {sumupFout}
+                </p>
+              </div>
+            )}
+            {zettleFout && (
+              <div className="card border-yellow-500/20 py-3">
+                <p className="text-yellow-300/80 text-xs">
+                  Zettle API niet bereikbaar (historie uit Excel blijft werken):{" "}
+                  {zettleFout}
+                </p>
+              </div>
+            )}
           </div>
         )}
 
         {!heeftData ? (
           <div className="card text-center py-12">
-            <p className="text-white/50 mb-2">Geen transactiedata beschikbaar.</p>
+            <p className="text-white/50 mb-2">
+              Geen transactiedata beschikbaar.
+            </p>
             <p className="text-white/30 text-sm">
               Controleer of de API keys correct zijn ingesteld in Vercel.
             </p>
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Live omzet — client component, ververst elke 30s */}
-            <LiveRevenue bedrijf={config.slug} kleur={config.slug === "bb" ? "bb-primary" : "sl-primary"} />
+            {/* LIVE sectie — vandaag in detail */}
+            <LiveRevenue
+              bedrijf={config.slug}
+              kleur={kleurNaam}
+              hex={config.hex}
+              verwachtVandaag={kerncijfers?.verwachtVandaag ?? 0}
+              weekdagCurve={weekdagCurve}
+            />
 
+            {/* KPI grid */}
+            {kerncijfers && (
+              <KerncijfersGrid kerncijfers={kerncijfers} hex={config.hex} />
+            )}
+
+            {/* Omzet per dag met range-selector */}
             {dagOmzet.length > 0 && (
-              <RevenueChart data={dagOmzet} kleur={config.slug === "bb" ? "bb-primary" : "sl-primary"} hex={config.hex} />
+              <RevenueChart
+                data={dagOmzet}
+                kleur={kleurNaam}
+                hex={config.hex}
+              />
             )}
 
             {/* Historisch jaaroverzicht uit Zettle Excel */}
@@ -128,33 +201,65 @@ export default async function DashboardPage({ params }: { params: Params }) {
                 data={jaaroverzicht}
                 hex={config.hex}
                 huidigJaar={new Date().getFullYear()}
-                huidigJaarOmzet={sumupTxs.reduce((s, tx) => s + tx.amount, 0)}
+                huidigJaarOmzet={kerncijfers?.ditJaar.omzet ?? 0}
               />
             )}
 
+            {/* Maand-op-maand YoY */}
+            {maandOmzet.length > 3 && (
+              <JaarVergelijking data={maandOmzet} hex={config.hex} />
+            )}
+
+            {/* Weekdag × uur heatmap */}
+            {weekdagUurData.length > 0 && (
+              <WeekdagHeatmap data={weekdagUurData} hex={config.hex} />
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {piekuren.length > 0 && <PeakHoursHeatmap data={piekuren} hex={config.hex} />}
+              {piekuren.length > 0 && (
+                <PeakHoursHeatmap data={piekuren} hex={config.hex} />
+              )}
               <Schommelingen data={schommelingen} />
             </div>
 
+            {/* Prognose met realisatie-indicator */}
+            {prognose.length > 0 && kerncijfers && (
+              <Forecast
+                data={prognose}
+                omzetVandaag={kerncijfers.vandaag.omzet}
+              />
+            )}
+
+            {/* Producten */}
             {topProducten.length > 0 && (
               <ProductsTable data={topProducten} hex={config.hex} />
             )}
 
-            {prognose.length > 0 && <Forecast data={prognose} />}
+            {/* Recente transacties live feed */}
+            <RecenteTransacties bedrijf={config.slug} hex={config.hex} />
 
-            {suggesties.length > 0 && <OptimizatieSuggesties suggesties={suggesties} />}
+            {/* Suggesties */}
+            {suggesties.length > 0 && (
+              <OptimizatieSuggesties suggesties={suggesties} />
+            )}
 
             {/* Footer */}
             <div className="text-center text-white/20 text-xs pb-6 space-y-1">
               <p>
                 {sumupTxs.length > 0 && `SumUp: ${sumupTxs.length} tx`}
-                {zettleUniek.length > 0 && ` · Zettle: ${zettleUniek.length} tx`}
+                {zettleUniek.length > 0 &&
+                  ` · Zettle API: ${zettleUniek.length} tx`}
+                {jaaroverzicht.length > 0 &&
+                  ` · Zettle Excel: ${jaaroverzicht.length} jaar`}
               </p>
               {dagOmzet.length > 0 && (
                 <p>
-                  Periode: {new Date(alle[0].timestamp).toLocaleDateString("nl-NL")} –{" "}
-                  {new Date(alle[alle.length - 1].timestamp).toLocaleDateString("nl-NL")}
+                  Periode:{" "}
+                  {new Date(alle[0].timestamp).toLocaleDateString("nl-NL")} –{" "}
+                  {new Date(
+                    alle[alle.length - 1].timestamp
+                  ).toLocaleDateString("nl-NL")}{" "}
+                  · {dagOmzet.length} dagen met omzet
                 </p>
               )}
             </div>
