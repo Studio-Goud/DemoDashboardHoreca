@@ -19,6 +19,20 @@ export async function GET(
     return NextResponse.json({ error: "Onbekend bedrijf" }, { status: 400 });
   }
 
+  // Geef lege data terug als er geen key is (bijv. KL nog niet ingesteld)
+  const keyMap: Record<Bedrijf, string | undefined> = {
+    bb: process.env.SUMUP_KEY_BB,
+    sl: process.env.SUMUP_KEY_SL,
+    kl: process.env.SUMUP_KEY_KL,
+  };
+  if (!keyMap[bedrijf]) {
+    return NextResponse.json({
+      omzetVandaag: 0, aantalTransactiesVandaag: 0, gemBonVandaag: 0,
+      uurVerdeling: [], betaalmethoden: {}, recenteTransacties: [],
+      laatsteSale: null, timestamp: new Date().toISOString(), geenKey: true,
+    });
+  }
+
   try {
     const nu = new Date();
     const vandaagStart = nlStartOfDayISO(nu);
