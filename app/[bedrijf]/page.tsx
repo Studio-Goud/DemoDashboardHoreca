@@ -95,11 +95,10 @@ export default async function DashboardPage({ params }: { params: Params }) {
           )}
         </div>
 
-        {/* API fouten tonen */}
-        {(sumupFout || zettleFout) && (
-          <div className="card border-red-500/20 mb-6 space-y-1">
-            {sumupFout && <p className="text-red-400 text-sm">SumUp: {sumupFout}</p>}
-            {zettleFout && <p className="text-orange-400 text-sm">Zettle: {zettleFout}</p>}
+        {/* Alleen SumUp fouten tonen — Zettle is optioneel */}
+        {sumupFout && (
+          <div className="card border-red-500/20 mb-6">
+            <p className="text-red-400 text-sm">SumUp: {sumupFout}</p>
           </div>
         )}
 

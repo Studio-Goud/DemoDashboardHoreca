@@ -30,7 +30,6 @@ export async function fetchTransactions(
   const params = new URLSearchParams({
     limit: String(options.limit ?? 100),
     order: "descending",
-    statuses: "SUCCESSFUL",
     ...(options.oldest_time && { oldest_time: options.oldest_time }),
     ...(options.newest_time && { newest_time: options.newest_time }),
   });
@@ -49,7 +48,9 @@ export async function fetchTransactions(
   }
 
   const data = await res.json();
-  return data.items ?? [];
+  return (data.items ?? []).filter(
+    (tx: SumUpTransaction) => tx.status === "SUCCESSFUL"
+  );
 }
 
 // Pagineer achteruit door de volledige geschiedenis (descending = nieuwste eerst)
