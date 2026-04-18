@@ -27,7 +27,7 @@ function Delta({ waarde }: { waarde: number }) {
   return (
     <span
       className={`text-xs font-medium ${
-        pos ? "text-green-400" : "text-red-400"
+        pos ? "text-emerald-600" : "text-red-500"
       }`}
     >
       {pos ? "▲" : "▼"} {pos ? "+" : ""}
@@ -55,11 +55,11 @@ function Tegel({
     <div
       className="rounded-2xl p-4 border"
       style={{
-        backgroundColor: accent && hex ? `${hex}15` : "rgba(255,255,255,0.04)",
-        borderColor: accent && hex ? `${hex}55` : "rgba(255,255,255,0.08)",
+        backgroundColor: accent && hex ? `${hex}14` : "#F8FAFC",
+        borderColor: accent && hex ? `${hex}66` : "#E2E8F0",
       }}
     >
-      <p className="text-[11px] uppercase tracking-wider text-white/40 mb-1">
+      <p className="text-[11px] uppercase tracking-wider text-slate-400 mb-1">
         {titel}
       </p>
       <p
@@ -69,7 +69,7 @@ function Tegel({
         {waarde}
       </p>
       <div className="flex items-center justify-between mt-1 min-h-[16px]">
-        <span className="text-[11px] text-white/40">{subregel ?? ""}</span>
+        <span className="text-[11px] text-slate-400">{subregel ?? ""}</span>
         {typeof delta === "number" && <Delta waarde={delta} />}
       </div>
     </div>
@@ -82,8 +82,8 @@ export default function KerncijfersGrid({ kerncijfers, hex }: Props) {
   return (
     <div className="card">
       <div className="flex items-baseline justify-between mb-3">
-        <h3 className="font-semibold text-white/80">Kerncijfers</h3>
-        <span className="text-[11px] text-white/30">
+        <h3 className="font-semibold text-slate-700">Kerncijfers</h3>
+        <span className="text-[11px] text-slate-400">
           Alle bedragen incl. BTW · live
         </span>
       </div>
@@ -171,7 +171,7 @@ export default function KerncijfersGrid({ kerncijfers, hex }: Props) {
       </div>
 
       {k.laatsteTx && (
-        <p className="text-[11px] text-white/30 mt-3">
+        <p className="text-[11px] text-slate-400 mt-3">
           Laatste transactie: {fmtEur(k.laatsteTx.amount)} ·{" "}
           {k.tijdSindsLaatsteTxMin !== null
             ? k.tijdSindsLaatsteTxMin < 1

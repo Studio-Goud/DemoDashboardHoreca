@@ -13,26 +13,26 @@ export default function PeakHoursHeatmap({ data, hex }: Props) {
 
   return (
     <div className="card">
-      <h3 className="font-semibold mb-4 text-white/80">Piekuren (gemiddeld per uur)</h3>
+      <h3 className="font-semibold mb-4 text-slate-700">Piekuren (gemiddeld per uur)</h3>
       <ResponsiveContainer width="100%" height={180}>
         <BarChart data={data} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
           <XAxis
             dataKey="label"
-            tick={{ fill: "rgba(255,255,255,0.3)", fontSize: 10 }}
+            tick={{ fill: "rgba(15,23,42,0.5)", fontSize: 10 }}
             axisLine={false}
             tickLine={false}
             interval={2}
           />
           <YAxis
-            tick={{ fill: "rgba(255,255,255,0.3)", fontSize: 10 }}
+            tick={{ fill: "rgba(15,23,42,0.5)", fontSize: 10 }}
             axisLine={false}
             tickLine={false}
             tickFormatter={(v) => `€${v}`}
           />
           <Tooltip
             contentStyle={{
-              backgroundColor: "#1a1a1a",
-              border: "1px solid rgba(255,255,255,0.1)",
+              backgroundColor: "#ffffff",
+              border: "1px solid rgba(15,23,42,0.12)",
               borderRadius: "8px",
             }}
             formatter={(value: number) => [`€${value.toFixed(2)}`, "Gem. omzet"]}

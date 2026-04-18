@@ -29,14 +29,14 @@ export default function WeekdagHeatmap({ data, hex }: Props) {
   return (
     <div className="card">
       <div className="flex items-baseline justify-between mb-3">
-        <h3 className="font-semibold text-white/80">Weekdag × uur heatmap</h3>
-        <span className="text-[11px] text-white/30">gem. € per uur</span>
+        <h3 className="font-semibold text-slate-700">Weekdag × uur heatmap</h3>
+        <span className="text-[11px] text-slate-400">gem. € per uur</span>
       </div>
 
       <div className="overflow-x-auto">
         <div className="inline-block min-w-full">
           {/* Kop met uurlabels */}
-          <div className="flex text-[10px] text-white/30 mb-1">
+          <div className="flex text-[10px] text-slate-400 mb-1">
             <div className="w-8 shrink-0" />
             {uren.map((u) => (
               <div
@@ -55,7 +55,7 @@ export default function WeekdagHeatmap({ data, hex }: Props) {
             );
             return (
               <div key={wd} className="flex items-center mb-1">
-                <div className="w-8 text-[11px] text-white/50 shrink-0">
+                <div className="w-8 text-[11px] text-slate-500 shrink-0">
                   {DAG_LABELS[wd]}
                 </div>
                 {uren.map((u) => {
@@ -75,7 +75,7 @@ export default function WeekdagHeatmap({ data, hex }: Props) {
                                 .toString(16)
                                 .padStart(2, "0")
                                 .toUpperCase()}`
-                            : "rgba(255,255,255,0.03)",
+                            : "#F1F5F9",
                       }}
                       title={`${DAG_LABELS[wd]} ${String(u).padStart(
                         2,
@@ -83,14 +83,14 @@ export default function WeekdagHeatmap({ data, hex }: Props) {
                       )}:00 — gem. €${gem.toFixed(2)} (${cel?.aantalDagen ?? 0}x gemeten)`}
                     >
                       {intensiteit > 0.6 && (
-                        <span className="text-[9px] font-semibold text-white/90 tabular-nums">
+                        <span className="text-[9px] font-semibold text-slate-800 tabular-nums">
                           {Math.round(gem)}
                         </span>
                       )}
                     </div>
                   );
                 })}
-                <div className="w-14 pl-2 text-[10px] text-white/40 tabular-nums shrink-0">
+                <div className="w-14 pl-2 text-[10px] text-slate-400 tabular-nums shrink-0">
                   €{Math.round(rijTotaal)}
                 </div>
               </div>
@@ -99,7 +99,7 @@ export default function WeekdagHeatmap({ data, hex }: Props) {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 mt-3 text-[10px] text-white/40">
+      <div className="flex items-center gap-2 mt-3 text-[10px] text-slate-400">
         <span>minder</span>
         <div className="flex gap-[2px]">
           {[0.1, 0.25, 0.45, 0.65, 0.85].map((i) => (

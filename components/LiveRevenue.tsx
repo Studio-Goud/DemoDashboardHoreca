@@ -123,8 +123,8 @@ export default function LiveRevenue({
   if (loading) {
     return (
       <div className="card animate-pulse">
-        <div className="h-8 bg-white/10 rounded w-1/2 mb-2" />
-        <div className="h-4 bg-white/5 rounded w-1/3" />
+        <div className="h-8 bg-slate-100 rounded w-1/2 mb-2" />
+        <div className="h-4 bg-slate-50 rounded w-1/3" />
       </div>
     );
   }
@@ -152,13 +152,13 @@ export default function LiveRevenue({
       <div className="absolute top-3 right-3 flex items-center gap-1.5">
         <div className="w-2 h-2 rounded-full bg-green-400 animate-ping absolute" />
         <div className="w-2 h-2 rounded-full bg-green-400" />
-        <span className="text-xs text-white/30 ml-3">live</span>
+        <span className="text-xs text-slate-400 ml-3">live</span>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Hoofdcijfer */}
         <div>
-          <p className="text-white/50 text-sm mb-1">Omzet vandaag</p>
+          <p className="text-slate-500 text-sm mb-1">Omzet vandaag</p>
           <div
             className={`stat-value transition-all duration-500 tabular-nums ${
               pulse ? "scale-110" : "scale-100"
@@ -171,24 +171,24 @@ export default function LiveRevenue({
               maximumFractionDigits: 2,
             })}
           </div>
-          <p className="text-white/40 text-sm mt-1">
+          <p className="text-slate-400 text-sm mt-1">
             {data.aantalTransactiesVandaag} tx · gem. €
             {data.gemBonVandaag.toFixed(2)}
           </p>
 
           {verwachtVandaag > 0 && (
             <div className="mt-3">
-              <div className="flex justify-between text-[11px] text-white/50 mb-1">
+              <div className="flex justify-between text-[11px] text-slate-500 mb-1">
                 <span>Voortgang vs verwacht nu</span>
                 <span
                   className={
-                    opSchemaPos ? "text-green-400" : "text-orange-300"
+                    opSchemaPos ? "text-emerald-600" : "text-orange-600"
                   }
                 >
                   {opSchema}% {opSchemaPos ? "✓" : ""}
                 </span>
               </div>
-              <div className="h-2 bg-white/10 rounded-full overflow-hidden relative">
+              <div className="h-2 bg-slate-100 rounded-full overflow-hidden relative">
                 <div
                   className="h-full transition-all duration-700"
                   style={{
@@ -210,12 +210,12 @@ export default function LiveRevenue({
                   title="Verwachte voortgang nu"
                 />
               </div>
-              <div className="flex justify-between text-[10px] text-white/30 mt-1 tabular-nums">
+              <div className="flex justify-between text-[10px] text-slate-400 mt-1 tabular-nums">
                 <span>€{verwachtNu.toFixed(0)} verwacht nu</span>
                 <span>€{verwachtVandaag.toFixed(0)} doel</span>
               </div>
               {resterend > 0 && (
-                <p className="text-[10px] text-white/40 mt-1">
+                <p className="text-[10px] text-slate-400 mt-1">
                   Nog €{resterend.toFixed(0)} te gaan tot verwacht dagtotaal
                 </p>
               )}
@@ -225,7 +225,7 @@ export default function LiveRevenue({
 
         {/* Uur verdeling */}
         <div>
-          <p className="text-white/50 text-xs uppercase tracking-wide mb-2">
+          <p className="text-slate-500 text-xs uppercase tracking-wide mb-2">
             Omzet per uur vandaag
           </p>
           {data.uurVerdeling.some((u) => u.omzet > 0) ? (
@@ -245,7 +245,7 @@ export default function LiveRevenue({
                 </defs>
                 <XAxis
                   dataKey="uur"
-                  tick={{ fill: "rgba(255,255,255,0.3)", fontSize: 9 }}
+                  tick={{ fill: "rgba(15,23,42,0.5)", fontSize: 9 }}
                   axisLine={false}
                   tickLine={false}
                   interval={3}
@@ -254,8 +254,8 @@ export default function LiveRevenue({
                 <YAxis hide />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "#1a1a1a",
-                    border: "1px solid rgba(255,255,255,0.1)",
+                    backgroundColor: "#ffffff",
+                    border: "1px solid rgba(15,23,42,0.12)",
                     borderRadius: "8px",
                     fontSize: "11px",
                   }}
@@ -275,7 +275,7 @@ export default function LiveRevenue({
               </AreaChart>
             </ResponsiveContainer>
           ) : (
-            <p className="text-white/30 text-xs italic mt-3">
+            <p className="text-slate-400 text-xs italic mt-3">
               Nog geen transacties vandaag.
             </p>
           )}
@@ -283,7 +283,7 @@ export default function LiveRevenue({
 
         {/* Betaalmethoden + laatste verkoop */}
         <div>
-          <p className="text-white/50 text-xs uppercase tracking-wide mb-2">
+          <p className="text-slate-500 text-xs uppercase tracking-wide mb-2">
             Betaalmethoden vandaag
           </p>
           {betaalLijst.length > 0 ? (
@@ -296,14 +296,14 @@ export default function LiveRevenue({
                 return (
                   <div key={naam}>
                     <div className="flex justify-between text-[11px] mb-0.5">
-                      <span className="capitalize text-white/70">
+                      <span className="capitalize text-slate-600">
                         {naam.replace(/_/g, " ")}
                       </span>
-                      <span className="text-white/50 tabular-nums">
+                      <span className="text-slate-500 tabular-nums">
                         €{b.omzet.toFixed(0)} · {b.aantal}×
                       </span>
                     </div>
-                    <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                    <div className="h-1 bg-slate-50 rounded-full overflow-hidden">
                       <div
                         className="h-full rounded-full"
                         style={{
@@ -318,23 +318,23 @@ export default function LiveRevenue({
               })}
             </div>
           ) : (
-            <p className="text-white/30 text-xs italic">Nog geen verkopen.</p>
+            <p className="text-slate-400 text-xs italic">Nog geen verkopen.</p>
           )}
 
           {data.laatsteSale && (
-            <div className="mt-4 pt-3 border-t border-white/10">
-              <p className="text-white/40 text-[10px] uppercase tracking-wide mb-1">
+            <div className="mt-4 pt-3 border-t border-slate-200">
+              <p className="text-slate-400 text-[10px] uppercase tracking-wide mb-1">
                 Laatste verkoop
               </p>
               <div className="flex items-center justify-between">
                 <span className="font-semibold tabular-nums">
                   €{data.laatsteSale.amount.toFixed(2)}
                 </span>
-                <span className="text-white/40 text-xs">
+                <span className="text-slate-400 text-xs">
                   {tijdGeleden(data.laatsteSale.timestamp)}
                 </span>
               </div>
-              <p className="text-white/30 text-[11px] capitalize">
+              <p className="text-slate-400 text-[11px] capitalize">
                 {data.laatsteSale.payment_type.replace(/_/g, " ")}
               </p>
             </div>
@@ -342,7 +342,7 @@ export default function LiveRevenue({
         </div>
       </div>
 
-      <p className="text-white/20 text-[10px] mt-4">
+      <p className="text-slate-300 text-[10px] mt-4">
         Ververst elke 20s · laatste update:{" "}
         {laatstGeupdate
           ? laatstGeupdate.toLocaleTimeString("nl-NL")

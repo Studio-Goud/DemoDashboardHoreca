@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getDay } from "date-fns";
 import PullToRefresh from "@/components/PullToRefresh";
+import BedrijfTabs from "@/components/BedrijfTabs";
 import LiveRevenue from "@/components/LiveRevenue";
 import RevenueChart from "@/components/RevenueChart";
 import PeakHoursHeatmap from "@/components/PeakHoursHeatmap";
@@ -41,14 +42,16 @@ const BEDRIJVEN = {
   bb: {
     naam: "Brunch & Brew",
     emoji: "☕",
-    hex: "#C8963E",
+    hex: "#00B8FF",         // neon blauw
+    hexDark: "#0081B5",
     slug: "bb" as Bedrijf,
     paypalPeriode: "apr 2022 – nu",
   },
   sl: {
     naam: "Saté Lounge",
     emoji: "🍢",
-    hex: "#E63946",
+    hex: "#00D27A",         // neon groen
+    hexDark: "#008C52",
     slug: "sl" as Bedrijf,
     paypalPeriode: "apr 2023 – nu",
   },
@@ -122,31 +125,16 @@ export default async function DashboardPage({ params }: { params: Params }) {
   return (
     <PullToRefresh>
       <main className="min-h-screen p-4 sm:p-6 max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-          <div className="flex items-center gap-3">
-            <Link
-              href="/"
-              className="text-white/30 hover:text-white/60 text-sm transition-colors"
-            >
-              ← Terug
-            </Link>
-            <span className="text-white/20">|</span>
-            <span className="text-2xl">{config.emoji}</span>
-            <h1
-              className="text-2xl font-bold"
-              style={{ color: config.hex }}
-            >
-              {config.naam}
-            </h1>
-          </div>
+        {/* Header met tab-switcher */}
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+          <BedrijfTabs actief={config.slug} />
           <div className="text-right">
-            <p className="text-white/50 text-sm tabular-nums">
+            <p className="text-slate-500 text-sm tabular-nums">
               {alle.length.toLocaleString("nl-NL")} SumUp tx ·{" "}
               {jaaroverzicht.length} Zettle jaren ·{" "}
               {productLevens.length} producten (historisch)
             </p>
-            <p className="text-white/30 text-[11px]">
+            <p className="text-slate-400 text-[11px]">
               Data opgehaald: {fmtDatumTijd(opgehaald)}
             </p>
           </div>
@@ -154,7 +142,7 @@ export default async function DashboardPage({ params }: { params: Params }) {
 
         {sumupFout && (
           <div className="card border-red-500/30 mb-4 py-3">
-            <p className="text-red-300 text-sm">
+            <p className="text-red-600 text-sm">
               <strong>SumUp:</strong> {sumupFout}
             </p>
           </div>
@@ -162,10 +150,10 @@ export default async function DashboardPage({ params }: { params: Params }) {
 
         {!heeftData && jaaroverzicht.length === 0 ? (
           <div className="card text-center py-12">
-            <p className="text-white/50 mb-2">
+            <p className="text-slate-500 mb-2">
               Geen transactiedata beschikbaar.
             </p>
-            <p className="text-white/30 text-sm">
+            <p className="text-slate-400 text-sm">
               Controleer SumUp API keys in Vercel environment variables.
             </p>
           </div>
@@ -246,7 +234,7 @@ export default async function DashboardPage({ params }: { params: Params }) {
               <OptimizatieSuggesties suggesties={suggesties} />
             )}
 
-            <div className="text-center text-white/20 text-xs pb-6 space-y-1">
+            <div className="text-center text-slate-300 text-xs pb-6 space-y-1">
               <p>
                 SumUp: {sumupTxs.length.toLocaleString("nl-NL")} tx ·
                 Zettle Excel: {jaaroverzicht.length} jaren ·

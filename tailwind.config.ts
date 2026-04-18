@@ -10,15 +10,22 @@ const config: Config = {
     extend: {
       colors: {
         bb: {
-          primary: "#C8963E",
-          dark: "#1a0f00",
-          light: "#FFF8F0",
+          primary: "#00B8FF",   // neon blauw
+          soft: "#E0F4FF",
+          dark: "#006FAA",
+          glow: "#38D1FF",
         },
         sl: {
-          primary: "#E63946",
-          dark: "#1a0005",
-          light: "#FFF0F1",
+          primary: "#00D27A",   // neon groen
+          soft: "#DAFBE9",
+          dark: "#008C4F",
+          glow: "#3DE79A",
         },
+      },
+      boxShadow: {
+        "neon-bb": "0 0 0 1px rgba(0,184,255,0.35), 0 0 24px -4px rgba(0,184,255,0.45)",
+        "neon-sl": "0 0 0 1px rgba(0,210,122,0.35), 0 0 24px -4px rgba(0,210,122,0.45)",
+        card: "0 1px 2px 0 rgba(15,23,42,0.04), 0 1px 3px 0 rgba(15,23,42,0.06)",
       },
     },
   },

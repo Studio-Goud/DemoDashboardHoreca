@@ -61,12 +61,12 @@ export default function RecenteTransacties({ bedrijf, hex }: Props) {
   if (loading && txs.length === 0) {
     return (
       <div className="card">
-        <h3 className="font-semibold mb-3 text-white/80">Recente transacties</h3>
+        <h3 className="font-semibold mb-3 text-slate-700">Recente transacties</h3>
         <div className="space-y-2">
           {[...Array(5)].map((_, i) => (
             <div
               key={i}
-              className="h-10 bg-white/5 rounded-lg animate-pulse"
+              className="h-10 bg-slate-50 rounded-lg animate-pulse"
             />
           ))}
         </div>
@@ -77,8 +77,8 @@ export default function RecenteTransacties({ bedrijf, hex }: Props) {
   if (txs.length === 0) {
     return (
       <div className="card">
-        <h3 className="font-semibold mb-3 text-white/80">Recente transacties</h3>
-        <p className="text-white/30 text-sm">Nog geen recente transacties.</p>
+        <h3 className="font-semibold mb-3 text-slate-700">Recente transacties</h3>
+        <p className="text-slate-400 text-sm">Nog geen recente transacties.</p>
       </div>
     );
   }
@@ -86,8 +86,8 @@ export default function RecenteTransacties({ bedrijf, hex }: Props) {
   return (
     <div className="card">
       <div className="flex items-baseline justify-between mb-3">
-        <h3 className="font-semibold text-white/80">Recente transacties</h3>
-        <span className="text-[11px] text-white/30">
+        <h3 className="font-semibold text-slate-700">Recente transacties</h3>
+        <span className="text-[11px] text-slate-400">
           {laatstGeupdate
             ? `bijgewerkt ${format(laatstGeupdate, "HH:mm:ss")}`
             : ""}
@@ -108,27 +108,27 @@ export default function RecenteTransacties({ bedrijf, hex }: Props) {
           return (
             <div
               key={tx.id}
-              className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-white/[0.03] hover:bg-white/5 transition-colors"
+              className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-slate-50 hover:bg-slate-50 transition-colors"
             >
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold tabular-nums">
                   €{tx.amount.toFixed(2)}
-                  <span className="text-white/30 text-[11px] font-normal ml-2 capitalize">
+                  <span className="text-slate-400 text-[11px] font-normal ml-2 capitalize">
                     {tx.payment_type.replace(/_/g, " ")}
                   </span>
                 </p>
                 {items && (
-                  <p className="text-[11px] text-white/40 truncate">
+                  <p className="text-[11px] text-slate-400 truncate">
                     {items}
                     {extra}
                   </p>
                 )}
               </div>
               <div className="text-right shrink-0">
-                <p className="text-xs text-white/60 tabular-nums">
+                <p className="text-xs text-slate-500 tabular-nums">
                   {format(parseISO(tx.timestamp), "HH:mm", { locale: nl })}
                 </p>
-                <p className="text-[10px] text-white/30">
+                <p className="text-[10px] text-slate-400">
                   {tijdGeleden(tx.timestamp)} geleden
                 </p>
               </div>

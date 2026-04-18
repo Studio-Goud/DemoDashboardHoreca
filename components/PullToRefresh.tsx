@@ -72,7 +72,7 @@ export default function PullToRefresh({ children }: { children: React.ReactNode 
         {visible && (
           <div className="flex flex-col items-center gap-1">
             <svg
-              className={`w-6 h-6 text-white/50 transition-transform duration-200 ${
+              className={`w-6 h-6 text-slate-500 transition-transform duration-200 ${
                 refreshing ? "animate-spin" : ""
               }`}
               style={{
@@ -97,7 +97,7 @@ export default function PullToRefresh({ children }: { children: React.ReactNode 
                 />
               )}
             </svg>
-            <span className="text-white/30 text-xs">
+            <span className="text-slate-400 text-xs">
               {refreshing
                 ? "Verversen..."
                 : progress >= 1

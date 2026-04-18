@@ -36,10 +36,10 @@ export default function ProductsTable({ data, hex }: Props) {
     <div className="card">
       <div className="flex flex-wrap items-baseline justify-between gap-3 mb-3">
         <div>
-          <h3 className="font-semibold text-white/80">
+          <h3 className="font-semibold text-slate-700">
             Producten ({data.length})
           </h3>
-          <p className="text-[11px] text-white/30">
+          <p className="text-[11px] text-slate-400">
             Totaal €
             {totaalOmzet.toLocaleString("nl-NL", {
               maximumFractionDigits: 0,
@@ -53,12 +53,12 @@ export default function ProductsTable({ data, hex }: Props) {
             value={zoek}
             onChange={(e) => setZoek(e.target.value)}
             placeholder="Zoek product…"
-            className="bg-white/5 border border-white/10 rounded-md px-2.5 py-1 text-xs text-white placeholder-white/30 focus:outline-none focus:border-white/30 w-40"
+            className="bg-slate-50 border border-slate-200 rounded-md px-2.5 py-1 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-slate-400 w-40"
           />
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as SortKey)}
-            className="bg-white/5 border border-white/10 rounded-md px-2 py-1 text-xs text-white focus:outline-none"
+            className="bg-slate-50 border border-slate-200 rounded-md px-2 py-1 text-xs text-slate-900 focus:outline-none"
           >
             <option value="omzet">Omzet</option>
             <option value="aantal">Aantal</option>
@@ -71,7 +71,7 @@ export default function ProductsTable({ data, hex }: Props) {
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-[10px] uppercase tracking-wide text-white/40 border-b border-white/5">
+            <tr className="text-[10px] uppercase tracking-wide text-slate-400 border-b border-slate-100">
               <th className="text-left py-2 pr-2">#</th>
               <th className="text-left py-2">Product</th>
               <th className="text-right py-2 px-2">Omzet</th>
@@ -92,26 +92,26 @@ export default function ProductsTable({ data, hex }: Props) {
             {zichtbaar.map((p, i) => {
               const trendKleur =
                 p.trend > 10
-                  ? "text-green-400"
+                  ? "text-emerald-600"
                   : p.trend < -10
-                  ? "text-red-400"
-                  : "text-white/40";
+                  ? "text-red-500"
+                  : "text-slate-400";
               const dagenTerug = p.laatstVerkocht
                 ? differenceInDays(new Date(), parseISO(p.laatstVerkocht))
                 : null;
               return (
                 <tr
                   key={p.naam}
-                  className="border-b border-white/5 hover:bg-white/[0.03] transition-colors"
+                  className="border-b border-slate-100 hover:bg-slate-50 transition-colors"
                 >
-                  <td className="py-2 pr-2 text-white/30 tabular-nums">
+                  <td className="py-2 pr-2 text-slate-400 tabular-nums">
                     {i + 1}
                   </td>
                   <td className="py-2 max-w-[220px]">
-                    <div className="truncate text-white/85" title={p.naam}>
+                    <div className="truncate text-slate-800" title={p.naam}>
                       {p.naam}
                     </div>
-                    <div className="h-1 bg-white/5 rounded-full overflow-hidden mt-1">
+                    <div className="h-1 bg-slate-50 rounded-full overflow-hidden mt-1">
                       <div
                         className="h-full rounded-full"
                         style={{
@@ -129,13 +129,13 @@ export default function ProductsTable({ data, hex }: Props) {
                       maximumFractionDigits: 2,
                     })}
                   </td>
-                  <td className="py-2 px-2 text-right text-white/50 tabular-nums">
+                  <td className="py-2 px-2 text-right text-slate-500 tabular-nums">
                     {p.aandeel.toFixed(1)}%
                   </td>
                   <td className="py-2 px-2 text-right tabular-nums hidden sm:table-cell">
                     {p.aantal.toLocaleString("nl-NL")}
                   </td>
-                  <td className="py-2 px-2 text-right tabular-nums hidden sm:table-cell text-white/70">
+                  <td className="py-2 px-2 text-right tabular-nums hidden sm:table-cell text-slate-600">
                     €{p.gemPrijs.toFixed(2)}
                   </td>
                   <td
@@ -144,7 +144,7 @@ export default function ProductsTable({ data, hex }: Props) {
                     {p.trend > 0 ? "▲ +" : p.trend < 0 ? "▼ " : "• "}
                     {p.trend}%
                   </td>
-                  <td className="py-2 pl-2 text-right text-white/40 hidden md:table-cell tabular-nums text-[11px]">
+                  <td className="py-2 pl-2 text-right text-slate-400 hidden md:table-cell tabular-nums text-[11px]">
                     {p.laatstVerkocht
                       ? dagenTerug === 0
                         ? "vandaag"
@@ -160,7 +160,7 @@ export default function ProductsTable({ data, hex }: Props) {
               <tr>
                 <td
                   colSpan={8}
-                  className="py-4 text-center text-white/30 text-sm"
+                  className="py-4 text-center text-slate-400 text-sm"
                 >
                   Geen producten gevonden.
                 </td>
@@ -173,7 +173,7 @@ export default function ProductsTable({ data, hex }: Props) {
       {gefilterd.length > 15 && (
         <button
           onClick={() => setToonAll((v) => !v)}
-          className="mt-3 text-[11px] text-white/50 hover:text-white/80 transition-colors"
+          className="mt-3 text-[11px] text-slate-500 hover:text-slate-700 transition-colors"
         >
           {toonAll
             ? "← Toon top 15"

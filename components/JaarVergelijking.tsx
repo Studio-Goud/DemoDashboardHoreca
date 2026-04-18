@@ -47,19 +47,19 @@ export default function JaarVergelijking({ data, hex }: Props) {
   }
 
   const kleuren = [
-    "rgba(255,255,255,0.25)",
-    "rgba(255,255,255,0.45)",
-    "rgba(255,255,255,0.65)",
+    "rgba(15,23,42,0.25)",
+    "rgba(15,23,42,0.4)",
+    "rgba(15,23,42,0.55)",
     hex,
   ];
 
   return (
     <div className="card">
       <div className="flex items-baseline justify-between mb-4">
-        <h3 className="font-semibold text-white/80">
+        <h3 className="font-semibold text-slate-700">
           Maand-op-maand vergelijking
         </h3>
-        <span className="text-[11px] text-white/30">
+        <span className="text-[11px] text-slate-400">
           Huidige data · alle jaren
         </span>
       </div>
@@ -68,24 +68,24 @@ export default function JaarVergelijking({ data, hex }: Props) {
         <LineChart data={rows} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
           <CartesianGrid
             strokeDasharray="3 3"
-            stroke="rgba(255,255,255,0.05)"
+            stroke="rgba(15,23,42,0.08)"
           />
           <XAxis
             dataKey="maand"
-            tick={{ fill: "rgba(255,255,255,0.4)", fontSize: 11 }}
+            tick={{ fill: "rgba(15,23,42,0.6)", fontSize: 11 }}
             axisLine={false}
             tickLine={false}
           />
           <YAxis
-            tick={{ fill: "rgba(255,255,255,0.3)", fontSize: 11 }}
+            tick={{ fill: "rgba(15,23,42,0.5)", fontSize: 11 }}
             axisLine={false}
             tickLine={false}
             tickFormatter={(v) => `€${(v / 1000).toFixed(0)}k`}
           />
           <Tooltip
             contentStyle={{
-              backgroundColor: "#1a1a1a",
-              border: "1px solid rgba(255,255,255,0.1)",
+              backgroundColor: "#ffffff",
+              border: "1px solid rgba(15,23,42,0.12)",
               borderRadius: "8px",
               fontSize: "12px",
             }}
@@ -99,7 +99,7 @@ export default function JaarVergelijking({ data, hex }: Props) {
           />
           <Legend
             iconType="circle"
-            wrapperStyle={{ fontSize: "11px", color: "rgba(255,255,255,0.6)" }}
+            wrapperStyle={{ fontSize: "11px", color: "rgba(15,23,42,0.8)" }}
           />
           {jaren.map((j, idx) => (
             <Line
@@ -123,12 +123,12 @@ export default function JaarVergelijking({ data, hex }: Props) {
         {jaren.map((j) => {
           const t = jaarTotaal.get(j)!;
           return (
-            <div key={j} className="bg-white/5 rounded-xl p-3">
-              <p className="text-white/40 text-xs">{j}</p>
+            <div key={j} className="bg-slate-50 rounded-xl p-3">
+              <p className="text-slate-400 text-xs">{j}</p>
               <p className="font-bold text-lg tabular-nums">
                 €{(t.omzet / 1000).toFixed(1)}k
               </p>
-              <p className="text-[11px] text-white/30">
+              <p className="text-[11px] text-slate-400">
                 {t.txs.toLocaleString("nl-NL")} tx
               </p>
             </div>

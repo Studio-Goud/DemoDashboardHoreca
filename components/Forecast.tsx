@@ -10,10 +10,10 @@ interface Props {
 }
 
 const drukKleur: Record<Prognose["druk"], string> = {
-  laag: "bg-white/5 border-white/10 text-white/50",
-  normaal: "bg-blue-500/10 border-blue-500/30 text-blue-200",
-  druk: "bg-orange-500/10 border-orange-500/30 text-orange-200",
-  "zeer druk": "bg-red-500/10 border-red-500/30 text-red-200",
+  laag: "bg-slate-50 border-slate-200 text-slate-500",
+  normaal: "bg-blue-500/10 border-blue-500/30 text-blue-700",
+  druk: "bg-orange-500/10 border-orange-500/30 text-orange-700",
+  "zeer druk": "bg-red-500/10 border-red-500/30 text-red-700",
 };
 
 const drukLabel: Record<Prognose["druk"], string> = {
@@ -33,8 +33,8 @@ export default function Forecast({ data, omzetVandaag }: Props) {
   if (totaalVerwacht === 0 || bruikbaarheid < 3) {
     return (
       <div className="card">
-        <h3 className="font-semibold mb-1 text-white/80">14-daagse prognose</h3>
-        <p className="text-[11px] text-white/30 mb-3">
+        <h3 className="font-semibold mb-1 text-slate-700">14-daagse prognose</h3>
+        <p className="text-[11px] text-slate-400 mb-3">
           Nog onvoldoende historie in de laatste 8 weken om betrouwbaar te
           voorspellen. Prognose verschijnt zodra er ≥ 3 weken historie per
           weekdag beschikbaar is.
@@ -43,7 +43,7 @@ export default function Forecast({ data, omzetVandaag }: Props) {
           {data.slice(0, 7).map((dag, i) => (
             <div
               key={i}
-              className="rounded-xl p-3 text-center border border-white/5 bg-white/[0.02] text-white/40"
+              className="rounded-xl p-3 text-center border border-slate-100 bg-slate-50 text-slate-400"
             >
               <p className="text-[10px] font-medium uppercase tracking-wide">
                 {format(parseISO(dag.datum), "EEE", { locale: nl })}
@@ -64,13 +64,13 @@ export default function Forecast({ data, omzetVandaag }: Props) {
     <div className="card">
       <div className="flex items-baseline justify-between mb-3">
         <div>
-          <h3 className="font-semibold text-white/80">14-daagse prognose</h3>
-          <p className="text-[11px] text-white/30">
+          <h3 className="font-semibold text-slate-700">14-daagse prognose</h3>
+          <p className="text-[11px] text-slate-400">
             Op basis van gem. laatste 8 weken per weekdag
           </p>
         </div>
         <div className="text-right">
-          <p className="text-[10px] uppercase tracking-wide text-white/40">
+          <p className="text-[10px] uppercase tracking-wide text-slate-400">
             Verwacht totaal
           </p>
           <p className="font-bold text-lg tabular-nums">
@@ -94,7 +94,7 @@ export default function Forecast({ data, omzetVandaag }: Props) {
             <div
               key={i}
               className={`rounded-xl p-3 text-center border ${drukKleur[dag.druk]} ${
-                vandaag ? "ring-2 ring-white/40" : ""
+                vandaag ? "ring-2 ring-slate-400" : ""
               }`}
             >
               <p className="text-[10px] font-medium uppercase tracking-wide opacity-80">
@@ -109,16 +109,16 @@ export default function Forecast({ data, omzetVandaag }: Props) {
               <p className="text-[10px] opacity-60 mt-1">{drukLabel[dag.druk]}</p>
 
               {vandaag && (
-                <div className="mt-2 pt-2 border-t border-white/10">
-                  <p className="text-[10px] text-white/60">
+                <div className="mt-2 pt-2 border-t border-slate-200">
+                  <p className="text-[10px] text-slate-500">
                     Nu: €{omzetVandaag.toFixed(0)}
                   </p>
                   {realisatie !== null && (
                     <p
                       className={`text-[10px] font-semibold ${
                         realisatie >= 100
-                          ? "text-green-400"
-                          : "text-orange-300"
+                          ? "text-emerald-600"
+                          : "text-orange-600"
                       }`}
                     >
                       {realisatie}%
@@ -131,9 +131,9 @@ export default function Forecast({ data, omzetVandaag }: Props) {
         })}
       </div>
 
-      <p className="text-[11px] text-white/40 mt-3">
+      <p className="text-[11px] text-slate-400 mt-3">
         Drukste dag in prognose:{" "}
-        <span className="text-white/70">{druksteDag.dagNaam}</span> · ~€
+        <span className="text-slate-600">{druksteDag.dagNaam}</span> · ~€
         {druksteDag.verwacht.toFixed(0)}
       </p>
     </div>
