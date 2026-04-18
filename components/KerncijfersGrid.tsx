@@ -1,6 +1,6 @@
 "use client";
 
-import type { KernCijfers, PeriodeCijfer } from "@/lib/analytics";
+import type { KernCijfers } from "@/lib/analytics";
 
 interface Props {
   kerncijfers: KernCijfers;
@@ -23,10 +23,11 @@ function fmtEurKort(n: number): string {
 }
 
 function Delta({ waarde }: { waarde: number }) {
-  const pos = waarde >= 0;
+  if (waarde === 0) return <span className="text-slate-400 text-xs">±0%</span>;
+  const pos = waarde > 0;
   return (
     <span
-      className={`text-xs font-medium ${
+      className={`text-xs font-semibold tabular-nums ${
         pos ? "text-emerald-600" : "text-red-500"
       }`}
     >
@@ -36,151 +37,118 @@ function Delta({ waarde }: { waarde: number }) {
   );
 }
 
-function Tegel({
-  titel,
-  waarde,
-  subregel,
-  delta,
-  accent,
-  hex,
-}: {
-  titel: string;
-  waarde: string;
-  subregel?: string;
-  delta?: number;
-  accent?: boolean;
-  hex?: string;
-}) {
+interface PeriodeRowProps {
+  label: string;
+  huidig: { omzet: number; txs: number; label: string };
+  vergelijking: { omzet: number; txs: number; label: string };
+  groei: number;
+}
+
+function PeriodeRow({ label, huidig, vergelijking, groei }: PeriodeRowProps) {
   return (
-    <div
-      className="rounded-2xl p-4 border"
-      style={{
-        backgroundColor: accent && hex ? `${hex}14` : "#F8FAFC",
-        borderColor: accent && hex ? `${hex}66` : "#E2E8F0",
-      }}
-    >
-      <p className="text-[11px] uppercase tracking-wider text-slate-400 mb-1">
-        {titel}
-      </p>
-      <p
-        className="text-2xl font-bold tabular-nums"
-        style={{ color: accent && hex ? hex : undefined }}
-      >
-        {waarde}
-      </p>
-      <div className="flex items-center justify-between mt-1 min-h-[16px]">
-        <span className="text-[11px] text-slate-400">{subregel ?? ""}</span>
-        {typeof delta === "number" && <Delta waarde={delta} />}
+    <div className="grid grid-cols-[1fr_auto] items-center gap-3 py-3">
+      <div className="min-w-0">
+        <p className="text-[11px] uppercase tracking-wider text-slate-400 mb-0.5">
+          {label}
+        </p>
+        <p className="text-lg font-bold tabular-nums text-slate-900">
+          {fmtEur(huidig.omzet)}
+        </p>
+        <p className="text-[11px] text-slate-400 truncate">
+          {huidig.txs.toLocaleString("nl-NL")} tx · vs {fmtEurKort(vergelijking.omzet)} ({vergelijking.label})
+        </p>
+      </div>
+      <div className="text-right">
+        <Delta waarde={groei} />
       </div>
     </div>
   );
 }
 
-export default function KerncijfersGrid({ kerncijfers, hex }: Props) {
-  const k = kerncijfers;
-
+export default function KerncijfersGrid({ kerncijfers: k, hex }: Props) {
   return (
     <div className="card">
-      <div className="flex items-baseline justify-between mb-3">
+      <div className="flex items-baseline justify-between mb-2">
         <h3 className="font-semibold text-slate-700">Kerncijfers</h3>
         <span className="text-[11px] text-slate-400">
-          Alle bedragen incl. BTW · live
+          bedragen incl. BTW · live
         </span>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-        <Tegel
-          titel="Vandaag"
-          waarde={fmtEur(k.vandaag.omzet)}
-          subregel={`${k.vandaag.txs} tx · gem. ${fmtEur(k.vandaag.gemBon)}`}
-          delta={k.groei.tovZelfdeDagVorigeWeek}
-          accent
-          hex={hex}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 divide-y divide-slate-100 sm:divide-y-0">
+        <PeriodeRow
+          label="Vandaag"
+          huidig={{ ...k.vandaag }}
+          vergelijking={{
+            omzet: k.zelfdeDagVorigeWeek.omzet,
+            txs: k.zelfdeDagVorigeWeek.txs,
+            label: "zelfde dag v. week",
+          }}
+          groei={k.groei.tovZelfdeDagVorigeWeek}
         />
-        <Tegel
-          titel="Verwacht vandaag"
-          waarde={fmtEur(k.verwachtVandaag)}
-          subregel={
-            k.resterendVandaag > 0
-              ? `Nog ${fmtEur(k.resterendVandaag)} te gaan`
-              : k.verwachtVandaag > 0
-              ? "Doel bereikt ✓"
-              : "Onvoldoende historie"
-          }
+        <PeriodeRow
+          label="Deze week (t/m nu)"
+          huidig={{ ...k.dezeWeek }}
+          vergelijking={{ ...k.vorigeWeek, label: "vorige week" }}
+          groei={k.groei.tovVorigeWeek}
         />
-        <Tegel
-          titel="Gisteren"
-          waarde={fmtEur(k.gisteren.omzet)}
-          subregel={`${k.gisteren.txs} tx · gem. ${fmtEur(k.gisteren.gemBon)}`}
-          delta={k.groei.tovGisteren}
+        <PeriodeRow
+          label={k.dezeMaand.label}
+          huidig={{ ...k.dezeMaand }}
+          vergelijking={{
+            omzet: k.vorigeMaandTotNu.omzet,
+            txs: k.vorigeMaandTotNu.txs,
+            label: "vorige maand t/m nu",
+          }}
+          groei={k.groei.tovVorigeMaand}
         />
-        <Tegel
-          titel={k.zelfdeDagVorigeWeek.label}
-          waarde={fmtEur(k.zelfdeDagVorigeWeek.omzet)}
-          subregel={`${k.zelfdeDagVorigeWeek.txs} tx`}
+        <PeriodeRow
+          label={`${new Date().getFullYear()} YTD`}
+          huidig={{ ...k.ditJaar }}
+          vergelijking={{
+            omzet: k.vorigJaarTotNu.omzet,
+            txs: k.vorigJaarTotNu.txs,
+            label: `${new Date().getFullYear() - 1} YTD`,
+          }}
+          groei={k.groei.tovVorigJaar}
         />
-
-        <Tegel
-          titel="Deze week (t/m nu)"
-          waarde={fmtEur(k.dezeWeek.omzet)}
-          subregel={`${k.dezeWeek.txs} tx · gem. ${fmtEur(k.dezeWeek.gemBon)}`}
-          delta={k.groei.tovVorigeWeek}
+        <PeriodeRow
+          label="Gisteren"
+          huidig={{ ...k.gisteren }}
+          vergelijking={{
+            omzet: k.vandaag.omzet,
+            txs: k.vandaag.txs,
+            label: "vandaag",
+          }}
+          groei={-k.groei.tovGisteren}
         />
-        <Tegel
-          titel="Vorige week"
-          waarde={fmtEur(k.vorigeWeek.omzet)}
-          subregel={`${k.vorigeWeek.txs} tx · gem. ${fmtEur(
-            k.vorigeWeek.gemBon
-          )}`}
-        />
-        <Tegel
-          titel={k.dezeMaand.label}
-          waarde={fmtEur(k.dezeMaand.omzet)}
-          subregel={`${k.dezeMaand.txs} tx`}
-          delta={k.groei.tovVorigeMaand}
-        />
-        <Tegel
-          titel={k.vorigeMaandTotNu.label}
-          waarde={fmtEur(k.vorigeMaandTotNu.omzet)}
-          subregel={`${k.vorigeMaandTotNu.txs} tx`}
-        />
-
-        <Tegel
-          titel={k.ditJaar.label}
-          waarde={fmtEurKort(k.ditJaar.omzet)}
-          subregel={`${k.ditJaar.txs.toLocaleString("nl-NL")} tx`}
-          delta={k.groei.tovVorigJaar}
-        />
-        <Tegel
-          titel={k.vorigJaarTotNu.label}
-          waarde={fmtEurKort(k.vorigJaarTotNu.omzet)}
-          subregel={`${k.vorigJaarTotNu.txs.toLocaleString("nl-NL")} tx`}
-        />
-        <Tegel
-          titel="Gem. omzet / dag"
-          waarde={fmtEur(k.gemOmzetPerDag)}
-          subregel={`Gem. ${k.gemTxPerDag} tx/dag`}
-        />
-        <Tegel
-          titel="Druksste dag ooit"
-          waarde={
-            k.druksteDag ? fmtEur(k.druksteDag.omzet) : "—"
-          }
-          subregel={k.druksteDag?.datum ?? ""}
-        />
+        <div className="grid grid-cols-[1fr_auto] items-center gap-3 py-3">
+          <div>
+            <p className="text-[11px] uppercase tracking-wider text-slate-400 mb-0.5">
+              Gemiddelde dag
+            </p>
+            <p className="text-lg font-bold tabular-nums text-slate-900">
+              {fmtEur(k.gemOmzetPerDag)}
+            </p>
+            <p className="text-[11px] text-slate-400">
+              {k.gemTxPerDag} tx/dag
+              {k.druksteDag
+                ? ` · beste: ${fmtEurKort(k.druksteDag.omzet)}`
+                : ""}
+            </p>
+          </div>
+        </div>
       </div>
 
       {k.laatsteTx && (
-        <p className="text-[11px] text-slate-400 mt-3">
+        <p className="text-[11px] text-slate-400 mt-3 pt-3 border-t border-slate-100">
           Laatste transactie: {fmtEur(k.laatsteTx.amount)} ·{" "}
           {k.tijdSindsLaatsteTxMin !== null
             ? k.tijdSindsLaatsteTxMin < 1
               ? "zojuist"
               : k.tijdSindsLaatsteTxMin < 60
               ? `${k.tijdSindsLaatsteTxMin} min geleden`
-              : `${Math.floor(k.tijdSindsLaatsteTxMin / 60)}u ${
-                  k.tijdSindsLaatsteTxMin % 60
-                }m geleden`
+              : `${Math.floor(k.tijdSindsLaatsteTxMin / 60)}u ${k.tijdSindsLaatsteTxMin % 60}m geleden`
             : ""}
         </p>
       )}

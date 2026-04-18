@@ -76,8 +76,8 @@ export default function RevenueChart({ data, kleur, hex }: Props) {
 
   const formatted = zichtbaar.map((d, i) => ({
     ...d,
-    label: format(parseISO(d.datum), "d MMM", { locale: nl }),
-    voljaar: format(parseISO(d.datum), "d MMM yyyy", { locale: nl }),
+    label: format(parseISO(d.datum), "dd-MM", { locale: nl }),
+    voljaar: format(parseISO(d.datum), "EEEE dd-MM-yyyy", { locale: nl }),
     trend: Math.round(rolling[i] * 100) / 100,
   }));
 
@@ -88,9 +88,9 @@ export default function RevenueChart({ data, kleur, hex }: Props) {
           <h3 className="font-semibold text-slate-700">Omzet per dag</h3>
           <p className="text-[11px] text-slate-400">
             {zichtbaar.length > 0 &&
-              `${format(parseISO(zichtbaar[0].datum), "d MMM yyyy", {
+              `${format(parseISO(zichtbaar[0].datum), "dd-MM-yyyy", {
                 locale: nl,
-              })} – ${format(parseISO(zichtbaar[zichtbaar.length - 1].datum), "d MMM yyyy", { locale: nl })}`}
+              })} – ${format(parseISO(zichtbaar[zichtbaar.length - 1].datum), "dd-MM-yyyy", { locale: nl })}`}
           </p>
         </div>
         <div className="flex gap-1">
@@ -136,7 +136,7 @@ export default function RevenueChart({ data, kleur, hex }: Props) {
           </p>
           <p className="text-[10px] text-slate-400">
             {beste.datum &&
-              format(parseISO(beste.datum), "d MMM", { locale: nl })}
+              format(parseISO(beste.datum), "dd-MM-yyyy", { locale: nl })}
           </p>
         </div>
         <div className="bg-slate-50 rounded-lg p-2">

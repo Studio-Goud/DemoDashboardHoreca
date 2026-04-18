@@ -1,21 +1,19 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getDay } from "date-fns";
+import { getDay, format } from "date-fns";
+import { nl } from "date-fns/locale";
 import PullToRefresh from "@/components/PullToRefresh";
 import BedrijfTabs from "@/components/BedrijfTabs";
 import LiveRevenue from "@/components/LiveRevenue";
 import RevenueChart from "@/components/RevenueChart";
-import PeakHoursHeatmap from "@/components/PeakHoursHeatmap";
-import WeekdagHeatmap from "@/components/WeekdagHeatmap";
 import ProductsTable from "@/components/ProductsTable";
 import ProductenLevenslang from "@/components/ProductenLevenslang";
 import Forecast from "@/components/Forecast";
 import Schommelingen from "@/components/Schommelingen";
 import OptimizatieSuggesties from "@/components/OptimizatieSuggesties";
 import KerncijfersGrid from "@/components/KerncijfersGrid";
-import JaarVergelijking from "@/components/JaarVergelijking";
 import RecenteTransacties from "@/components/RecenteTransacties";
-import HistorischOverzicht from "@/components/HistorischOverzicht";
+import FeestdagenKalender from "@/components/FeestdagenKalender";
+import Vergelijken from "@/components/Vergelijken";
 import { fetchAllTransactions, type Bedrijf } from "@/lib/sumup";
 import {
   getZettleJaaroverzicht,
@@ -29,7 +27,6 @@ import {
   detecteerSchommelingen,
   genereerSuggesties,
   berekenKerncijfers,
-  berekenWeekdagUur,
   berekenMaandOmzet,
   berekenWeekdagCurve,
 } from "@/lib/analytics";
@@ -42,16 +39,14 @@ const BEDRIJVEN = {
   bb: {
     naam: "Brunch & Brew",
     emoji: "☕",
-    hex: "#00B8FF",         // neon blauw
-    hexDark: "#0081B5",
+    hex: "#00B8FF",
     slug: "bb" as Bedrijf,
     paypalPeriode: "apr 2022 – nu",
   },
   sl: {
     naam: "Saté Lounge",
     emoji: "🍢",
-    hex: "#00D27A",         // neon groen
-    hexDark: "#008C52",
+    hex: "#00D27A",
     slug: "sl" as Bedrijf,
     paypalPeriode: "apr 2023 – nu",
   },
@@ -60,14 +55,7 @@ const BEDRIJVEN = {
 type Params = { bedrijf: string };
 
 function fmtDatumTijd(d: Date): string {
-  return d.toLocaleString("nl-NL", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
+  return format(d, "dd-MM-yyyy HH:mm:ss", { locale: nl });
 }
 
 export default async function DashboardPage({ params }: { params: Params }) {
@@ -76,11 +64,9 @@ export default async function DashboardPage({ params }: { params: Params }) {
 
   const opgehaald = new Date();
 
-  // Historische data uit Excel — geen API calls nodig, snel en betrouwbaar
   const jaaroverzicht = getZettleJaaroverzicht(config.slug);
   const productLevens = getProductLevenshistorie(config.slug);
 
-  // Alleen SumUp — Zettle API werkt niet, dus die slaan we over
   const sumupResult = await Promise.allSettled([
     fetchAllTransactions(config.slug),
   ]);
@@ -100,7 +86,6 @@ export default async function DashboardPage({ params }: { params: Params }) {
 
   const dagOmzet       = heeftData ? berekenDagOmzet(alle)            : [];
   const piekuren       = heeftData ? berekenPiekuren(alle)            : [];
-  const weekdagUurData = heeftData ? berekenWeekdagUur(alle)          : [];
   const topProducten   = heeftData ? berekenTopProducten(alle)        : [];
   const maandOmzet     = heeftData ? berekenMaandOmzet(alle)          : [];
   const prognose       = heeftData ? berekenPrognose(alle)            : [];
@@ -109,9 +94,33 @@ export default async function DashboardPage({ params }: { params: Params }) {
   const weekdagCurve   = heeftData
     ? berekenWeekdagCurve(alle, getDay(new Date()))
     : new Array(24).fill(0);
-  const suggesties = heeftData && kerncijfers
-    ? genereerSuggesties(piekuren, topProducten, prognose, kerncijfers)
-    : [];
+  const suggesties =
+    heeftData && kerncijfers
+      ? genereerSuggesties(
+          piekuren,
+          topProducten,
+          prognose,
+          kerncijfers,
+          schommelingen
+        )
+      : [];
+
+  // Jaartotalen voor Vergelijken: combineer Zettle historisch + huidig SumUp jaar
+  const huidigJaar = new Date().getFullYear();
+  const jaarTotalen = [
+    ...jaaroverzicht.map((j) => ({
+      jaar: j.jaar,
+      omzet: j.omzetInclBtw,
+      txs: j.aantalTransacties,
+    })),
+  ];
+  if (kerncijfers && !jaarTotalen.some((j) => j.jaar === huidigJaar)) {
+    jaarTotalen.push({
+      jaar: huidigJaar,
+      omzet: kerncijfers.ditJaar.omzet,
+      txs: kerncijfers.ditJaar.txs,
+    });
+  }
 
   const kleurNaam = config.slug === "bb" ? "bb-primary" : "sl-primary";
 
@@ -181,32 +190,25 @@ export default async function DashboardPage({ params }: { params: Params }) {
               />
             )}
 
-            {/* Historisch jaaroverzicht — alléén uit Excel */}
-            {(jaaroverzicht.length > 0 || kerncijfers) && (
-              <HistorischOverzicht
-                data={jaaroverzicht}
+            {/* Vergelijken: dag / maand / jaar / seizoen */}
+            {dagOmzet.length > 0 && (
+              <Vergelijken
+                dagOmzet={dagOmzet}
+                maandOmzet={maandOmzet}
+                jaarTotalen={jaarTotalen}
                 hex={config.hex}
-                huidigJaar={new Date().getFullYear()}
-                huidigJaarOmzet={kerncijfers?.ditJaar.omzet ?? 0}
-                huidigJaarTx={kerncijfers?.ditJaar.txs ?? 0}
               />
             )}
 
-            {maandOmzet.length > 3 && (
-              <JaarVergelijking data={maandOmzet} hex={config.hex} />
+            {/* Feestdagen + vakanties agenda */}
+            <FeestdagenKalender />
+
+            {/* Signalen & suggesties */}
+            {suggesties.length > 0 && (
+              <OptimizatieSuggesties suggesties={suggesties} />
             )}
 
-            {weekdagUurData.length > 0 && (
-              <WeekdagHeatmap data={weekdagUurData} hex={config.hex} />
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {piekuren.length > 0 && (
-                <PeakHoursHeatmap data={piekuren} hex={config.hex} />
-              )}
-              <Schommelingen data={schommelingen} />
-            </div>
-
+            {/* Prognose */}
             {prognose.length > 0 && kerncijfers && (
               <Forecast
                 data={prognose}
@@ -214,6 +216,10 @@ export default async function DashboardPage({ params }: { params: Params }) {
               />
             )}
 
+            {/* Schommelingen */}
+            <Schommelingen data={schommelingen} />
+
+            {/* Producten */}
             {topProducten.length > 0 && (
               <ProductsTable data={topProducten} hex={config.hex} />
             )}
@@ -230,21 +236,17 @@ export default async function DashboardPage({ params }: { params: Params }) {
               <RecenteTransacties bedrijf={config.slug} hex={config.hex} />
             )}
 
-            {suggesties.length > 0 && (
-              <OptimizatieSuggesties suggesties={suggesties} />
-            )}
-
             <div className="text-center text-slate-300 text-xs pb-6 space-y-1">
               <p>
-                SumUp: {sumupTxs.length.toLocaleString("nl-NL")} tx ·
-                Zettle Excel: {jaaroverzicht.length} jaren ·
-                Product Excel: {productLevens.length} items
+                SumUp: {sumupTxs.length.toLocaleString("nl-NL")} tx · Zettle
+                Excel: {jaaroverzicht.length} jaren · Product Excel:{" "}
+                {productLevens.length} items
               </p>
               {eersteDatum && laatsteDatum && (
                 <p>
                   SumUp periode:{" "}
-                  {eersteDatum.toLocaleDateString("nl-NL")} –{" "}
-                  {laatsteDatum.toLocaleDateString("nl-NL")} ·{" "}
+                  {format(eersteDatum, "dd-MM-yyyy", { locale: nl })} –{" "}
+                  {format(laatsteDatum, "dd-MM-yyyy", { locale: nl })} ·{" "}
                   {dagOmzet.length} dagen met omzet
                 </p>
               )}

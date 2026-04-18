@@ -41,6 +41,17 @@ interface Props {
   weekdagCurve: number[];        // 24 bedragen — gem. omzet per uur voor deze weekdag
 }
 
+function labelBetaalmethode(naam: string): string {
+  const n = naam.toLowerCase().replace(/[_-]/g, " ").trim();
+  if (n === "pos" || n === "card" || n === "kaart" || n.includes("reader")) return "Kaart";
+  if (n === "cash" || n === "contant") return "Cash";
+  if (n === "mobile" || n === "wallet") return "Mobiel";
+  if (n === "boleto") return "Boleto";
+  return naam
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 function tijdGeleden(isoString: string): string {
   const nu = new Date();
   const dan = new Date(isoString);
@@ -200,7 +211,7 @@ export default function LiveRevenue({
                   }}
                 />
                 <div
-                  className="absolute top-0 bottom-0 w-[2px] bg-white/60"
+                  className="absolute top-0 bottom-0 w-[2px] bg-slate-900/70"
                   style={{
                     left: `${Math.min(
                       (verwachtNu / Math.max(verwachtVandaag, 1)) * 100,
@@ -294,10 +305,10 @@ export default function LiveRevenue({
                     ? (b.omzet / data.omzetVandaag) * 100
                     : 0;
                 return (
-                  <div key={naam}>
+                  <div key={naam} className="transition-colors">
                     <div className="flex justify-between text-[11px] mb-0.5">
-                      <span className="capitalize text-slate-600">
-                        {naam.replace(/_/g, " ")}
+                      <span className="text-slate-700 font-medium">
+                        {labelBetaalmethode(naam)}
                       </span>
                       <span className="text-slate-500 tabular-nums">
                         €{b.omzet.toFixed(0)} · {b.aantal}×
@@ -334,8 +345,8 @@ export default function LiveRevenue({
                   {tijdGeleden(data.laatsteSale.timestamp)}
                 </span>
               </div>
-              <p className="text-slate-400 text-[11px] capitalize">
-                {data.laatsteSale.payment_type.replace(/_/g, " ")}
+              <p className="text-slate-400 text-[11px]">
+                {labelBetaalmethode(data.laatsteSale.payment_type)}
               </p>
             </div>
           )}

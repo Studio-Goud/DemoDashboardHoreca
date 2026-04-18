@@ -9,133 +9,162 @@ interface Props {
   omzetVandaag: number;
 }
 
-const drukKleur: Record<Prognose["druk"], string> = {
-  laag: "bg-slate-50 border-slate-200 text-slate-500",
-  normaal: "bg-blue-500/10 border-blue-500/30 text-blue-700",
-  druk: "bg-orange-500/10 border-orange-500/30 text-orange-700",
-  "zeer druk": "bg-red-500/10 border-red-500/30 text-red-700",
+const drukStyle: Record<Prognose["druk"], { bar: string; text: string; label: string }> = {
+  laag: { bar: "#E2E8F0", text: "text-slate-500", label: "Rustig" },
+  normaal: { bar: "#BAE6FD", text: "text-sky-700", label: "Normaal" },
+  druk: { bar: "#FDBA74", text: "text-orange-700", label: "Druk" },
+  "zeer druk": { bar: "#FCA5A5", text: "text-red-700", label: "Zeer druk" },
 };
 
-const drukLabel: Record<Prognose["druk"], string> = {
-  laag: "Rustig",
-  normaal: "Normaal",
-  druk: "Druk",
-  "zeer druk": "Zeer druk",
-};
+const DAG_AFK = ["Zo", "Ma", "Di", "Wo", "Do", "Vr", "Za"];
 
 export default function Forecast({ data, omzetVandaag }: Props) {
   if (data.length === 0) return null;
 
   const totaalVerwacht = data.reduce((s, p) => s + p.verwacht, 0);
   const bruikbaarheid = data.filter((d) => d.verwacht > 0).length;
+  const druksteDag =
+    data.reduce<Prognose | null>(
+      (a, b) => (!a || b.verwacht > a.verwacht ? b : a),
+      null
+    );
+  const maxVerwacht = druksteDag?.verwacht ?? 0;
 
-  // Onvoldoende historie om te voorspellen
   if (totaalVerwacht === 0 || bruikbaarheid < 3) {
     return (
       <div className="card">
         <h3 className="font-semibold mb-1 text-slate-700">14-daagse prognose</h3>
         <p className="text-[11px] text-slate-400 mb-3">
-          Nog onvoldoende historie in de laatste 8 weken om betrouwbaar te
-          voorspellen. Prognose verschijnt zodra er ≥ 3 weken historie per
-          weekdag beschikbaar is.
+          Nog onvoldoende historie voor een betrouwbare prognose. Komt
+          automatisch als er ≥ 3 weken historie per weekdag beschikbaar is.
         </p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
-          {data.slice(0, 7).map((dag, i) => (
-            <div
-              key={i}
-              className="rounded-xl p-3 text-center border border-slate-100 bg-slate-50 text-slate-400"
-            >
-              <p className="text-[10px] font-medium uppercase tracking-wide">
-                {format(parseISO(dag.datum), "EEE", { locale: nl })}
-              </p>
-              <p className="text-[11px] opacity-60">
-                {format(parseISO(dag.datum), "d MMM", { locale: nl })}
-              </p>
-            </div>
-          ))}
-        </div>
       </div>
     );
   }
 
-  const druksteDag = data.reduce((a, b) => (a.verwacht > b.verwacht ? a : b));
+  // Groepeer per week voor overzichtelijker layout
+  const weken: Prognose[][] = [];
+  for (let i = 0; i < data.length; i += 7) weken.push(data.slice(i, i + 7));
 
   return (
     <div className="card">
-      <div className="flex items-baseline justify-between mb-3">
+      <div className="flex items-baseline justify-between mb-4">
         <div>
           <h3 className="font-semibold text-slate-700">14-daagse prognose</h3>
           <p className="text-[11px] text-slate-400">
-            Op basis van gem. laatste 8 weken per weekdag
+            Gem. zelfde weekdag laatste 8 weken · feestdagen uit historie
+            vorig jaar
           </p>
         </div>
         <div className="text-right">
           <p className="text-[10px] uppercase tracking-wide text-slate-400">
             Verwacht totaal
           </p>
-          <p className="font-bold text-lg tabular-nums">
-            €
-            {totaalVerwacht.toLocaleString("nl-NL", {
-              maximumFractionDigits: 0,
-            })}
+          <p className="font-bold text-lg tabular-nums text-slate-900">
+            €{totaalVerwacht.toLocaleString("nl-NL", { maximumFractionDigits: 0 })}
           </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
-        {data.map((dag, i) => {
-          const datum = parseISO(dag.datum);
-          const vandaag = isToday(datum);
-          const realisatie =
-            vandaag && dag.verwacht > 0
-              ? Math.round((omzetVandaag / dag.verwacht) * 100)
-              : null;
-          return (
-            <div
-              key={i}
-              className={`rounded-xl p-3 text-center border ${drukKleur[dag.druk]} ${
-                vandaag ? "ring-2 ring-slate-400" : ""
-              }`}
-            >
-              <p className="text-[10px] font-medium uppercase tracking-wide opacity-80">
-                {vandaag ? "Vandaag" : format(datum, "EEE", { locale: nl })}
-              </p>
-              <p className="text-[11px] opacity-60 mb-2">
-                {format(datum, "d MMM", { locale: nl })}
-              </p>
-              <p className="text-sm font-semibold tabular-nums">
-                €{dag.verwacht.toFixed(0)}
-              </p>
-              <p className="text-[10px] opacity-60 mt-1">{drukLabel[dag.druk]}</p>
-
-              {vandaag && (
-                <div className="mt-2 pt-2 border-t border-slate-200">
-                  <p className="text-[10px] text-slate-500">
-                    Nu: €{omzetVandaag.toFixed(0)}
-                  </p>
-                  {realisatie !== null && (
-                    <p
-                      className={`text-[10px] font-semibold ${
-                        realisatie >= 100
-                          ? "text-emerald-600"
-                          : "text-orange-600"
-                      }`}
-                    >
-                      {realisatie}%
+      <div className="space-y-4">
+        {weken.map((week, wi) => (
+          <div key={wi} className="space-y-1.5">
+            <p className="text-[10px] uppercase tracking-wide text-slate-400">
+              {wi === 0 ? "Deze week (vanaf vandaag)" : "Volgende week"}
+            </p>
+            {week.map((dag) => {
+              const datum = parseISO(dag.datum);
+              const vandaag = isToday(datum);
+              const realisatie =
+                vandaag && dag.verwacht > 0
+                  ? Math.round((omzetVandaag / dag.verwacht) * 100)
+                  : null;
+              const stijl = drukStyle[dag.druk];
+              const pct = maxVerwacht > 0 ? (dag.verwacht / maxVerwacht) * 100 : 0;
+              return (
+                <div
+                  key={dag.datum}
+                  className={`grid grid-cols-[minmax(120px,1.3fr)_3fr_minmax(100px,auto)] items-center gap-3 py-2 px-3 rounded-lg ${
+                    vandaag
+                      ? "bg-slate-100 border border-slate-300"
+                      : "hover:bg-slate-50"
+                  } transition-colors`}
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-slate-800">
+                      <span className="inline-block w-7 text-slate-400">
+                        {DAG_AFK[dag.weekdag]}
+                      </span>
+                      {format(datum, "dd-MM", { locale: nl })}
+                      {vandaag && (
+                        <span className="ml-2 text-[10px] text-slate-500 font-normal">
+                          vandaag
+                        </span>
+                      )}
                     </p>
-                  )}
+                    <div className="flex flex-wrap gap-1 mt-0.5">
+                      {dag.feestdag && (
+                        <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 rounded">
+                          {dag.feestdag}
+                        </span>
+                      )}
+                      {!dag.feestdag && dag.vakantie && (
+                        <span className="text-[10px] text-sky-700 bg-sky-50 border border-sky-200 px-1.5 rounded">
+                          {dag.vakantie}
+                        </span>
+                      )}
+                      <span className={`text-[10px] ${stijl.text}`}>
+                        {stijl.label}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full"
+                      style={{
+                        width: `${pct}%`,
+                        backgroundColor: stijl.bar,
+                      }}
+                    />
+                  </div>
+
+                  <div className="text-right">
+                    <p className="text-sm font-semibold tabular-nums text-slate-900">
+                      €{dag.verwacht.toLocaleString("nl-NL", { maximumFractionDigits: 0 })}
+                    </p>
+                    {vandaag && realisatie !== null && (
+                      <p
+                        className={`text-[10px] tabular-nums ${
+                          realisatie >= 100
+                            ? "text-emerald-600"
+                            : "text-orange-600"
+                        }`}
+                      >
+                        nu {realisatie}% (€
+                        {omzetVandaag.toLocaleString("nl-NL", {
+                          maximumFractionDigits: 0,
+                        })}
+                        )
+                      </p>
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
-          );
-        })}
+              );
+            })}
+          </div>
+        ))}
       </div>
 
-      <p className="text-[11px] text-slate-400 mt-3">
-        Drukste dag in prognose:{" "}
-        <span className="text-slate-600">{druksteDag.dagNaam}</span> · ~€
-        {druksteDag.verwacht.toFixed(0)}
-      </p>
+      {druksteDag && (
+        <p className="text-[11px] text-slate-400 mt-4 pt-3 border-t border-slate-100">
+          Drukste dag in prognose:{" "}
+          <span className="text-slate-700 font-medium">
+            {format(parseISO(druksteDag.datum), "EEEE dd-MM-yyyy", { locale: nl })}
+          </span>{" "}
+          · ~€{druksteDag.verwacht.toFixed(0)}
+        </p>
+      )}
     </div>
   );
 }

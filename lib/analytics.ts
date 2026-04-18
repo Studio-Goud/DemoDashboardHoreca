@@ -17,8 +17,11 @@ import {
   differenceInCalendarDays,
   differenceInMinutes,
   addDays,
+  isSameDay,
 } from "date-fns";
 import { nl } from "date-fns/locale";
+import { OPENINGSUREN, isBinnenOpeningstijden } from "./openingsuren";
+import { feestdagOpDatum, vakantieOpDatum } from "./feestdagen";
 
 export interface DagOmzet {
   datum: string;
@@ -50,6 +53,8 @@ export interface Prognose {
   verwacht: number;
   druk: "laag" | "normaal" | "druk" | "zeer druk";
   weekdag: number;
+  feestdag?: string | null;
+  vakantie?: string | null;
 }
 
 export interface KernCijfers {
@@ -284,23 +289,24 @@ export function berekenTopProducten(txs: SumUpTransaction[]): ProductData[] {
 }
 
 export function berekenPrognose(txs: SumUpTransaction[]): Prognose[] {
-  // Baseer prognose op gem. per weekdag van de laatste 8 weken
-  const nu = new Date();
-  const grens = subDays(nu, 56);
-  const recent = txs.filter((t) => parseISO(t.timestamp) >= grens);
-
-  const dagOmzetMap = new Map<string, number>();
-  for (const tx of recent) {
+  // Bouw per-dag omzet map (volledige historie)
+  const perDag = new Map<string, number>();
+  for (const tx of txs) {
     const dag = format(parseISO(tx.timestamp), "yyyy-MM-dd");
-    dagOmzetMap.set(dag, (dagOmzetMap.get(dag) ?? 0) + tx.amount);
+    perDag.set(dag, (perDag.get(dag) ?? 0) + tx.amount);
   }
 
+  const nu = new Date();
+  const grens8w = subDays(nu, 56);
+
+  // Gem. per weekdag — laatste 8 weken, excl. feestdagen
   const weekdagOmzetten: number[][] = Array.from({ length: 7 }, () => []);
-  for (const [dag, omzet] of Array.from(dagOmzetMap.entries())) {
-    const wd = getDay(parseISO(dag));
-    weekdagOmzetten[wd].push(omzet);
+  for (const [dagKey, omzet] of Array.from(perDag.entries())) {
+    const d = parseISO(dagKey);
+    if (d < grens8w) continue;
+    if (feestdagOpDatum(d)) continue; // feestdagen apart
+    weekdagOmzetten[getDay(d)].push(omzet);
   }
-
   const weekdagGem = weekdagOmzetten.map((v) =>
     v.length > 0 ? v.reduce((a, b) => a + b, 0) / v.length : 0
   );
@@ -310,15 +316,37 @@ export function berekenPrognose(txs: SumUpTransaction[]): Prognose[] {
   for (let i = 0; i <= 13; i++) {
     const datum = addDays(startOfDay(nu), i);
     const wd = getDay(datum);
-    const verwacht = weekdagGem[wd];
+    const feest = feestdagOpDatum(datum);
+    const vak = vakantieOpDatum(datum);
+
+    // Feestdag? Probeer zelfde feestdag vorig jaar te gebruiken
+    let verwacht = weekdagGem[wd];
+    if (feest) {
+      const vorigJaar = new Date(
+        datum.getFullYear() - 1,
+        datum.getMonth(),
+        datum.getDate()
+      );
+      const vorigOmzet = perDag.get(format(vorigJaar, "yyyy-MM-dd"));
+      if (vorigOmzet !== undefined) {
+        verwacht = vorigOmzet;
+      } else if (feest.impact === "dicht") {
+        verwacht = 0;
+      }
+    }
+
     const ratio = verwacht / maxGem;
     prognoses.push({
       datum: format(datum, "yyyy-MM-dd"),
       dagNaam: format(datum, "EEEE d MMM", { locale: nl }),
       verwacht: Math.round(verwacht * 100) / 100,
       weekdag: wd,
+      feestdag: feest?.naam ?? null,
+      vakantie: vak?.naam ?? null,
       druk:
-        ratio > 0.85
+        feest?.impact === "dicht"
+          ? "laag"
+          : ratio > 0.85
           ? "zeer druk"
           : ratio > 0.6
           ? "druk"
@@ -335,31 +363,29 @@ export function berekenWeekdagCurve(
   txs: SumUpTransaction[],
   weekdag: number
 ): number[] {
-  // 24-entry array met gem. omzet per uur voor deze weekdag (laatste 8 weken)
+  // 24-entry array met gem. omzet per uur voor deze weekdag (laatste 8 weken,
+  // alleen binnen openingstijden, feestdagen uitgesloten)
   const nu = new Date();
   const grens = subDays(nu, 56);
+  const uren = OPENINGSUREN[weekdag];
+  if (!uren) return new Array(24).fill(0);
+
   const uurTotaal = new Array(24).fill(0);
-  const dagenSet: Set<string>[] = Array.from({ length: 24 }, () => new Set());
+  const uniekeDagen = new Set<string>();
 
   for (const tx of txs) {
     const dt = parseISO(tx.timestamp);
     if (dt < grens) continue;
     if (getDay(dt) !== weekdag) continue;
+    if (feestdagOpDatum(dt)) continue;
     const uur = getHours(dt);
+    // Buiten openingsuren? sla over
+    if (uur < uren.open || uur >= uren.close) continue;
     uurTotaal[uur] += tx.amount;
-    dagenSet[uur].add(format(dt, "yyyy-MM-dd"));
+    uniekeDagen.add(format(dt, "yyyy-MM-dd"));
   }
 
-  // Deel elke uurtotaal door het aantal unieke gemeten dagen voor die weekdag
-  const unieke = new Set<string>();
-  for (const tx of txs) {
-    const dt = parseISO(tx.timestamp);
-    if (dt < grens) continue;
-    if (getDay(dt) !== weekdag) continue;
-    unieke.add(format(dt, "yyyy-MM-dd"));
-  }
-  const dagen = Math.max(unieke.size, 1);
-
+  const dagen = Math.max(uniekeDagen.size, 1);
   return uurTotaal.map((t) => Math.round((t / dagen) * 100) / 100);
 }
 
@@ -538,109 +564,282 @@ export function berekenKerncijfers(txs: SumUpTransaction[]): KernCijfers {
   };
 }
 
-export function detecteerSchommelingen(dagOmzet: DagOmzet[]): Array<{
+export interface Schommeling {
   datum: string;
   omzet: number;
+  referentie: number;            // waar we tegen vergeleken
   type: "piek" | "dal";
-  afwijking: number;
-}> {
-  if (dagOmzet.length < 7) return [];
+  afwijking: number;              // % vs referentie
+  context: string;                // "vs gem. zaterdagen (laatste 8 weken)" of "vs Koningsdag 2024"
+  feestdag?: string | null;
+  vakantie?: string | null;
+}
 
-  const omzetten = dagOmzet.map((d) => d.omzet);
-  const gemiddeld = omzetten.reduce((a, b) => a + b, 0) / omzetten.length;
-  const variance =
-    omzetten.reduce((sum, v) => sum + Math.pow(v - gemiddeld, 2), 0) /
-    omzetten.length;
-  const stdDev = Math.sqrt(variance);
+export function detecteerSchommelingen(
+  dagOmzet: DagOmzet[],
+  dagenTerug = 60
+): Schommeling[] {
+  if (dagOmzet.length < 14) return [];
 
-  return dagOmzet
-    .filter((d) => Math.abs(d.omzet - gemiddeld) > 1.8 * stdDev)
-    .map((d) => ({
+  const nu = new Date();
+  const grens = subDays(nu, dagenTerug);
+
+  // Volledige index voor snel opzoeken per datum
+  const index = new Map<string, number>();
+  for (const d of dagOmzet) index.set(d.datum, d.omzet);
+
+  // Gemiddelde per weekdag op basis van de laatste 8 weken, excl. feestdagen
+  const weekdagOmzetten: number[][] = Array.from({ length: 7 }, () => []);
+  const grens8w = subDays(nu, 56);
+  for (const d of dagOmzet) {
+    const dt = parseISO(d.datum);
+    if (dt < grens8w) continue;
+    if (feestdagOpDatum(dt)) continue;
+    weekdagOmzetten[getDay(dt)].push(d.omzet);
+  }
+  const weekdagGem = weekdagOmzetten.map((v) =>
+    v.length > 0 ? v.reduce((a, b) => a + b, 0) / v.length : 0
+  );
+
+  const DAGEN_NL = ["zondagen", "maandagen", "dinsdagen", "woensdagen", "donderdagen", "vrijdagen", "zaterdagen"];
+
+  const resultaat: Schommeling[] = [];
+
+  for (const d of dagOmzet) {
+    const dt = parseISO(d.datum);
+    if (dt < grens) continue;
+
+    const feest = feestdagOpDatum(dt);
+    const vak = vakantieOpDatum(dt);
+
+    let referentie = 0;
+    let context = "";
+
+    if (feest) {
+      // Vergelijk met dezelfde feestdag vorig jaar
+      const vorigJaar = new Date(dt.getFullYear() - 1, dt.getMonth(), dt.getDate());
+      const vorigKey = format(vorigJaar, "yyyy-MM-dd");
+      const vorigOmzet = index.get(vorigKey);
+      if (vorigOmzet !== undefined && vorigOmzet > 0) {
+        referentie = vorigOmzet;
+        context = `vs ${feest.naam} ${vorigJaar.getFullYear()}`;
+      } else {
+        // Geen historische vergelijking mogelijk
+        continue;
+      }
+    } else {
+      // Normale dag: vergelijk tegen gem. zelfde weekdag laatste 8 weken
+      const wd = getDay(dt);
+      const gem = weekdagGem[wd];
+      if (gem === 0) continue;
+      referentie = gem;
+      context = `vs gem. ${DAGEN_NL[wd]} (laatste 8 weken)`;
+    }
+
+    if (referentie === 0) continue;
+    const afwPct = ((d.omzet - referentie) / referentie) * 100;
+
+    // Drempel: 25%+ afwijking
+    if (Math.abs(afwPct) < 25) continue;
+
+    resultaat.push({
       datum: d.datum,
       omzet: d.omzet,
-      type: (d.omzet > gemiddeld ? "piek" : "dal") as "piek" | "dal",
-      afwijking: Math.round(((d.omzet - gemiddeld) / gemiddeld) * 100),
-    }))
-    .slice(-10);
+      referentie: Math.round(referentie * 100) / 100,
+      type: afwPct > 0 ? "piek" : "dal",
+      afwijking: Math.round(afwPct),
+      context,
+      feestdag: feest?.naam ?? null,
+      vakantie: vak?.naam ?? null,
+    });
+  }
+
+  // Meest recente eerst; max 12
+  return resultaat
+    .sort((a, b) => b.datum.localeCompare(a.datum))
+    .slice(0, 12);
+}
+
+export interface Suggestie {
+  titel: string;
+  detail: string;
+  toon: "positief" | "attentie" | "neutraal" | "waarschuwing";
 }
 
 export function genereerSuggesties(
   piekuren: UurData[],
   topProducten: ProductData[],
   prognose: Prognose[],
-  kerncijfers: KernCijfers
-): string[] {
-  const suggesties: string[] = [];
+  kerncijfers: KernCijfers,
+  schommelingen: Schommeling[] = []
+): Suggestie[] {
+  const s: Suggestie[] = [];
+  const k = kerncijfers;
 
-  const stiltePeriode = piekuren.filter(
-    (u) => u.uur >= 14 && u.uur <= 16 && u.gemiddeld < 10
-  );
-  if (stiltePeriode.length >= 2) {
-    suggesties.push(
-      "Tussen 14:00–16:00 is het structureel rustig. Overweeg een happy hour of lunch-deal in dit tijdslot."
-    );
+  // Live: hoe gaat het vandaag t.o.v. verwacht
+  if (k.verwachtVandaag > 0) {
+    const realisatie = (k.vandaag.omzet / k.verwachtVandaag) * 100;
+    if (k.vandaag.omzet === 0) {
+      s.push({
+        titel: "Dag is nog niet gestart",
+        detail: `Doel voor vandaag: €${k.verwachtVandaag.toFixed(0)} (gem. van deze weekdag laatste 8 weken).`,
+        toon: "neutraal",
+      });
+    } else if (realisatie >= 100) {
+      s.push({
+        titel: `Boven target: ${Math.round(realisatie)}%`,
+        detail: `Vandaag €${k.vandaag.omzet.toFixed(0)}, doel €${k.verwachtVandaag.toFixed(0)}. ${Math.round(realisatie - 100)}% voor op schema.`,
+        toon: "positief",
+      });
+    } else if (realisatie < 70) {
+      s.push({
+        titel: `Achter op schema: ${Math.round(realisatie)}%`,
+        detail: `Vandaag €${k.vandaag.omzet.toFixed(0)}, doel €${k.verwachtVandaag.toFixed(0)}. Nog €${(k.verwachtVandaag - k.vandaag.omzet).toFixed(0)} te gaan.`,
+        toon: "attentie",
+      });
+    }
   }
 
+  // Week
+  if (k.groei.tovVorigeWeek !== 0 && Math.abs(k.groei.tovVorigeWeek) > 5) {
+    s.push({
+      titel:
+        k.groei.tovVorigeWeek > 0
+          ? `Deze week +${k.groei.tovVorigeWeek}% vs vorige week`
+          : `Deze week ${k.groei.tovVorigeWeek}% vs vorige week`,
+      detail: `€${k.dezeWeek.omzet.toFixed(0)} vs €${k.vorigeWeek.omzet.toFixed(0)} in dezelfde periode vorige week.`,
+      toon: k.groei.tovVorigeWeek > 0 ? "positief" : "attentie",
+    });
+  }
+
+  // Jaar-op-jaar
+  if (k.vorigJaarTotNu.omzet > 0 && Math.abs(k.groei.tovVorigJaar) >= 5) {
+    s.push({
+      titel:
+        k.groei.tovVorigJaar > 0
+          ? `Jaar-op-jaar +${k.groei.tovVorigJaar}%`
+          : `Jaar-op-jaar ${k.groei.tovVorigJaar}%`,
+      detail: `YTD €${k.ditJaar.omzet.toFixed(0)} vs €${k.vorigJaarTotNu.omzet.toFixed(0)} zelfde periode ${new Date().getFullYear() - 1}.`,
+      toon: k.groei.tovVorigJaar >= 0 ? "positief" : "waarschuwing",
+    });
+  }
+
+  // Piekuur
   const actieveUren = piekuren.filter((u) => u.gemiddeld > 0);
   if (actieveUren.length > 0) {
     const topPiek = actieveUren.reduce((a, b) =>
       a.gemiddeld > b.gemiddeld ? a : b
     );
-    suggesties.push(
-      `Piekmoment is consistent rond ${topPiek.label} (gem. €${topPiek.gemiddeld.toFixed(0)} per uur). Zorg voor voldoende bezetting.`
-    );
+    s.push({
+      titel: `Piekuur is ${topPiek.label}`,
+      detail: `Gem. €${topPiek.gemiddeld.toFixed(0)} in dit uur. Zorg dat bezetting rond dit tijdstip op orde is.`,
+      toon: "neutraal",
+    });
   }
 
+  // Rustig middaggat
+  const middag = piekuren.filter(
+    (u) => u.uur >= 14 && u.uur <= 16 && u.aantalDagen > 0
+  );
+  if (
+    middag.length >= 2 &&
+    middag.every((u) => u.gemiddeld < (actieveUren[0]?.gemiddeld ?? 0) * 0.25)
+  ) {
+    const gemMiddag = middag.reduce((s, u) => s + u.gemiddeld, 0) / middag.length;
+    s.push({
+      titel: "Dal 14:00–16:00",
+      detail: `Gem. slechts €${gemMiddag.toFixed(0)} per uur in dit tijdslot. Overweeg een deal of contentcampagne.`,
+      toon: "attentie",
+    });
+  }
+
+  // Hardloper
   if (topProducten.length > 0) {
     const top = topProducten[0];
-    suggesties.push(
-      `"${top.naam}" is je absolute hardloper: €${top.omzet.toFixed(0)} (${top.aandeel.toFixed(1)}% van de productomzet). Altijd voldoende voorraad aanhouden.`
-    );
+    s.push({
+      titel: `Hardloper: ${top.naam}`,
+      detail: `€${top.omzet.toFixed(0)} omzet (${top.aandeel.toFixed(1)}% van de productomzet, ${top.aantal.toLocaleString("nl-NL")} verkocht).`,
+      toon: "positief",
+    });
   }
 
-  const stijgers = topProducten.filter((p) => p.trend > 30).slice(0, 2);
+  // Sterkste stijger
+  const stijgers = topProducten
+    .filter((p) => p.omzet > 100 && p.trend > 25)
+    .slice(0, 1);
   if (stijgers.length > 0) {
-    suggesties.push(
-      `Sterke stijgers laatste 30 dagen: ${stijgers
-        .map((s) => `"${s.naam}" (+${s.trend}%)`)
-        .join(", ")}. Mogelijk verder promoten.`
-    );
+    s.push({
+      titel: `Stijger: ${stijgers[0].naam}`,
+      detail: `+${stijgers[0].trend}% in de laatste 30 dagen (t.o.v. 30 dagen daarvoor). Kandidaat om verder te pushen.`,
+      toon: "positief",
+    });
   }
 
+  // Sterkste daler
   const dalers = topProducten
-    .filter((p) => p.omzet > 50 && p.trend < -30)
-    .slice(0, 2);
+    .filter((p) => p.omzet > 100 && p.trend < -25)
+    .slice(0, 1);
   if (dalers.length > 0) {
-    suggesties.push(
-      `Dalers: ${dalers
-        .map((s) => `"${s.naam}" (${s.trend}%)`)
-        .join(", ")}. Herzien of promotie overwegen.`
-    );
+    s.push({
+      titel: `Daler: ${dalers[0].naam}`,
+      detail: `${dalers[0].trend}% in de laatste 30 dagen. Check aanbod, prijs of zichtbaarheid.`,
+      toon: "attentie",
+    });
   }
 
-  if (topProducten.length >= 5) {
-    const doodloper = topProducten[topProducten.length - 1];
-    suggesties.push(
-      `"${doodloper.naam}" verkoopt nauwelijks (€${doodloper.omzet.toFixed(0)}). Overweeg van de kaart te halen.`
+  // Feestdag / vakantie attentie in komende 14 dagen
+  const komendeFeestdag = prognose.find((p) => p.feestdag);
+  if (komendeFeestdag) {
+    const dagNr = parseISO(komendeFeestdag.datum);
+    const overDagen = Math.round(
+      (dagNr.getTime() - new Date().setHours(0, 0, 0, 0)) /
+        (1000 * 60 * 60 * 24)
     );
+    s.push({
+      titel: `${komendeFeestdag.feestdag} over ${overDagen} ${overDagen === 1 ? "dag" : "dagen"}`,
+      detail:
+        komendeFeestdag.verwacht > 0
+          ? `Verwacht €${komendeFeestdag.verwacht.toFixed(0)} op basis van vorig jaar. Check roosters en voorraad.`
+          : "Geen referentie van vorig jaar. Plan op basis van eigen inschatting.",
+      toon: "attentie",
+    });
+  }
+  const komendeVakantie = prognose.find((p) => p.vakantie);
+  if (komendeVakantie && !komendeFeestdag) {
+    s.push({
+      titel: `Vakantie: ${komendeVakantie.vakantie}`,
+      detail: `Van invloed op drukte in de komende 14 dagen. Verwachte omzet fluctueert per weekdag.`,
+      toon: "neutraal",
+    });
   }
 
-  const druksteDag = prognose.find((p) => p.druk === "zeer druk");
-  if (druksteDag) {
-    suggesties.push(
-      `${druksteDag.dagNaam} wordt naar verwachting zeer druk (€${druksteDag.verwacht.toFixed(0)}). Prep alvast extra.`
+  // Drukste dag in prognose
+  const druksteDag = prognose
+    .filter((p) => !p.feestdag)
+    .reduce<Prognose | null>(
+      (a, b) => (!a || b.verwacht > a.verwacht ? b : a),
+      null
     );
+  if (druksteDag && druksteDag.druk === "zeer druk") {
+    s.push({
+      titel: `Drukste dag: ${druksteDag.dagNaam}`,
+      detail: `Verwacht €${druksteDag.verwacht.toFixed(0)}. Prep op tijd.`,
+      toon: "neutraal",
+    });
   }
 
-  if (kerncijfers.groei.tovVorigJaar < -10) {
-    suggesties.push(
-      `Jaar-op-jaar ligt de omzet ${kerncijfers.groei.tovVorigJaar}% onder vorig jaar. Check campagnes of prijsbeleid.`
-    );
-  } else if (kerncijfers.groei.tovVorigJaar > 15) {
-    suggesties.push(
-      `Sterk jaar-op-jaar: +${kerncijfers.groei.tovVorigJaar}% vs vorig jaar. Houd dit momentum vast.`
-    );
+  // Opvallende schommeling laatste dagen
+  const recenteSchommeling = schommelingen[0];
+  if (recenteSchommeling) {
+    s.push({
+      titel:
+        recenteSchommeling.type === "piek"
+          ? `Uitschieter: +${recenteSchommeling.afwijking}% op ${format(parseISO(recenteSchommeling.datum), "dd-MM-yyyy")}`
+          : `Dip: ${recenteSchommeling.afwijking}% op ${format(parseISO(recenteSchommeling.datum), "dd-MM-yyyy")}`,
+      detail: `€${recenteSchommeling.omzet.toFixed(0)} ${recenteSchommeling.context}. ${recenteSchommeling.feestdag ?? recenteSchommeling.vakantie ?? ""}`.trim(),
+      toon: recenteSchommeling.type === "piek" ? "positief" : "attentie",
+    });
   }
 
-  return suggesties;
+  return s;
 }
