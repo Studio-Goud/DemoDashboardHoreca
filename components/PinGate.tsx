@@ -32,7 +32,9 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
       if (naam) {
         sessionStorage.setItem(STORAGE_KEY, "1");
         sessionStorage.setItem(USER_KEY, naam);
-        // Trigger welkom-banner via custom event zodat toast direct verschijnt
+        // Pending-flag zodat de banner 'm oppakt zodra die mount
+        sessionStorage.setItem("sg_welkom_pending", naam);
+        // Én een event dispatchen voor het geval de banner al gemount is
         window.dispatchEvent(
           new CustomEvent("sg:welkom", { detail: { naam } })
         );

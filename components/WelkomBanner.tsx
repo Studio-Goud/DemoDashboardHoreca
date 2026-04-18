@@ -14,23 +14,39 @@ export default function WelkomBanner() {
   const [fase, setFase] = useState<"in" | "uit">("in");
 
   useEffect(() => {
+    let fadeTimer: ReturnType<typeof setTimeout> | null = null;
+    let hideTimer: ReturnType<typeof setTimeout> | null = null;
+
+    function toon(welkomVoor: string) {
+      setNaam(welkomVoor);
+      setFase("in");
+      if (fadeTimer) clearTimeout(fadeTimer);
+      if (hideTimer) clearTimeout(hideTimer);
+      fadeTimer = setTimeout(() => setFase("uit"), 3500);
+      hideTimer = setTimeout(() => setNaam(null), 4500);
+    }
+
+    // Check pending-flag die PinGate net heeft gezet (vangt de mount-race)
+    const pending = sessionStorage.getItem("sg_welkom_pending");
+    if (pending) {
+      sessionStorage.removeItem("sg_welkom_pending");
+      toon(pending);
+    }
+
+    // Event-listener voor het geval PinGate na mount triggert
     const handler = (e: Event) => {
       const detail = (e as CustomEvent<{ naam: string }>).detail;
       if (!detail?.naam) return;
-      setNaam(detail.naam);
-      setFase("in");
-
-      // Na 3.5s fade-out starten
-      const fadeTimer = setTimeout(() => setFase("uit"), 3500);
-      // Na totaal ~4.5s geheel verwijderen
-      const hideTimer = setTimeout(() => setNaam(null), 4500);
-      return () => {
-        clearTimeout(fadeTimer);
-        clearTimeout(hideTimer);
-      };
+      sessionStorage.removeItem("sg_welkom_pending");
+      toon(detail.naam);
     };
     window.addEventListener("sg:welkom", handler);
-    return () => window.removeEventListener("sg:welkom", handler);
+
+    return () => {
+      window.removeEventListener("sg:welkom", handler);
+      if (fadeTimer) clearTimeout(fadeTimer);
+      if (hideTimer) clearTimeout(hideTimer);
+    };
   }, []);
 
   if (!naam) return null;
