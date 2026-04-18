@@ -182,7 +182,7 @@ export async function fetchZettleSinds(
 
 // ---------------------------------------------------------------------------
 // Snapshot: historische Zettle data (2022-nu tot snapshot-moment) staat
-// vast in data/zettle-snapshot-{bb,sl}.json. Runtime haalt alleen nieuwere
+// vast in data/zettle-snapshot-{bb,sl,kl}.json. Runtime haalt alleen nieuwere
 // purchases via de API op. Dit maakt cold-starts drastisch sneller.
 // ---------------------------------------------------------------------------
 

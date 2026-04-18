@@ -18,7 +18,7 @@ export default function Icon() {
           borderRadius: 96,
           color: "transparent",
           backgroundImage:
-            "linear-gradient(135deg, #00B8FF 0%, #00D27A 100%)",
+            "linear-gradient(135deg, #00B8FF 0%, #00D27A 50%, #FF8A00 100%)",
         }}
       >
         <div

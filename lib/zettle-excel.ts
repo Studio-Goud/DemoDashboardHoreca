@@ -1,6 +1,7 @@
 import * as XLSX from "xlsx";
 import path from "path";
 import fs from "fs";
+import type { Bedrijf } from "./sumup";
 
 export interface JaarOmzet {
   jaar: number;
@@ -29,7 +30,7 @@ export interface ProductLevens {
   winstmarge: number | null;
 }
 
-const IZETTLE_BESTANDEN: Record<string, Array<{ bestand: string; jaar: number }>> = {
+const IZETTLE_BESTANDEN: Record<Bedrijf, Array<{ bestand: string; jaar: number }>> = {
   bb: [
     { bestand: "Izettle Brunch & Brew-20230101-20231231.xlsx", jaar: 2023 },
     { bestand: "Izettle Brunch & Brew-20240101-20241231.xlsx", jaar: 2024 },
@@ -39,11 +40,16 @@ const IZETTLE_BESTANDEN: Record<string, Array<{ bestand: string; jaar: number }>
     { bestand: "Izettle Sate Lounge - 20240101-20241231 (1).xlsx", jaar: 2024 },
     { bestand: "Izettle Sate Lounge 20250101-20251231 (1).xlsx", jaar: 2025 },
   ],
+  // KL heeft (nog) geen historische Izettle jaarrapporten — snapshot via
+  // de API dekt alles wat er is.
+  kl: [],
 };
 
-const PAYPAL_BESTANDEN: Record<string, string> = {
+const PAYPAL_BESTANDEN: Record<Bedrijf, string> = {
   bb: "PayPal-POS-Sales-By-Product-Report-20220401-20260418.xlsx",
   sl: "PayPal-POS-Sales-By-Product-Report-20230401-20260418.xlsx",
+  // KL heeft (nog) geen PayPal-POS rapport
+  kl: "",
 };
 
 function leesCellen(pad: string): unknown[][] | null {
@@ -150,7 +156,7 @@ function leesJaaroverzicht(pad: string, jaar: number): JaarOmzet | null {
   };
 }
 
-export function getZettleJaaroverzicht(bedrijf: "bb" | "sl" | "kl"): JaarOmzet[] {
+export function getZettleJaaroverzicht(bedrijf: Bedrijf): JaarOmzet[] {
   const cwd = process.cwd();
   const resultaten: JaarOmzet[] = [];
   for (const { bestand, jaar } of IZETTLE_BESTANDEN[bedrijf] ?? []) {
@@ -160,10 +166,11 @@ export function getZettleJaaroverzicht(bedrijf: "bb" | "sl" | "kl"): JaarOmzet[]
   return resultaten.sort((a, b) => a.jaar - b.jaar);
 }
 
-export function getProductLevenshistorie(bedrijf: "bb" | "sl" | "kl"): ProductLevens[] {
+export function getProductLevenshistorie(bedrijf: Bedrijf): ProductLevens[] {
   const cwd = process.cwd();
-  const pad = path.join(cwd, PAYPAL_BESTANDEN[bedrijf] ?? "");
-  const rows = leesCellen(pad);
+  const bestand = PAYPAL_BESTANDEN[bedrijf];
+  if (!bestand) return [];
+  const rows = leesCellen(path.join(cwd, bestand));
   if (!rows) return [];
 
   const resultaten: ProductLevens[] = [];

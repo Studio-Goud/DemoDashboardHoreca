@@ -1,7 +1,7 @@
 {
   "name": "Omzetoverzicht Studio Goud",
   "short_name": "Omzet",
-  "description": "Live omzet en analytics voor Brunch & Brew en Sat\u00e9 Lounge",
+  "description": "Live omzet en analytics voor Brunch & Brew, Sat\u00e9 Lounge en Het Kroket Loket",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait-primary",

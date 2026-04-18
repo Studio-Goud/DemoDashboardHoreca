@@ -11,7 +11,7 @@ const greatVibes = Great_Vibes({
 });
 
 export const metadata: Metadata = {
-  title: "Omzetoverzicht — Brunch & Brew · Saté Lounge",
+  title: "Omzetoverzicht Studio Goud",
   description: "Business intelligence dashboard voor Studio Goud ondernemingen",
   manifest: "/manifest.json",
   applicationName: "Omzet",
