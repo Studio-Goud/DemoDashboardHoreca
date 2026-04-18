@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 const CHARS = "0123456789.,€ ";
 
-function FlapTile({ char }: { char: string }) {
+function FlapTile({ char, kleur = "#FFC84A" }: { char: string; kleur?: string }) {
   const [top, setTop] = useState(char);
   const [bottom, setBottom] = useState(char);
   const [animating, setAnimating] = useState(false);
@@ -61,8 +61,8 @@ function FlapTile({ char }: { char: string }) {
               className="leading-none"
               style={{
                 fontSize: "clamp(18px, 3.5vw, 30px)",
-                color: "#FFC84A",
-                textShadow: "0 0 12px rgba(255,180,0,0.5)",
+                color: kleur,
+                textShadow: `0 0 14px ${kleur}88`,
                 transform: "translateY(50%)",
                 display: "block",
               }}
@@ -86,8 +86,8 @@ function FlapTile({ char }: { char: string }) {
               className="leading-none"
               style={{
                 fontSize: "clamp(18px, 3.5vw, 30px)",
-                color: "#FFC84A",
-                textShadow: "0 0 12px rgba(255,180,0,0.5)",
+                color: kleur,
+                textShadow: `0 0 14px ${kleur}88`,
                 transform: "translateY(-50%)",
                 display: "block",
               }}
@@ -129,16 +129,16 @@ function FlapTile({ char }: { char: string }) {
 
 interface Props {
   value: string;
-  /** Aantal tiles — vult links op met spaties */
   breedte?: number;
+  kleur?: string;
 }
 
-export default function SplitFlap({ value, breedte = 10 }: Props) {
+export default function SplitFlap({ value, breedte = 10, kleur = "#FFC84A" }: Props) {
   const padded = value.padStart(breedte, " ");
   return (
     <div className="inline-flex items-center">
       {padded.split("").map((c, i) => (
-        <FlapTile key={i} char={c} />
+        <FlapTile key={i} char={c} kleur={kleur} />
       ))}
     </div>
   );

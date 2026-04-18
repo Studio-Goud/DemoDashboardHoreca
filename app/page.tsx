@@ -13,9 +13,9 @@ interface LiveData {
 }
 
 const BEDRIJVEN = [
-  { slug: "bb", naam: "Brunch & Brew",    emoji: "☕", kleur: "#FFC84A", bg: "#0d1117" },
-  { slug: "sl", naam: "Saté Lounge",      emoji: "🍢", kleur: "#FFC84A", bg: "#0d1117" },
-  { slug: "kl", naam: "Het Kroket Loket", emoji: "🥟", kleur: "#FFC84A", bg: "#0d1117" },
+  { slug: "bb", naam: "Brunch & Brew",    emoji: "☕", kleur: "#00B8FF" },
+  { slug: "sl", naam: "Saté Lounge",      emoji: "🍢", kleur: "#00D27A" },
+  { slug: "kl", naam: "Het Kroket Loket", emoji: "🥟", kleur: "#FF8A00" },
 ];
 
 function formatBord(n: number): string {
@@ -30,7 +30,7 @@ function tijdGeleden(iso: string): string {
   return `${Math.floor(m / 60)}u`;
 }
 
-function BedrijfRij({ slug, naam, emoji }: { slug: string; naam: string; emoji: string }) {
+function BedrijfRij({ slug, naam, emoji, kleur }: { slug: string; naam: string; emoji: string; kleur: string }) {
   const [data, setData] = useState<LiveData | null>(null);
 
   const fetch_ = useCallback(async () => {
@@ -66,7 +66,7 @@ function BedrijfRij({ slug, naam, emoji }: { slug: string; naam: string; emoji: 
             <span className="text-lg">{emoji}</span>
             <span
               className="text-xs font-bold uppercase tracking-[0.2em]"
-              style={{ color: "#FFC84A", fontFamily: "monospace" }}
+              style={{ color: kleur, fontFamily: "monospace" }}
             >
               {naam}
             </span>
@@ -87,7 +87,7 @@ function BedrijfRij({ slug, naam, emoji }: { slug: string; naam: string; emoji: 
               Omzet vandaag
             </span>
           </div>
-          <SplitFlap value={omzetStr} breedte={omzetStr.length} />
+          <SplitFlap value={omzetStr} breedte={omzetStr.length} kleur={kleur} />
         </div>
 
         {/* Statistieken */}
@@ -162,7 +162,7 @@ export default function OverzichtPage() {
       {/* Drie bedrijven */}
       <div className="flex-1 p-4 sm:p-6 space-y-3 max-w-2xl mx-auto w-full">
         {BEDRIJVEN.map((b) => (
-          <BedrijfRij key={b.slug} slug={b.slug} naam={b.naam} emoji={b.emoji} />
+          <BedrijfRij key={b.slug} slug={b.slug} naam={b.naam} emoji={b.emoji} kleur={b.kleur} />
         ))}
       </div>
 
