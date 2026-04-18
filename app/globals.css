@@ -30,3 +30,8 @@ body {
 .stat-label {
   @apply text-sm text-slate-500 mt-1;
 }
+
+@keyframes flapDown {
+  0%   { transform: rotateX(0deg); }
+  100% { transform: rotateX(-90deg); }
+}
