@@ -31,7 +31,7 @@ import {
   nlDagKey,
   nlDate,
 } from "./tz";
-import { drukteVoorOmzet, type DrukLevel } from "./drukte";
+import { drukteVoorOmzet, DRUKTE_GRENS, type DrukLevel } from "./drukte";
 
 export interface DagOmzet {
   datum: string;
@@ -437,7 +437,7 @@ export function verrijkEvents(
       let minDag = Infinity;
       let maxDag = -Infinity;
       let drukOfHoger = 0;
-      const drempelDruk = bedrijf === "bb" ? 1300 : 900;
+      const drempelDruk = DRUKTE_GRENS[bedrijf].druk;
 
       for (
         let d = new Date(vorigVan);

@@ -154,18 +154,37 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
     totaalPassagiers: d.totaalPassagiers,
     aantal: d.cruises.length,
   }));
-  const kleurNaam = config.slug === "bb" ? "bb-primary" : "sl-primary";
+  const kleurNaam =
+    config.slug === "bb"
+      ? "bb-primary"
+      : config.slug === "sl"
+      ? "sl-primary"
+      : "kl-primary";
   const opgehaald = parseISO(gegenereerd);
 
   if (!heeftData && jaaroverzicht.length === 0) {
     return (
-      <div className="card text-center py-12">
-        <p className="text-slate-500 mb-2">
-          Geen transactiedata beschikbaar.
-        </p>
-        <p className="text-slate-400 text-sm">
-          Controleer SumUp API keys in Vercel environment variables.
-        </p>
+      <div className="space-y-4">
+        <div className="card text-center py-12">
+          <p className="text-slate-500 mb-2">
+            Geen transactiedata beschikbaar.
+          </p>
+          <p className="text-slate-400 text-sm">
+            {sumupFout || zettleFout
+              ? "Tijdelijke fout bij ophalen — probeer opnieuw over een paar minuten."
+              : "Controleer SumUp/Zettle API keys in Vercel environment variables."}
+          </p>
+          {sumupFout && (
+            <p className="text-red-500 text-xs mt-3 font-mono">
+              SumUp: {sumupFout}
+            </p>
+          )}
+          {zettleFout && (
+            <p className="text-red-500 text-xs mt-1 font-mono">
+              Zettle: {zettleFout}
+            </p>
+          )}
+        </div>
       </div>
     );
   }

@@ -21,10 +21,17 @@ const config: Config = {
           dark: "#008C4F",
           glow: "#3DE79A",
         },
+        kl: {
+          primary: "#FF8A00",   // neon oranje
+          soft: "#FFEDD5",
+          dark: "#B85F00",
+          glow: "#FFA733",
+        },
       },
       boxShadow: {
         "neon-bb": "0 0 0 1px rgba(0,184,255,0.35), 0 0 24px -4px rgba(0,184,255,0.45)",
         "neon-sl": "0 0 0 1px rgba(0,210,122,0.35), 0 0 24px -4px rgba(0,210,122,0.45)",
+        "neon-kl": "0 0 0 1px rgba(255,138,0,0.35), 0 0 24px -4px rgba(255,138,0,0.45)",
         card: "0 1px 2px 0 rgba(15,23,42,0.04), 0 1px 3px 0 rgba(15,23,42,0.06)",
       },
     },

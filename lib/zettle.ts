@@ -226,6 +226,8 @@ function laadSnapshot(bedrijf: Bedrijf): SnapshotBestand {
 const VANAF_DATUM = "2023-01-01T00:00:00.000Z";
 
 // Publieke functie: snapshot (vanaf 2023) + alleen nieuwere purchases via API.
+// Als de API-call faalt (rate limit, auth error, netwerk) valt de functie
+// terug op alleen de snapshot — beter een dag achterlopen dan niks tonen.
 export async function fetchAllZettlePurchases(
   bedrijf: Bedrijf
 ): Promise<ZettlePurchase[]> {
@@ -235,12 +237,28 @@ export async function fetchAllZettlePurchases(
     const historisch = snapshot.purchases.filter(
       (p) => p.timestamp >= VANAF_DATUM
     );
-    const recent = await fetchZettleSinds(bedrijf, snapshot.laatsteTimestamp);
-    return [...historisch, ...recent];
+    try {
+      const recent = await fetchZettleSinds(bedrijf, snapshot.laatsteTimestamp);
+      return [...historisch, ...recent];
+    } catch (err) {
+      console.warn(
+        `[zettle:${bedrijf}] incrementele fetch faalde, val terug op snapshot:`,
+        err instanceof Error ? err.message : err
+      );
+      return historisch;
+    }
   }
 
-  const alles = await fetchZettleVolledig(bedrijf);
-  return alles.filter((p) => p.timestamp >= VANAF_DATUM);
+  try {
+    const alles = await fetchZettleVolledig(bedrijf);
+    return alles.filter((p) => p.timestamp >= VANAF_DATUM);
+  } catch (err) {
+    console.warn(
+      `[zettle:${bedrijf}] volledige fetch faalde, geen snapshot beschikbaar:`,
+      err instanceof Error ? err.message : err
+    );
+    return [];
+  }
 }
 
 // Server-side cache rond de bovenstaande functie. Met een actieve snapshot is
