@@ -268,12 +268,15 @@ export function berekenTopProducten(txs: SumUpTransaction[]): ProductData[] {
     if (!tx.products) continue;
     const dt = parseISO(tx.timestamp);
     for (const p of tx.products) {
-      const bedrag = p.price * p.quantity;
+      // Coerce: SumUp/Zettle kunnen quantity/price als string leveren
+      const qty = Number(p.quantity) || 0;
+      const prijs = Number(p.price) || 0;
+      const bedrag = prijs * qty;
       const bestaand =
         map.get(p.name) ??
         { omzet: 0, aantal: 0, laatst: null as string | null, recent: 0, prior: 0 };
       bestaand.omzet += bedrag;
-      bestaand.aantal += p.quantity;
+      bestaand.aantal += qty;
       if (!bestaand.laatst || tx.timestamp > bestaand.laatst)
         bestaand.laatst = tx.timestamp;
       if (dt >= grens30) bestaand.recent += bedrag;
@@ -553,51 +556,67 @@ export function berekenKerncijfers(txs: SumUpTransaction[]): KernCijfers {
   const nu = new Date();
 
   const vandaagStart = startOfDay(nu);
-  const vandaagEind = endOfDay(nu);
+  const vandaagEind = nu; // alleen tot nu
 
-  const gisterenStart = startOfDay(subDays(nu, 1));
-  const gisterenEind = endOfDay(subDays(nu, 1));
+  // Gisteren t/m hetzelfde tijdstip (subDays behoudt uur/minuten)
+  const gisterenCutoff = subDays(nu, 1);
+  const gisterenStart = startOfDay(gisterenCutoff);
+  const gisterenEind = gisterenCutoff;
 
-  const zelfdeDagVorigeWeekStart = startOfDay(subDays(nu, 7));
-  const zelfdeDagVorigeWeekEind = endOfDay(subDays(nu, 7));
+  // Zelfde weekdag vorige week t/m zelfde tijdstip
+  const zelfdeDagVorigeWeekCutoff = subDays(nu, 7);
+  const zelfdeDagVorigeWeekStart = startOfDay(zelfdeDagVorigeWeekCutoff);
+  const zelfdeDagVorigeWeekEind = zelfdeDagVorigeWeekCutoff;
 
   const weekStart = startOfWeek(nu, { weekStartsOn: 1 });
   const weekEind = nu;
 
+  // Vorige week: zelfde periode van maandag t/m zelfde moment
   const vorigeWeekStart = startOfWeek(subDays(nu, 7), { weekStartsOn: 1 });
-  const vorigeWeekEind = endOfWeek(subDays(nu, 7), { weekStartsOn: 1 });
+  const vorigeWeekEind = subDays(nu, 7);
 
   const maandStart = startOfMonth(nu);
   const dagInMaand = nu.getDate();
 
+  // Vorige maand t/m zelfde dag-van-maand + uur
   const vorigeMaandStart = startOfMonth(subDays(maandStart, 1));
-  const vorigeMaandTotNuEind = endOfDay(
-    addDays(vorigeMaandStart, dagInMaand - 1)
+  const dagenInVorigeMaand = new Date(
+    vorigeMaandStart.getFullYear(),
+    vorigeMaandStart.getMonth() + 1,
+    0
+  ).getDate();
+  const vorigeMaandTotNuEind = new Date(
+    vorigeMaandStart.getFullYear(),
+    vorigeMaandStart.getMonth(),
+    Math.min(dagInMaand, dagenInVorigeMaand),
+    nu.getHours(),
+    nu.getMinutes(),
+    nu.getSeconds()
   );
 
   const jaarStart = startOfYear(nu);
   const vorigJaarStart = startOfYear(subDays(jaarStart, 1));
-  const vorigJaarTotNuEind = endOfDay(
-    new Date(
-      nu.getFullYear() - 1,
-      nu.getMonth(),
-      Math.min(
-        nu.getDate(),
-        new Date(nu.getFullYear() - 1, nu.getMonth() + 1, 0).getDate()
-      ),
-      23,
-      59,
-      59
-    )
+  // Vorig jaar t/m zelfde moment (maand-dag-uur)
+  const vorigJaarTotNuEind = new Date(
+    nu.getFullYear() - 1,
+    nu.getMonth(),
+    Math.min(
+      nu.getDate(),
+      new Date(nu.getFullYear() - 1, nu.getMonth() + 1, 0).getDate()
+    ),
+    nu.getHours(),
+    nu.getMinutes(),
+    nu.getSeconds()
   );
 
+  const tijdStempel = format(nu, "HH:mm");
   const vandaag = sommeer(
     txsInInterval(txs, vandaagStart, vandaagEind),
-    "Vandaag"
+    `Vandaag t/m ${tijdStempel}`
   );
   const gisteren = sommeer(
     txsInInterval(txs, gisterenStart, gisterenEind),
-    "Gisteren"
+    `Gisteren t/m ${tijdStempel}`
   );
   const zelfdeDagVorigeWeek = sommeer(
     txsInInterval(txs, zelfdeDagVorigeWeekStart, zelfdeDagVorigeWeekEind),

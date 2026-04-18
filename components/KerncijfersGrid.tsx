@@ -77,50 +77,50 @@ export default function KerncijfersGrid({ kerncijfers: k, hex }: Props) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 divide-y divide-slate-100 sm:divide-y-0">
         <PeriodeRow
-          label="Vandaag"
+          label="Vandaag tot nu"
+          huidig={{ ...k.vandaag }}
+          vergelijking={{
+            omzet: k.gisteren.omzet,
+            txs: k.gisteren.txs,
+            label: "gisteren zelfde tijd",
+          }}
+          groei={k.groei.tovGisteren}
+        />
+        <PeriodeRow
+          label="Zelfde weekdag vorige week"
           huidig={{ ...k.vandaag }}
           vergelijking={{
             omzet: k.zelfdeDagVorigeWeek.omzet,
             txs: k.zelfdeDagVorigeWeek.txs,
-            label: "zelfde dag v. week",
+            label: k.zelfdeDagVorigeWeek.label + " zelfde tijd",
           }}
           groei={k.groei.tovZelfdeDagVorigeWeek}
         />
         <PeriodeRow
-          label="Deze week (t/m nu)"
+          label="Deze week t/m nu"
           huidig={{ ...k.dezeWeek }}
-          vergelijking={{ ...k.vorigeWeek, label: "vorige week" }}
+          vergelijking={{ ...k.vorigeWeek, label: "vorige week zelfde moment" }}
           groei={k.groei.tovVorigeWeek}
         />
         <PeriodeRow
-          label={k.dezeMaand.label}
+          label={k.dezeMaand.label + " t/m nu"}
           huidig={{ ...k.dezeMaand }}
           vergelijking={{
             omzet: k.vorigeMaandTotNu.omzet,
             txs: k.vorigeMaandTotNu.txs,
-            label: "vorige maand t/m nu",
+            label: "vorige maand zelfde moment",
           }}
           groei={k.groei.tovVorigeMaand}
         />
         <PeriodeRow
-          label={`${new Date().getFullYear()} YTD`}
+          label={`${new Date().getFullYear()} YTD t/m nu`}
           huidig={{ ...k.ditJaar }}
           vergelijking={{
             omzet: k.vorigJaarTotNu.omzet,
             txs: k.vorigJaarTotNu.txs,
-            label: `${new Date().getFullYear() - 1} YTD`,
+            label: `${new Date().getFullYear() - 1} zelfde moment`,
           }}
           groei={k.groei.tovVorigJaar}
-        />
-        <PeriodeRow
-          label="Gisteren"
-          huidig={{ ...k.gisteren }}
-          vergelijking={{
-            omzet: k.vandaag.omzet,
-            txs: k.vandaag.txs,
-            label: "vandaag",
-          }}
-          groei={-k.groei.tovGisteren}
         />
         <div className="grid grid-cols-[1fr_auto] items-center gap-3 py-3">
           <div>

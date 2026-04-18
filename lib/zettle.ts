@@ -141,15 +141,15 @@ export function normalizeZettleToSumUp(purchases: ZettlePurchase[]) {
     id: p.purchaseUUID,
     transaction_code: p.purchaseUUID,
     // Zettle geeft bedragen in minor units (centen)
-    amount: p.amount / 100,
+    amount: Number(p.amount) / 100,
     currency: p.currency ?? "EUR",
     timestamp: p.timestamp,
     status: "SUCCESSFUL" as const,
     payment_type: "card" as const,
     products: (p.products ?? []).map((prod) => ({
       name: prod.name,
-      price: prod.unitPrice / 100,
-      quantity: prod.quantity,
+      price: Number(prod.unitPrice) / 100,
+      quantity: Number(prod.quantity) || 0,
     })),
   }));
 }
