@@ -10,6 +10,9 @@ export const DRUKTE_GRENS: Record<
 > = {
   bb: { normaal: 800,  druk: 1300, zeerDruk: 1600 },
   sl: { normaal: 550,  druk: 900,  zeerDruk: 1200 },
+  // Placeholder — tune deze drempels voor Het Kroket Loket zodra je een
+  // gevoel hebt bij drukke/rustige dagen. Laat het weten dan pas ik aan.
+  kl: { normaal: 400,  druk: 700,  zeerDruk: 1000 },
 };
 
 export function drukteVoorOmzet(

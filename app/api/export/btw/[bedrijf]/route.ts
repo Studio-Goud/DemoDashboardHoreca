@@ -15,6 +15,7 @@ export const maxDuration = 60;
 const BEDRIJF_NAAM: Record<Bedrijf, string> = {
   bb: "Brunch_en_Brew",
   sl: "Sate_Lounge",
+  kl: "Kroket_Loket",
 };
 
 export async function GET(
@@ -22,7 +23,7 @@ export async function GET(
   { params }: { params: { bedrijf: string } }
 ) {
   const bedrijf = params.bedrijf as Bedrijf;
-  if (!["bb", "sl"].includes(bedrijf)) {
+  if (!["bb", "sl", "kl"].includes(bedrijf)) {
     return NextResponse.json({ error: "Onbekend bedrijf" }, { status: 400 });
   }
 

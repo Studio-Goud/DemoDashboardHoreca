@@ -2,13 +2,15 @@ import { unstable_cache } from "next/cache";
 
 const SUMUP_BASE = "https://api.sumup.com";
 
-export type Bedrijf = "bb" | "sl";
+export type Bedrijf = "bb" | "sl" | "kl";
 
 function getKey(bedrijf: Bedrijf): string {
   const key =
     bedrijf === "bb"
       ? process.env.SUMUP_KEY_BB
-      : process.env.SUMUP_KEY_SL;
+      : bedrijf === "sl"
+      ? process.env.SUMUP_KEY_SL
+      : process.env.SUMUP_KEY_KL;
   if (!key) throw new Error(`Geen SumUp key voor ${bedrijf}`);
   return key;
 }

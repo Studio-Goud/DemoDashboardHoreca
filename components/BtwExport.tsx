@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 interface Props {
-  bedrijf: "bb" | "sl";
+  bedrijf: "bb" | "sl" | "kl";
   hex: string;
 }
 

@@ -14,6 +14,7 @@ export const maxDuration = 60;
 const BEDRIJVEN: Record<Bedrijf, string> = {
   bb: "Brunch & Brew",
   sl: "Saté Lounge",
+  kl: "Het Kroket Loket",
 };
 
 function fmtEur(n: number) {
@@ -86,9 +87,10 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  const [bbTekst, slTekst] = await Promise.all([
+  const alleSamenvattingen = await Promise.all([
     bedrijfsSamenvatting("bb"),
     bedrijfsSamenvatting("sl"),
+    bedrijfsSamenvatting("kl"),
   ]);
 
   const vandaag = format(new Date(), "EEEE dd MMMM yyyy", { locale: nl });
@@ -96,9 +98,7 @@ export async function GET(req: NextRequest) {
   const tekst = [
     `Goedemorgen! Dagoverzicht voor ${vandaag}:`,
     ``,
-    bbTekst,
-    ``,
-    slTekst,
+    ...alleSamenvattingen.join("\n\n").split("\n"),
   ].join("\n");
 
   const resultaten = await notify({

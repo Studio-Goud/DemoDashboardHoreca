@@ -43,7 +43,7 @@ async function main() {
   // Dynamisch importeren NA het laden van de env
   const { fetchZettleVolledig } = await import("../lib/zettle");
 
-  const bedrijven = ["bb", "sl"] as const;
+  const bedrijven = ["bb", "sl", "kl"] as const;
   for (const bedrijf of bedrijven) {
     console.log(
       `\n→ Zettle ${bedrijf.toUpperCase()}: ophalen volledige historie…`

@@ -150,7 +150,7 @@ function leesJaaroverzicht(pad: string, jaar: number): JaarOmzet | null {
   };
 }
 
-export function getZettleJaaroverzicht(bedrijf: "bb" | "sl"): JaarOmzet[] {
+export function getZettleJaaroverzicht(bedrijf: "bb" | "sl" | "kl"): JaarOmzet[] {
   const cwd = process.cwd();
   const resultaten: JaarOmzet[] = [];
   for (const { bestand, jaar } of IZETTLE_BESTANDEN[bedrijf] ?? []) {
@@ -160,7 +160,7 @@ export function getZettleJaaroverzicht(bedrijf: "bb" | "sl"): JaarOmzet[] {
   return resultaten.sort((a, b) => a.jaar - b.jaar);
 }
 
-export function getProductLevenshistorie(bedrijf: "bb" | "sl"): ProductLevens[] {
+export function getProductLevenshistorie(bedrijf: "bb" | "sl" | "kl"): ProductLevens[] {
   const cwd = process.cwd();
   const pad = path.join(cwd, PAYPAL_BESTANDEN[bedrijf] ?? "");
   const rows = leesCellen(pad);

@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 interface Props {
-  actief: "bb" | "sl";
+  actief: "bb" | "sl" | "kl";
 }
 
 const TABS = [
@@ -18,6 +18,13 @@ const TABS = [
     emoji: "🍢",
     primary: "#00D27A",
     soft: "#DAFBE9",
+  },
+  {
+    slug: "kl" as const,
+    naam: "Kroket Loket",
+    emoji: "🥟",
+    primary: "#FF8A00",
+    soft: "#FFEDD5",
   },
 ];
 

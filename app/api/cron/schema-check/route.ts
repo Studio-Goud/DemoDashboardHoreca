@@ -13,6 +13,7 @@ export const maxDuration = 30;
 const BEDRIJVEN: Record<Bedrijf, string> = {
   bb: "Brunch & Brew",
   sl: "Saté Lounge",
+  kl: "Het Kroket Loket",
 };
 
 // Alerts worden gestuurd als voortgang < 70% van schema-verwachting,
@@ -23,6 +24,7 @@ const BEDRIJVEN: Record<Bedrijf, string> = {
 const laatsteAlert: Record<Bedrijf, string | null> = {
   bb: null,
   sl: null,
+  kl: null,
 };
 
 function verwachtTotNu(curve: number[], nu: Date): number {
@@ -92,7 +94,7 @@ export async function GET(req: NextRequest) {
 
   const nu = new Date();
   const berichten: string[] = [];
-  for (const b of ["bb", "sl"] as const) {
+  for (const b of ["bb", "sl", "kl"] as const) {
     const msg = await checkBedrijf(b, nu);
     if (msg) berichten.push(msg);
   }

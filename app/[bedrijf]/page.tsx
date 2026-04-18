@@ -48,6 +48,13 @@ const BEDRIJVEN = {
     slug: "sl" as Bedrijf,
     paypalPeriode: "apr 2023 – nu",
   },
+  kl: {
+    naam: "Het Kroket Loket",
+    emoji: "🥟",
+    hex: "#FF8A00",
+    slug: "kl" as Bedrijf,
+    paypalPeriode: "historie nog niet beschikbaar",
+  },
 };
 
 type Params = { bedrijf: string };

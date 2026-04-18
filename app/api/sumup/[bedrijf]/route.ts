@@ -15,7 +15,7 @@ export async function GET(
   { params }: { params: { bedrijf: string } }
 ) {
   const bedrijf = params.bedrijf as Bedrijf;
-  if (!["bb", "sl"].includes(bedrijf)) {
+  if (!["bb", "sl", "kl"].includes(bedrijf)) {
     return NextResponse.json({ error: "Onbekend bedrijf" }, { status: 400 });
   }
 

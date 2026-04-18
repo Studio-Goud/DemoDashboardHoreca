@@ -5,13 +5,15 @@ import path from "node:path";
 const ZETTLE_AUTH_URL = "https://oauth.izettle.com/token";
 const ZETTLE_PURCHASE_BASE = "https://purchase.izettle.com";
 
-export type Bedrijf = "bb" | "sl";
+export type Bedrijf = "bb" | "sl" | "kl";
 
 function getAssertion(bedrijf: Bedrijf): string {
   const token =
     bedrijf === "bb"
       ? process.env.ZETTLE_TOKEN_BB
-      : process.env.ZETTLE_TOKEN_SL;
+      : bedrijf === "sl"
+      ? process.env.ZETTLE_TOKEN_SL
+      : process.env.ZETTLE_TOKEN_KL;
   if (!token) throw new Error(`Geen Zettle assertion token voor ${bedrijf}`);
   return token;
 }
@@ -20,7 +22,9 @@ function getClientId(bedrijf: Bedrijf): string | null {
   const id =
     bedrijf === "bb"
       ? process.env.ZETTLE_CLIENT_ID_BB
-      : process.env.ZETTLE_CLIENT_ID_SL;
+      : bedrijf === "sl"
+      ? process.env.ZETTLE_CLIENT_ID_SL
+      : process.env.ZETTLE_CLIENT_ID_KL;
   return id ?? null;
 }
 

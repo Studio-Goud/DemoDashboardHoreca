@@ -34,7 +34,7 @@ interface LiveData {
 }
 
 interface Props {
-  bedrijf: "bb" | "sl";
+  bedrijf: "bb" | "sl" | "kl";
   kleur: string;
   hex: string;
   verwachtVandaag: number;       // totaal verwacht voor vandaag
