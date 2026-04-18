@@ -112,7 +112,7 @@ export function berekenPrognose(txs: SumUpTransaction[]): Prognose[] {
   }
 
   const weekdagOmzetten: number[][] = Array.from({ length: 7 }, () => []);
-  for (const [dag, bedragen] of dagOmzetMap.entries()) {
+  for (const [dag, bedragen] of Array.from(dagOmzetMap.entries())) {
     const weekdag = getDay(parseISO(dag));
     weekdagOmzetten[weekdag].push(bedragen.reduce((a, b) => a + b, 0));
   }
