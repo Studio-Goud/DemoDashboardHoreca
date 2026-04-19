@@ -239,10 +239,6 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
         />
       )}
 
-      {kerncijfers && (
-        <KerncijfersGrid kerncijfers={kerncijfers} hex={config.hex} />
-      )}
-
       <BezettingAdvies
         hex={config.hex}
         weekdagStats={bezWekelijks}
@@ -252,6 +248,10 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
         komendeDiensten={bezKomend}
         shiftProfielen={shiftProfielen}
       />
+
+      {kerncijfers && (
+        <KerncijfersGrid kerncijfers={kerncijfers} hex={config.hex} />
+      )}
 
       {dagOmzet.length > 0 && (
         <RevenueChart data={dagOmzet} kleur={kleurNaam} hex={config.hex} />
