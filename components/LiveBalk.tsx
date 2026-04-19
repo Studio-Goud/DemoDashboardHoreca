@@ -166,35 +166,79 @@ function bepaalScenario(bb: number, sl: number, kl: number): string {
   return "gelijkspel";
 }
 
+// ─── Animatie-definities ──────────────────────────────────────────────────────
+
+interface AnimDef { naam: string; duur: string; herh: string; timing: string }
+
+const ANIMATIES: AnimDef[] = [
+  { naam: "pBob",     duur: "2.2s",  herh: "1",  timing: "ease-in-out" }, // rustige bob
+  { naam: "pSpread",  duur: "1.4s",  herh: "1",  timing: "ease-in-out" }, // vleugels spreiden
+  { naam: "pGaap",    duur: "1.8s",  herh: "1",  timing: "ease-in-out" }, // gapen
+  { naam: "pSchud",   duur: "0.6s",  herh: "3",  timing: "ease-in-out" }, // hoofd schudden
+  { naam: "pSprong",  duur: "0.9s",  herh: "1",  timing: "ease-out"    }, // springen
+  { naam: "pWiebel",  duur: "0.5s",  herh: "4",  timing: "ease-in-out" }, // wiebelen
+  { naam: "pBuig",    duur: "1.4s",  herh: "1",  timing: "ease-in-out" }, // buigen/strikken
+  { naam: "pTril",    duur: "0.1s",  herh: "10", timing: "linear"      }, // opgewonden trillen
+  { naam: "pDraai",   duur: "1.0s",  herh: "1",  timing: "ease-in-out" }, // flip/draaien
+  { naam: "pKnik",    duur: "0.5s",  herh: "3",  timing: "ease-in-out" }, // knikken
+];
+
+const IDLE: AnimDef = { naam: "pIdle", duur: "3s", herh: "infinite", timing: "ease-in-out" };
+
 // ─── Papegaai component ───────────────────────────────────────────────────────
 
 function Papegaai({
   kleur,
-  delay,
+  startDelay,
   tekst,
   actief,
 }: {
   kleur: string;
-  delay: number;
+  startDelay: number;
   tekst: string;
   actief: boolean;
 }) {
+  const [huidig, setHuidig] = useState<AnimDef>(IDLE);
+  const [animKey, setAnimKey] = useState(0); // force re-render om animatie opnieuw te triggeren
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const planVolgende = useCallback(() => {
+    // Wacht 1–4 seconden (idle), dan nieuwe willekeurige animatie
+    const wacht = 1000 + Math.random() * 3000;
+    timerRef.current = setTimeout(() => {
+      setHuidig(ANIMATIES[Math.floor(Math.random() * ANIMATIES.length)]);
+      setAnimKey(k => k + 1);
+    }, wacht);
+  }, []);
+
+  useEffect(() => {
+    // Start na initiële vertraging
+    timerRef.current = setTimeout(() => {
+      setHuidig(ANIMATIES[Math.floor(Math.random() * ANIMATIES.length)]);
+      setAnimKey(k => k + 1);
+    }, startDelay);
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div className="relative flex flex-col items-center">
-      {/* Papegaai emoji met neon glow + bounce */}
+      {/* Papegaai emoji */}
       <span
-        className="text-base select-none cursor-default"
+        key={animKey}
+        className="text-3xl select-none cursor-default"
         style={{
-          filter: `drop-shadow(0 0 6px ${kleur}) drop-shadow(0 0 12px ${kleur}88)`,
-          animation: `parrotBob 0.5s ease-in-out infinite`,
-          animationDelay: `${delay}ms`,
+          filter: `drop-shadow(0 0 8px ${kleur}) drop-shadow(0 0 16px ${kleur}66)`,
+          animation: `${huidig.naam} ${huidig.duur} ${huidig.timing} ${huidig.herh}`,
           display: "inline-block",
+          transformOrigin: "bottom center",
         }}
+        onAnimationEnd={planVolgende}
       >
         🦜
       </span>
 
-      {/* Speech bubble — hangt ONDER de papegaai, zweeft over pagina-inhoud */}
+      {/* Speech bubble — hangt ONDER de papegaai */}
       <div
         className="absolute top-full mt-0.5 px-2 py-1 rounded-lg text-[9px] font-semibold text-white whitespace-nowrap max-w-[130px] text-center leading-tight transition-all duration-500 z-50"
         style={{
@@ -205,7 +249,6 @@ function Papegaai({
           boxShadow: actief ? `0 2px 12px ${kleur}66` : "none",
         }}
       >
-        {/* Pijltje omhoog */}
         <span
           className="absolute left-1/2 -top-1 -translate-x-1/2 w-0 h-0"
           style={{
@@ -323,62 +366,160 @@ function BedrijfKolom({
 export default function LiveBalk() {
   const pathname   = usePathname();
   const [omzetten, setOmzetten] = useState<Record<Slug, number>>({ bb: 0, sl: 0, kl: 0 });
-  const [actiefIdx, setActiefIdx] = useState(0);   // 0=bb 1=sl 2=kl
-  const [jokeIdx, setJokeIdx]     = useState(0);
-  const jokeIdxRef = useRef(0);
+  // Gesprekstoestand: wie praat nu, welke zin, welk grappenset
+  const [spreker, setSpreker]   = useState<number | null>(null); // null = stilte
+  const [jokeSetIdx, setJokeSetIdx] = useState(0);
+  const [zinIdx, setZinIdx]     = useState(0); // 0=bb 1=sl 2=kl
+  const convTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const omzettenRef  = useRef(omzetten);
+  omzettenRef.current = omzetten;
 
   const updateOmzet = useCallback((slug: Slug, omzet: number) => {
     setOmzetten(prev => ({ ...prev, [slug]: omzet }));
   }, []);
 
-  // Roteer: elke 3s volgende papegaai, elke 9s nieuwe grappenset
-  useEffect(() => {
-    const t = setInterval(() => {
-      setActiefIdx(prev => {
-        const next = (prev + 1) % 3;
-        if (next === 0) {
-          jokeIdxRef.current += 1;
-          setJokeIdx(jokeIdxRef.current);
-        }
-        return next;
-      });
-    }, 3000);
-    return () => clearInterval(t);
+  // Shuffle-helper — geeft willekeurige volgorde 0,1,2
+  const shuffleVolgorde = () => [0, 1, 2].sort(() => Math.random() - 0.5);
+
+  // Plan het gesprek als een echte uitwisseling:
+  // BB zegt iets → pauze → SL reageert → pauze → KL sluit af → langere stilte → nieuw gesprek
+  const volgordeRef  = useRef<number[]>(shuffleVolgorde());
+  const stapRef      = useRef(0); // welke zin in het gesprek
+
+  const planVolgendeZin = useCallback(() => {
+    if (convTimerRef.current) clearTimeout(convTimerRef.current);
+
+    const stap = stapRef.current;
+
+    if (stap >= 3) {
+      // Gesprek klaar — langere stilte (5–12s) voor een nieuw gesprek
+      setSpreker(null);
+      const stilte = 5000 + Math.random() * 7000;
+      convTimerRef.current = setTimeout(() => {
+        volgordeRef.current = shuffleVolgorde();
+        stapRef.current = 0;
+        setJokeSetIdx(j => j + 1);
+        planVolgendeZin();
+      }, stilte);
+      return;
+    }
+
+    // Toon zin van de volgende spreker (in willekeurige volgorde)
+    const sprekerIdx = volgordeRef.current[stap];
+    setSpreker(sprekerIdx);
+    setZinIdx(sprekerIdx);
+    stapRef.current = stap + 1;
+
+    // Zin blijft 2.5–5s zichtbaar (langere zinnen wat langer)
+    const leestijd = 2500 + Math.random() * 2500;
+    convTimerRef.current = setTimeout(() => {
+      setSpreker(null); // pauze tussen zinnen
+      const pauze = 400 + Math.random() * 800;
+      convTimerRef.current = setTimeout(planVolgendeZin, pauze);
+    }, leestijd);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    // Start gesprek na 2s
+    convTimerRef.current = setTimeout(planVolgendeZin, 2000);
+    return () => { if (convTimerRef.current) clearTimeout(convTimerRef.current); };
+  }, [planVolgendeZin]);
 
   // Kies grappen op basis van huidige omzetten — willekeurige volgorde per scenario
   const shuffleRef = useRef<Record<string, number[]>>({});
   const grappen = useMemo(() => {
     const scenario = bepaalScenario(omzetten.bb, omzetten.sl, omzetten.kl);
     const sets     = GRAPPEN[scenario] ?? GRAPPEN.ochtend;
-    // Bouw een shuffled index-lijst per scenario (eenmalig)
     if (!shuffleRef.current[scenario] || shuffleRef.current[scenario].length !== sets.length) {
-      const idxs = sets.map((_, i) => i).sort(() => Math.random() - 0.5);
-      shuffleRef.current[scenario] = idxs;
+      shuffleRef.current[scenario] = sets.map((_, i) => i).sort(() => Math.random() - 0.5);
     }
     const volgorde = shuffleRef.current[scenario];
-    return sets[volgorde[jokeIdx % volgorde.length]];
-  }, [omzetten, jokeIdx]);
+    return sets[volgorde[jokeSetIdx % volgorde.length]];
+  }, [omzetten, jokeSetIdx]);
 
+  const ZINNEN: Record<number, string> = { 0: grappen.bb, 1: grappen.sl, 2: grappen.kl };
   const TEKSTEN: Record<Slug, string> = {
-    bb: grappen.bb,
-    sl: grappen.sl,
-    kl: grappen.kl,
+    bb: ZINNEN[0],
+    sl: ZINNEN[1],
+    kl: ZINNEN[2],
   };
 
-  const DELAYS = [0, 150, 300];
+  const DELAYS = [0, 800, 1800];
 
   return (
     <>
-      {/* CSS animatie injectie */}
+      {/* CSS animaties */}
       <style>{`
-        @keyframes parrotBob {
-          0%   { transform: translateY(0px)  rotate(0deg)   scaleX(1); }
-          20%  { transform: translateY(-3px) rotate(-8deg)  scaleX(0.92); }
-          40%  { transform: translateY(-1px) rotate(0deg)   scaleX(1); }
-          60%  { transform: translateY(-3px) rotate(8deg)   scaleX(1.08); }
-          80%  { transform: translateY(-1px) rotate(0deg)   scaleX(1); }
-          100% { transform: translateY(0px)  rotate(0deg)   scaleX(1); }
+        /* Idle: heel rustige schommel */
+        @keyframes pIdle {
+          0%,100% { transform: rotate(0deg) scale(1); }
+          50%     { transform: rotate(3deg) scale(1.03); }
+        }
+        /* Bob: rustige op-neer */
+        @keyframes pBob {
+          0%,100% { transform: translateY(0); }
+          40%     { transform: translateY(-8px) scale(1.05); }
+          70%     { transform: translateY(-4px); }
+        }
+        /* Vleugels spreiden: breed uitklappen */
+        @keyframes pSpread {
+          0%,100% { transform: scaleX(1)   scaleY(1); }
+          30%     { transform: scaleX(1.8) scaleY(0.65); }
+          60%     { transform: scaleX(1.5) scaleY(0.8); }
+          80%     { transform: scaleX(1.1) scaleY(0.95); }
+        }
+        /* Gapen: rek en gaap */
+        @keyframes pGaap {
+          0%,100% { transform: scaleY(1)   scaleX(1); }
+          20%     { transform: scaleY(1.25) scaleX(0.85); }
+          50%     { transform: scaleY(1.35) scaleX(0.8); }
+          80%     { transform: scaleY(1.1)  scaleX(0.95); }
+        }
+        /* Hoofd schudden: nee nee nee */
+        @keyframes pSchud {
+          0%,100% { transform: rotate(0deg); }
+          25%     { transform: rotate(-22deg); }
+          75%     { transform: rotate(22deg); }
+        }
+        /* Springen: squat → lucht → landen */
+        @keyframes pSprong {
+          0%,100% { transform: translateY(0)    scaleY(1)    scaleX(1); }
+          15%     { transform: translateY(3px)   scaleY(0.7)  scaleX(1.2); }
+          40%     { transform: translateY(-20px) scaleY(1.15) scaleX(0.9); }
+          75%     { transform: translateY(-6px)  scaleY(1.05) scaleX(0.97); }
+          90%     { transform: translateY(2px)   scaleY(0.85) scaleX(1.1); }
+        }
+        /* Wiebelen: heupen zwaaien */
+        @keyframes pWiebel {
+          0%,100% { transform: translateX(0)   rotate(0deg); }
+          25%     { transform: translateX(-6px) rotate(-12deg); }
+          75%     { transform: translateX(6px)  rotate(12deg); }
+        }
+        /* Buigen: diep buigen en terug */
+        @keyframes pBuig {
+          0%,100% { transform: rotate(0deg); }
+          30%,60% { transform: rotate(40deg); }
+        }
+        /* Opgewonden trillen */
+        @keyframes pTril {
+          0%,100% { transform: translateX(0)   rotate(0deg); }
+          25%     { transform: translateX(-4px) rotate(-6deg); }
+          75%     { transform: translateX(4px)  rotate(6deg); }
+        }
+        /* Omdraaien/flip (scaleX) */
+        @keyframes pDraai {
+          0%    { transform: scaleX(1); }
+          25%   { transform: scaleX(0.1) scaleY(1.1); }
+          50%   { transform: scaleX(-1); }
+          75%   { transform: scaleX(-0.1) scaleY(1.1); }
+          100%  { transform: scaleX(1); }
+        }
+        /* Knikken: ja ja ja */
+        @keyframes pKnik {
+          0%,100% { transform: rotate(0deg); }
+          30%     { transform: rotate(-18deg); }
+          60%     { transform: rotate(8deg); }
         }
       `}</style>
 
@@ -396,9 +537,9 @@ export default function LiveBalk() {
             >
               <Papegaai
                 kleur={b.kleur}
-                delay={DELAYS[i]}
+                startDelay={DELAYS[i]}
                 tekst={TEKSTEN[b.slug]}
-                actief={actiefIdx === i}
+                actief={spreker === i}
               />
             </div>
           ))}
