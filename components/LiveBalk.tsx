@@ -88,7 +88,8 @@ function BedrijfKolom({
 
   const omzet       = data?.omzetVandaag ?? 0;
   const klanten     = data?.aantalTransactiesVandaag ?? null;
-  const heeftSchema = verwachtNu > 0;
+  // Toon indicator zodra curve geladen is en totaaldag > 0 (niet een lege fallback)
+  const heeftSchema = verwacht !== null && (verwacht.verwachtVandaag > 0 || verwacht.weekdagCurve.some(v => v > 0));
   const voorOp      = omzet >= verwachtNu;
   const verschil    = Math.abs(omzet - verwachtNu);
 
