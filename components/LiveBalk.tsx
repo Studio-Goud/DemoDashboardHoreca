@@ -532,13 +532,16 @@ function Papegaai({
 
       {/* Speech bubble — hangt ONDER de papegaai */}
       <div
-        className="absolute top-full mt-0.5 px-2 py-1 rounded-lg text-[9px] font-semibold text-white whitespace-nowrap max-w-[130px] text-center leading-tight transition-all duration-500 z-50"
+        className="absolute top-full mt-0.5 px-2 py-1 rounded-lg text-[9px] font-semibold text-white w-[140px] text-center leading-tight transition-all duration-500 z-50"
         style={{
           background: kleur + "ee",
           opacity: actief ? 1 : 0,
           transform: actief ? "translateY(0) scale(1)" : "translateY(-4px) scale(0.9)",
           pointerEvents: "none",
           boxShadow: actief ? `0 2px 12px ${kleur}66` : "none",
+          wordBreak: "break-word",
+          overflowWrap: "break-word",
+          whiteSpace: "normal",
         }}
       >
         <span
@@ -739,6 +742,43 @@ export default function LiveBalk() {
 
   const DELAYS = [0, 800, 1800];
 
+  // Welkomst via papegaai ipv WelkomBanner
+  const [welkomOverride, setWelkomOverride] = useState<{ idx: number; tekst: string } | null>(null);
+  const welkomTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const WELKOM_PAPEGAAI: Record<string, { idx: number; tekst: string }> = {
+    Ricardo: { idx: 0, tekst: "Welkom Ricardo! ☕ Goeie dag gewenst 💙" },
+    Matthieu: { idx: 2, tekst: "Welkom Matthieu! 🥟 Klaar voor de dag? 🧡" },
+  };
+
+  useEffect(() => {
+    function toonWelkom(naam: string) {
+      const config = WELKOM_PAPEGAAI[naam];
+      if (!config) return;
+      setWelkomOverride(config);
+      if (welkomTimerRef.current) clearTimeout(welkomTimerRef.current);
+      welkomTimerRef.current = setTimeout(() => setWelkomOverride(null), 5000);
+    }
+    const pending = sessionStorage.getItem("sg_welkom_pending");
+    if (pending) {
+      sessionStorage.removeItem("sg_welkom_pending");
+      toonWelkom(pending);
+    }
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ naam: string }>).detail;
+      if (detail?.naam) {
+        sessionStorage.removeItem("sg_welkom_pending");
+        toonWelkom(detail.naam);
+      }
+    };
+    window.addEventListener("sg:welkom", handler);
+    return () => {
+      window.removeEventListener("sg:welkom", handler);
+      if (welkomTimerRef.current) clearTimeout(welkomTimerRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <>
       {/* CSS animaties */}
@@ -842,20 +882,25 @@ export default function LiveBalk() {
 
         {/* Papegaaienrij — onderaan de balk */}
         <div className="flex">
-          {BEDRIJVEN.map((b, i) => (
-            <div
-              key={b.slug}
-              className="flex-1 flex justify-center items-center py-1 border-r last:border-r-0"
-              style={{ borderColor: "#1e2530" }}
-            >
-              <Papegaai
-                kleur={b.kleur}
-                startDelay={DELAYS[i]}
-                tekst={TEKSTEN[b.slug]}
-                actief={spreker === i}
-              />
-            </div>
-          ))}
+          {BEDRIJVEN.map((b, i) => {
+            const welkomActief = welkomOverride?.idx === i;
+            const isActief = welkomOverride ? welkomActief : spreker === i;
+            const tekst = welkomActief ? welkomOverride!.tekst : TEKSTEN[b.slug];
+            return (
+              <div
+                key={b.slug}
+                className="flex-1 flex justify-center items-center py-1 border-r last:border-r-0"
+                style={{ borderColor: "#1e2530" }}
+              >
+                <Papegaai
+                  kleur={b.kleur}
+                  startDelay={DELAYS[i]}
+                  tekst={tekst}
+                  actief={isActief}
+                />
+              </div>
+            );
+          })}
         </div>
       </div>
     </>
