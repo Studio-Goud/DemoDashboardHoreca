@@ -134,6 +134,78 @@ export function bezettingPerWeekdag(): BezettingPerWeekdag[] {
     .sort((a, b) => a.weekdag - b.weekdag);
 }
 
+export interface TypischeShift {
+  start: string;   // "09:30"
+  eind: string;    // "15:00"
+  uren: number;    // shift-duur in uren
+  freq: number;    // hoe vaak gezien in historische data
+}
+
+export interface WeekdagShiftProfiel {
+  weekdag: number;
+  label: string;
+  gemMensen: number;  // gem. aantal unieke mensen die dag
+  shifts: TypischeShift[];  // top shifts op basis van frequentie
+}
+
+// Rond minuten op naar dichtsbijzijnde 15 min
+function roundTo15(hhmm: string): string {
+  const [h, m] = hhmm.split(":").map(Number);
+  const rounded = Math.round(m / 15) * 15;
+  const finalH = h + Math.floor(rounded / 60);
+  const finalM = rounded % 60;
+  return `${String(finalH).padStart(2, "0")}:${String(finalM).padStart(2, "0")}`;
+}
+
+// Meest voorkomende shift-slots per weekdag (uit historische diensten)
+export function typischeShiftsPerWeekdag(): WeekdagShiftProfiel[] {
+  const diensten = parseDiensten();
+
+  // Groepeer per weekdag
+  const perWd = new Map<number, {
+    namen: Map<string, Set<string>>;  // datum → namen
+    slots: Map<string, number>;       // "09:30-15:00" → freq
+  }>();
+
+  for (const d of diensten) {
+    if (d.naam === "Anonymous User") continue; // skip anoniem
+    const wd = d.weekdag;
+    if (!perWd.has(wd)) perWd.set(wd, { namen: new Map(), slots: new Map() });
+    const entry = perWd.get(wd)!;
+
+    // Unieke mensen per datum (voor gem berekening)
+    const namenOpDag = entry.namen.get(d.datum) ?? new Set<string>();
+    namenOpDag.add(d.naam);
+    entry.namen.set(d.datum, namenOpDag);
+
+    // Shift-slot (afgerond op 15 min)
+    const key = `${roundTo15(d.start)}-${roundTo15(d.eind)}`;
+    entry.slots.set(key, (entry.slots.get(key) ?? 0) + 1);
+  }
+
+  return Array.from(perWd.entries())
+    .map(([wd, v]) => {
+      // Gem. unieke mensen per dag
+      const aantalDagen = v.namen.size;
+      const totaalMensen = Array.from(v.namen.values()).reduce((s, namen) => s + namen.size, 0);
+      const gemMensen = aantalDagen > 0 ? Math.round((totaalMensen / aantalDagen) * 10) / 10 : 0;
+
+      // Top-5 meest voorkomende shifts (drempelwaarde: minstens 3 keer gezien)
+      const shifts: TypischeShift[] = Array.from(v.slots.entries())
+        .filter(([, freq]) => freq >= 3)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 6)
+        .map(([slot, freq]) => {
+          const [start, eind] = slot.split("-");
+          return { start, eind, uren: parseUren(start, eind), freq };
+        })
+        .sort((a, b) => a.start.localeCompare(b.start)); // sorteer op starttijd
+
+      return { weekdag: wd, label: DAG_LABELS[wd], gemMensen, shifts };
+    })
+    .sort((a, b) => a.weekdag - b.weekdag);
+}
+
 // Diensten de komende 14 dagen
 export function komendeDiensten(dagVooruitMax = 14): { datum: string; label: string; mensen: string[]; aantalMensen: number }[] {
   const diensten = parseDiensten();

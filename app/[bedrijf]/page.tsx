@@ -30,7 +30,7 @@ import {
 } from "@/lib/zettle-excel";
 import { dashboardAggregaten } from "@/lib/dashboard-cache";
 import { getWeer, weerInfo } from "@/lib/weer";
-import { bezettingPerDag, bezettingPerWeekdag, komendeDiensten } from "@/lib/shiftbase";
+import { bezettingPerDag, bezettingPerWeekdag, komendeDiensten, typischeShiftsPerWeekdag } from "@/lib/shiftbase";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -97,11 +97,12 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
   ]);
 
   // Shiftbase bezettingsdata (server-side, statisch bestand)
-  const bezDagen     = bezettingPerDag();
-  const bezWekelijks = bezettingPerWeekdag();
-  const bezKomend    = komendeDiensten(14);
-  const vandaagStr   = new Date().toISOString().slice(0, 10);
-  const vandaagBez   = bezDagen.find((d) => d.datum === vandaagStr)?.aantalMensen ?? null;
+  const bezDagen      = bezettingPerDag();
+  const bezWekelijks  = bezettingPerWeekdag();
+  const bezKomend     = komendeDiensten(14);
+  const shiftProfielen = typischeShiftsPerWeekdag();
+  const vandaagStr    = new Date().toISOString().slice(0, 10);
+  const vandaagBez    = bezDagen.find((d) => d.datum === vandaagStr)?.aantalMensen ?? null;
 
   const {
     sumupTxAantal,
@@ -249,6 +250,7 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
         dagOmzet={dagOmzet}
         prognose={prognose}
         komendeDiensten={bezKomend}
+        shiftProfielen={shiftProfielen}
       />
 
       {dagOmzet.length > 0 && (
