@@ -41,6 +41,14 @@ function koningsDag(jaar: number): Date {
   return d;
 }
 
+// Rotterdam Marathon — tweede zondag van april
+function rotterdamMarathon(jaar: number): Date {
+  const april1 = new Date(jaar, 3, 1);
+  const dagVdWeek = april1.getDay(); // 0=zo
+  const eersteSondag = 1 + (dagVdWeek === 0 ? 0 : 7 - dagVdWeek);
+  return new Date(jaar, 3, eersteSondag + 7);
+}
+
 export function feestdagenVoorJaar(jaar: number): Feestdag[] {
   const pasen = paasDatum(jaar);
   const lijst: Feestdag[] = [
@@ -57,6 +65,7 @@ export function feestdagenVoorJaar(jaar: number): Feestdag[] {
     { datum: new Date(jaar, 11, 25), naam: "1e Kerstdag", type: "feestdag", impact: "dicht" },
     { datum: new Date(jaar, 11, 26), naam: "2e Kerstdag", type: "feestdag", impact: "hoog" },
     { datum: new Date(jaar, 11, 31), naam: "Oudejaarsavond", type: "feestdag", impact: "middel" },
+    { datum: rotterdamMarathon(jaar), naam: "Marathon Rotterdam 🏃", type: "feestdag", impact: "hoog" },
   ];
   return lijst.map((f) => ({ ...f, datum: startOfDay(f.datum) }));
 }

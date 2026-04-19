@@ -110,6 +110,66 @@ const TEMPLATES: Record<Bedrijf, Record<"normaal" | "druk" | "extreem", DrukteTe
   },
 };
 
+// Zondag: altijd 2 mensen, heel de dag
+const ZONDAG_TEMPLATES: Record<Bedrijf, DrukteTemplate> = {
+  bb: {
+    label: "Zondag",
+    kleur: "#94a3b8",
+    shifts: [
+      { start: "09:30", eind: "16:00", rol: "opener" },
+      { start: "13:00", eind: "20:00", rol: "sluiter" },
+    ],
+  },
+  sl: {
+    label: "Zondag",
+    kleur: "#94a3b8",
+    shifts: [
+      { start: "10:00", eind: "16:00", rol: "opener" },
+      { start: "14:00", eind: "20:00", rol: "sluiter" },
+    ],
+  },
+  kl: {
+    label: "Zondag",
+    kleur: "#94a3b8",
+    shifts: [
+      { start: "10:00", eind: "15:00", rol: "opener" },
+      { start: "15:00", eind: "20:00", rol: "sluiter" },
+    ],
+  },
+};
+
+// Marathon Rotterdam: extreem — BB 4 man, SL 3 man, KL 3 man
+const MARATHON_TEMPLATES: Record<Bedrijf, DrukteTemplate> = {
+  bb: {
+    label: "Marathon Rotterdam 🏃",
+    kleur: "#f87171",
+    shifts: [
+      { start: "09:30", eind: "20:00", rol: "opener" },
+      { start: "09:30", eind: "20:00", rol: "opener" },
+      { start: "12:00", eind: "20:00", rol: "middag" },
+      { start: "14:00", eind: "20:00", rol: "sluiter" },
+    ],
+  },
+  sl: {
+    label: "Marathon Rotterdam 🏃",
+    kleur: "#f87171",
+    shifts: [
+      { start: "10:00", eind: "20:00", rol: "opener" },
+      { start: "10:00", eind: "20:00", rol: "opener" },
+      { start: "14:00", eind: "20:00", rol: "sluiter" },
+    ],
+  },
+  kl: {
+    label: "Marathon Rotterdam 🏃",
+    kleur: "#f87171",
+    shifts: [
+      { start: "10:00", eind: "15:00", rol: "opener" },
+      { start: "12:00", eind: "18:00", rol: "middag" },
+      { start: "15:00", eind: "20:00", rol: "sluiter" },
+    ],
+  },
+};
+
 const ROL_KLEUR: Record<ShiftSlot["rol"], string> = {
   opener:  "#60a5fa",
   middag:  "#a78bfa",
@@ -130,8 +190,7 @@ function bepaalDrukte(
   weekdag: number,
   dagOmzet: DagOmzet[]
 ): "normaal" | "druk" | "extreem" {
-  // Zaterdag is altijd extreem — standaard maximale bezetting
-  if (weekdag === 6) return "extreem";
+  if (weekdag === 6) return "extreem"; // zaterdag altijd extreem
 
   const zelfde = dagOmzet
     .filter((d) => new Date(d.datum).getDay() === weekdag && d.omzet > 0)
@@ -154,8 +213,14 @@ export default function BezettingAdvies({ hex, bedrijf, dagOmzet, prognose, gepl
 
   if (!vandaagPrognose) return null;
 
-  const drukte   = bepaalDrukte(vandaagPrognose.verwacht, vandaagPrognose.weekdag, dagOmzet);
-  const template = TEMPLATES[bedrijf][drukte];
+  const isMarathon = vandaagPrognose.feestdag?.includes("Marathon") ?? false;
+  const isZondag   = vandaagPrognose.weekdag === 0;
+
+  const template = isMarathon
+    ? MARATHON_TEMPLATES[bedrijf]
+    : isZondag
+    ? ZONDAG_TEMPLATES[bedrijf]
+    : TEMPLATES[bedrijf][bepaalDrukte(vandaagPrognose.verwacht, vandaagPrognose.weekdag, dagOmzet)];
   const aanbevolen = template.shifts.length;
 
   const status = (() => {
