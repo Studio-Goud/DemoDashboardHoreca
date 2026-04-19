@@ -247,7 +247,7 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
         weekdagStats={bezWekelijks}
         bezettingPerDag={bezDagen}
         dagOmzet={dagOmzet}
-        vandaagBezetting={vandaagBez}
+        prognose={prognose}
         komendeDiensten={bezKomend}
       />
 
