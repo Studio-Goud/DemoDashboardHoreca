@@ -40,43 +40,112 @@ interface GrapSet { bb: string; sl: string; kl: string }
 
 const GRAPPEN: Record<string, GrapSet[]> = {
   ochtend: [
-    { bb: "Goedemorgen 👋", sl: "Ik ben er nog niet klaar voor", kl: "Koffie first" },
-    { bb: "Wie is er al wakker?", sl: "Zzz...", kl: "Geef me 5 minuten" },
-    { bb: "Teller staat nog op nul", sl: "Wij ook", kl: "Samen sterk" },
+    { bb: "Goedemorgen Rotterdam 👋", sl: "Ik ben er nog niet klaar voor", kl: "Koffie first" },
+    { bb: "Wie is er al wakker?", sl: "Zzz... de Maas ook nog niet", kl: "Geef me 5 minuten" },
+    { bb: "Teller staat op nul", sl: "Wij ook. Nul", kl: "Samen sterk 💪" },
+    { bb: "Nieuwe dag, nieuwe kansen", sl: "Eerst zien dan geloven", kl: "Wacht maar af" },
+    { bb: "De espresso staat klaar", sl: "Wij ook bijna", kl: "Iemand de deur open?" },
+    { bb: "Rotterdam wacht op ons", sl: "Rotterdam wacht op niemand", kl: "Dat klopt eigenlijk" },
+    { bb: "Ochtendploeg aanwezig", sl: "Aanwezig maar suf", kl: "Zelfde" },
+    { bb: "Dag begint zo", sl: "Dag begint zo ja", kl: "Doe maar gewoon" },
+    { bb: "Hoelaat is het eigenlijk", sl: "Te vroeg", kl: "Veel te vroeg" },
+    { bb: "Niet lullen maar zetten", sl: "Die koffie of die saté?", kl: "Beiden" },
+    { bb: "Markthal ook nog dicht", sl: "Wij zijn avontuurlijker", kl: "Of dommer" },
+    { bb: "Erasmusbrug staat er al", sl: "Die werkt tenminste al", kl: "Hij klopt ook" },
   ],
   bb_leidt: [
-    { bb: "Weer gewoon die barista-magie ✨", sl: "Jij verkoopt koffie aan verslaafden", kl: "…geen comment" },
-    { bb: "De teller loopt door hoor 😏", sl: "Mijn klanten zijn selectiever", kl: "Ik werk aan mijn kroket-empire" },
-    { bb: "Kom op jongens, probeer het eens", sl: "Niet iedereen heeft verslaafde klanten", kl: "Wacht maar tot de lunch" },
+    { bb: "Niet lullen maar poetsen 😤", sl: "Jij verkoopt koffie aan verslaafden", kl: "Geen comment" },
+    { bb: "Nie lullen maar poetsen — en tellen", sl: "Mijn klanten zijn selectiever", kl: "Ik werk aan mijn kroket-empire" },
+    { bb: "De Kuip loopt ook niet leeg hoor", sl: "Die vergelijking gaat niet op", kl: "Wacht maar tot de lunch" },
     { bb: "Ik ga al een tijdje lekker 💅", sl: "Gefeliciteerd met je cafeïne-business", kl: "Ik ben gewoon traag op gang" },
+    { bb: "Rotterdam aan de koffie vandaag", sl: "Rotterdam is altijd al verslaafd", kl: "Dat wisten we al" },
+    { bb: "Markthal kan wat van ons leren", sl: "Die heeft geen keuken meer nodig", kl: "Ik ook bijna niet" },
+    { bb: "De teller loopt door hoor 😏", sl: "Dat zie ik ja. Zucht.", kl: "Straks inhalen" },
+    { bb: "Feyenoord wint ook altijd uiteindelijk", sl: "Dat is een andere sport", kl: "En een andere uitslag" },
+    { bb: "Wij zijn de Coolsingel van de horeca", sl: "Lekker breed en leeg?", kl: "Hahaha goeie" },
+    { bb: "Zo zie je maar. Koffie regeert", sl: "In Den Haag drinken ze thee", kl: "En terecht dat ze verloren" },
+    { bb: "Kom op dan, bij ons kan iedereen terecht", sl: "Behalve mensen zonder geld", kl: "En Ajax-supporters" },
+    { bb: "Wij zijn gewoon op dreef 🚀", sl: "Ja ja, geniet er maar van", kl: "Volgende week anders" },
+    { bb: "Dit voelt als een Champions League avond", sl: "Vergeet het — jij bent PSV max", kl: "Ik ben NAC" },
   ],
   sl_leidt: [
-    { bb: "Wauw, sate-dag vandaag?", sl: "Weten we al lang 🍢", kl: "Ik begrijp het niet, krokets zijn ook lekker" },
+    { bb: "Sate-dag vandaag blijkbaar?", sl: "Elke dag is sate-dag 🍢", kl: "Ik begrijp er niks van" },
     { bb: "Dat komt door het weer vast", sl: "Nee, gewoon kwaliteit", kl: "Volgend uur boven jullie allebei" },
-    { bb: "Saté loopt vandaag", sl: "Elke dag eigenlijk 😌", kl: "Ik ben ook goed hoor" },
+    { bb: "Saté loopt hard vandaag", sl: "Altijd al hard gelopen 😌", kl: "Ik ook maar dan langzamer" },
+    { bb: "Wauw, gaan ze lekker", sl: "Rotterdam houdt van sate", kl: "Rotterdam houdt ook van kroket hoor" },
+    { bb: "Hoe doen ze dat toch", sl: "Goed eten maken helpt", kl: "Dat doe ik ook!" },
+    { bb: "Ik ga ook sate eten straks", sl: "Verstandige keuze", kl: "Verraad" },
+    { bb: "SL knalt er doorheen", sl: "Stokje erin, sate d'rop, klaar", kl: "Als het maar zo makkelijk was" },
+    { bb: "Dit had ik verwacht eigenlijk", sl: "Dat we winnen? Ja logisch", kl: "Ik ook eigenlijk" },
+    { bb: "Katendrecht-energie vandaag bij SL", sl: "Altijd Katendrecht-energie", kl: "Ik zit meer op Spijkenisse-energie" },
+    { bb: "Ok goed dan SL. Fair.", sl: "Dankjewel BB. Dat is groot van je.", kl: "Ik doe ook mee hoor" },
+    { bb: "Als ik geen koffie had zou ik ook sate doen", sl: "Nee dat doe je niet", kl: "Nee dat doe je niet" },
+    { bb: "SL vandaag echt bezig 🔥", sl: "Wij zijn altijd bezig", kl: "Ik ben ook bezig. Met wachten." },
   ],
   kl_leidt: [
-    { bb: "Hoe?!", sl: "Wat?!", kl: "🥟🥟🥟 IK ZEID HET" },
-    { bb: "Is dit een vergissing?", sl: "De kroket loket leidt? Echt??", kl: "Jullie kunnen wat van mij leren" },
-    { bb: "Iemand uitleggen alsjeblieft", sl: "Geen idee wat er gaande is", kl: "Kroketten zijn de toekomst, altijd geweten" },
+    { bb: "Hoe?!", sl: "WAT?!", kl: "🥟🥟🥟 IK ZEID HET" },
+    { bb: "Is dit een vergissing?", sl: "Ik snap er niks van", kl: "Jullie kunnen wat van mij leren" },
+    { bb: "Iemand uitleggen?", sl: "Geen idee wat er gaande is", kl: "Kroketten zijn de toekomst. Ik wist het." },
+    { bb: "Dit heeft AI ook niet voorspeld", sl: "Dit heeft niemand voorspeld", kl: "IK WEL" },
+    { bb: "KL leidt. Echt waar.", sl: "Ik moet even gaan zitten", kl: "Blijf maar staan, er komt meer aan" },
+    { bb: "Rotterdam loopt op kroket vandaag", sl: "Rotterdam heeft echt alles", kl: "Rotterdam IS kroket" },
+    { bb: "Ok respect. Dat geef ik toe.", sl: "Ik zeg niks want ik snap het niet", kl: "Dankjewel BB. Jij snapt het." },
+    { bb: "Opeens snappen we Kroket Loket", sl: "Ik snap het nog steeds niet", kl: "Het vet. Het is het vet." },
+    { bb: "De De Kuip gaat open voor de kroket", sl: "Dat is te ver", kl: "Is het? Is het echt te ver?" },
+    { bb: "Ik ga morgen ook kroket op de kaart zetten", sl: "Dan wordt dit anders", kl: "Dan ga ik koffie schenken" },
+    { bb: "Ok KL. Wat is jullie geheim?", sl: "Dat wil ik ook weten", kl: "Buitenlucht, verse olie, en een beetje geluk 🥟" },
   ],
   gelijkspel: [
     { bb: "Eerlijk spel vandaag", sl: "Zo hoort het", kl: "Voor nu..." },
-    { bb: "Jullie doen vandaag best je best", sl: "Dat zeg ik terug", kl: "Mooie middag dit" },
+    { bb: "Jullie doen best jullie best", sl: "Dat zeg ik terug", kl: "Mooie dag dit" },
     { bb: "Niemand wint, niemand verliest", sl: "Dat is ook een uitkomst", kl: "Ik noem het: evenwicht" },
+    { bb: "Rotterdam als geheel wint", sl: "Mooi gezegd BB", kl: "Voor één keer eens" },
+    { bb: "Studio Goud draait vandaag 🏅", sl: "Samen sterk", kl: "Zoals het hoort" },
+    { bb: "Gelijk op is ook fijn", sl: "Zolang het duurt", kl: "Ik ga straks gas geven" },
+    { bb: "Dit is zeldzaam", sl: "Geniet er maar van", kl: "Screenshot dit" },
+    { bb: "Drie vestigingen, één team", sl: "Tot ik ga winnen", kl: "Idem" },
+    { bb: "Witte de With-energie vandaag", sl: "Iedereen is blij", kl: "Tot de rekening komt" },
+    { bb: "Knap van jullie eerlijk gezegd", sl: "Jij ook", kl: "Dankjewel beiden" },
+    { bb: "Is het toeval of werken we goed?", sl: "Beetje van beiden", kl: "Ik zeg: talent" },
+    { bb: "Als dit een race was staan we allen op het podium", sl: "Feyenoord-gevoel", kl: "Beetje wel ja" },
   ],
   bb_nul: [
-    { bb: "De koffie moet nog zetten ☕", sl: "Brunch & Slapen bedoel je?", kl: "Haha eindelijk!" },
+    { bb: "De koffie moet nog zetten ☕", sl: "Brunch & Slapen bedoel je?", kl: "Haha eindelijk mijn moment" },
     { bb: "Wij zijn meer van de late start", sl: "Dat geloof ik ja", kl: "Geen klanten of geen zin?" },
+    { bb: "Even opwarmen nog", sl: "Al hoelang opwarmen?", kl: "De kroket warmt sneller op" },
+    { bb: "Kwaliteit kost tijd", sl: "Dat zeg je elke dag BB", kl: "En elke dag begrijp ik het minder" },
+    { bb: "Onze klanten komen later", sl: "Ja die zitten nog te brunchen thuis", kl: "Goede" },
+    { bb: "Rustige ochtend bij ons", sl: "Rustige ochtend, rustige omzet", kl: "Rustig rustig rustig" },
+    { bb: "Geduld is een schone zaak", sl: "Jij hebt er veel van BB", kl: "Te veel" },
+    { bb: "Wij tellen de suikerklontjes", sl: "Dat doen ze ook in Den Haag", kl: "Alleen wij doen het gratis" },
+    { bb: "Nul is ook een getal", sl: "Het is het armste getal", kl: "Behalve als je BB bent" },
+    { bb: "De Erasmusbrug heeft ook stille uren", sl: "De brug draait wel gewoon", kl: "Touché" },
   ],
   sl_nul: [
-    { bb: "Saté op vakantie vandaag?", sl: "De oven staat op te warmen", kl: "We wachten op je SL 🍢" },
-    { bb: "Heeft SL al opengedaan?", sl: "Wij beginnen later, dat is het", kl: "Straks inhalen toch?" },
+    { bb: "Saté op vakantie vandaag?", sl: "De oven staat op te warmen", kl: "Die oven is altijd aan het opwarmen" },
+    { bb: "Heeft SL al opengedaan?", sl: "Wij beginnen later. Dat is het.", kl: "Straks inhalen toch?" },
+    { bb: "Iemand de saté vergeten aan te steken?", sl: "Het steekt zichzelf wel aan", kl: "Bewijs het" },
+    { bb: "SL doet het rustig aan vandaag", sl: "Wij zijn strategisch aan het wachten", kl: "Op wat dan?" },
+    { bb: "Zonder SL is het stiller", sl: "Ik ben stil maar ik ben er", kl: "Dat telt niet voor de omzet" },
+    { bb: "Het stokje is er maar de sate nog niet", sl: "Het stokje wacht ook", kl: "Goed gezelschap dan" },
+    { bb: "SL doet net of nul normaal is", sl: "Nul is een goede basis", kl: "Voor wat precies" },
+    { bb: "Saté Lounge meer Lounge dan Saté vandaag", sl: "Lounging is ook een kunst", kl: "Eén die niet betaalt" },
+    { bb: "Wij maken ons zorgen SL", sl: "Lief van je BB", kl: "Doe ik ook een beetje" },
+    { bb: "Straks sprint SL nog voorbij ons", sl: "Dat is de bedoeling", kl: "Dat zie ik dan wel" },
   ],
   kl_nul: [
     { bb: "Heeft KL al iemand gezien?", sl: "Ssht, laat ze slapen", kl: "Ik wacht op de juiste klant" },
     { bb: "Kroket-stand gesloten geloof ik", sl: "Of ze tellen de munten nog", kl: "Kwaliteit boven kwantiteit" },
     { bb: "KL staat er al wel hè?", sl: "Ja maar niemand wil", kl: "Ze komen wel... 🥟" },
+    { bb: "Nul krokets verkocht. Nul.", sl: "Nul is een feit BB", kl: "Het vet moet eerst op temperatuur" },
+    { bb: "KL doet rustig aan vandaag", sl: "KL doet altijd rustig aan", kl: "Rustig is goed voor de kroket" },
+    { bb: "Ik gun ze een klantje", sl: "Ik ook eigenlijk", kl: "Ik ook. Eentje maar." },
+    { bb: "Ze zoeken nog de frituurpan", sl: "Die staat er toch al?", kl: "Ik zoek de motivatie" },
+    { bb: "Nul bij KL maar ze staan er", sl: "Aanwezig zijn is ook wat", kl: "Dankjewel. Dat raak me." },
+    { bb: "Geen verkoop is ook data", sl: "Negatieve data", kl: "Ik noem het: baseline" },
+    { bb: "KL wacht op de lunchrun", sl: "Die lunchrun duurt lang", kl: "Goed ding kan lang duren" },
+    { bb: "Hoe lang staat die kroket al warm?", sl: "Te lang", kl: "Een kroket is nooit te lang warm" },
+    { bb: "Rotterdam zegt: kroket kan wachten", sl: "Rotterdam zegt: geef maar", kl: "Rotterdam snapt het gewoon niet" },
   ],
 };
 
@@ -275,11 +344,18 @@ export default function LiveBalk() {
     return () => clearInterval(t);
   }, []);
 
-  // Kies grappen op basis van huidige omzetten
+  // Kies grappen op basis van huidige omzetten — willekeurige volgorde per scenario
+  const shuffleRef = useRef<Record<string, number[]>>({});
   const grappen = useMemo(() => {
     const scenario = bepaalScenario(omzetten.bb, omzetten.sl, omzetten.kl);
     const sets     = GRAPPEN[scenario] ?? GRAPPEN.ochtend;
-    return sets[jokeIdx % sets.length];
+    // Bouw een shuffled index-lijst per scenario (eenmalig)
+    if (!shuffleRef.current[scenario] || shuffleRef.current[scenario].length !== sets.length) {
+      const idxs = sets.map((_, i) => i).sort(() => Math.random() - 0.5);
+      shuffleRef.current[scenario] = idxs;
+    }
+    const volgorde = shuffleRef.current[scenario];
+    return sets[volgorde[jokeIdx % volgorde.length]];
   }, [omzetten, jokeIdx]);
 
   const TEKSTEN: Record<Slug, string> = {
