@@ -92,6 +92,7 @@ const TEMPLATES: Record<Bedrijf, Record<"normaal" | "druk" | "extreem", DrukteTe
         { start: "10:00", eind: "15:00", rol: "opener" },
         { start: "12:00", eind: "18:00", rol: "middag" },
         { start: "15:00", eind: "20:00", rol: "sluiter" },
+        { start: "15:00", eind: "20:00", rol: "sluiter" },
       ],
     },
     extreem: {
@@ -101,6 +102,8 @@ const TEMPLATES: Record<Bedrijf, Record<"normaal" | "druk" | "extreem", DrukteTe
         { start: "10:00", eind: "15:00", rol: "opener" },
         { start: "10:00", eind: "16:00", rol: "opener" },
         { start: "12:00", eind: "18:00", rol: "middag" },
+        { start: "12:00", eind: "20:00", rol: "middag" },
+        { start: "15:00", eind: "20:00", rol: "sluiter" },
         { start: "15:00", eind: "20:00", rol: "sluiter" },
       ],
     },
@@ -127,6 +130,9 @@ function bepaalDrukte(
   weekdag: number,
   dagOmzet: DagOmzet[]
 ): "normaal" | "druk" | "extreem" {
+  // Zaterdag is altijd extreem — standaard maximale bezetting
+  if (weekdag === 6) return "extreem";
+
   const zelfde = dagOmzet
     .filter((d) => new Date(d.datum).getDay() === weekdag && d.omzet > 0)
     .map((d) => d.omzet)
