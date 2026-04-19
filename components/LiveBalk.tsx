@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 const BEDRIJVEN = [
   { slug: "bb", naam: "Brunch & Brew",    emoji: "☕", kleur: "#00B8FF" },
@@ -179,31 +181,6 @@ function Papegaai({
 }) {
   return (
     <div className="relative flex flex-col items-center">
-      {/* Speech bubble */}
-      <div
-        className="absolute bottom-full mb-1 px-2 py-1 rounded-lg text-[9px] font-semibold text-white whitespace-nowrap max-w-[120px] text-center leading-tight transition-all duration-500"
-        style={{
-          background: kleur + "dd",
-          opacity: actief ? 1 : 0,
-          transform: actief ? "translateY(0) scale(1)" : "translateY(4px) scale(0.9)",
-          pointerEvents: "none",
-          boxShadow: actief ? `0 0 8px ${kleur}88` : "none",
-          // Pijltje onderaan
-          filter: actief ? `drop-shadow(0 2px 4px ${kleur}66)` : "none",
-        }}
-      >
-        {tekst}
-        {/* Pijltje */}
-        <span
-          className="absolute left-1/2 -bottom-1 -translate-x-1/2 w-0 h-0"
-          style={{
-            borderLeft: "5px solid transparent",
-            borderRight: "5px solid transparent",
-            borderTop: `5px solid ${kleur}dd`,
-          }}
-        />
-      </div>
-
       {/* Papegaai emoji met neon glow + bounce */}
       <span
         className="text-base select-none cursor-default"
@@ -216,6 +193,29 @@ function Papegaai({
       >
         🦜
       </span>
+
+      {/* Speech bubble — hangt ONDER de papegaai, zweeft over pagina-inhoud */}
+      <div
+        className="absolute top-full mt-0.5 px-2 py-1 rounded-lg text-[9px] font-semibold text-white whitespace-nowrap max-w-[130px] text-center leading-tight transition-all duration-500 z-50"
+        style={{
+          background: kleur + "ee",
+          opacity: actief ? 1 : 0,
+          transform: actief ? "translateY(0) scale(1)" : "translateY(-4px) scale(0.9)",
+          pointerEvents: "none",
+          boxShadow: actief ? `0 2px 12px ${kleur}66` : "none",
+        }}
+      >
+        {/* Pijltje omhoog */}
+        <span
+          className="absolute left-1/2 -top-1 -translate-x-1/2 w-0 h-0"
+          style={{
+            borderLeft: "5px solid transparent",
+            borderRight: "5px solid transparent",
+            borderBottom: `5px solid ${kleur}ee`,
+          }}
+        />
+        {tekst}
+      </div>
     </div>
   );
 }
@@ -223,10 +223,11 @@ function Papegaai({
 // ─── BedrijfKolom ─────────────────────────────────────────────────────────────
 
 function BedrijfKolom({
-  slug, naam, emoji, kleur, onOmzetUpdate,
+  slug, naam, emoji, kleur, onOmzetUpdate, isActief,
 }: {
   slug: Slug; naam: string; emoji: string; kleur: string;
   onOmzetUpdate: (slug: Slug, omzet: number) => void;
+  isActief?: boolean;
 }) {
   const [data, setData]         = useState<LiveData | null>(null);
   const [verwacht, setVerwacht] = useState<VerwachtData | null>(null);
@@ -276,14 +277,14 @@ function BedrijfKolom({
 
   return (
     <div
-      className="flex-1 px-3 sm:px-4 py-2 border-r last:border-r-0"
+      className="px-3 sm:px-4 py-2 border-r last:border-r-0"
       style={{ borderColor: "#1e2530" }}
     >
       <div className="flex items-center gap-1.5 mb-1">
         <span className="text-sm leading-none">{emoji}</span>
         <span
           className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.15em] font-mono truncate"
-          style={{ color: kleur }}
+          style={{ color: kleur, opacity: isActief ? 1 : 0.6 }}
         >
           {naam}
         </span>
@@ -320,6 +321,7 @@ function BedrijfKolom({
 // ─── LiveBalk (root) ──────────────────────────────────────────────────────────
 
 export default function LiveBalk() {
+  const pathname   = usePathname();
   const [omzetten, setOmzetten] = useState<Record<Slug, number>>({ bb: 0, sl: 0, kl: 0 });
   const [actiefIdx, setActiefIdx] = useState(0);   // 0=bb 1=sl 2=kl
   const [jokeIdx, setJokeIdx]     = useState(0);
@@ -402,15 +404,25 @@ export default function LiveBalk() {
           ))}
         </div>
 
-        {/* Datakolommen */}
+        {/* Datakolommen — klikbaar als navigatie */}
         <div className="flex">
-          {BEDRIJVEN.map((b) => (
-            <BedrijfKolom
-              key={b.slug}
-              {...b}
-              onOmzetUpdate={updateOmzet}
-            />
-          ))}
+          {BEDRIJVEN.map((b) => {
+            const isActief = pathname === `/${b.slug}`;
+            return (
+              <Link
+                key={b.slug}
+                href={`/${b.slug}`}
+                className="flex-1 block"
+                style={isActief ? { borderBottom: `2px solid ${b.kleur}` } : { borderBottom: "2px solid transparent" }}
+              >
+                <BedrijfKolom
+                  {...b}
+                  onOmzetUpdate={updateOmzet}
+                  isActief={isActief}
+                />
+              </Link>
+            );
+          })}
         </div>
       </div>
     </>

@@ -1,16 +1,23 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 const PIN_NAMEN: Record<string, string> = {
   "2026": "Ricardo",
   "2580": "Matthieu",
 };
 
+const USER_STANDAARD: Record<string, string> = {
+  Ricardo: "/bb",
+  Matthieu: "/kl",
+};
+
 const STORAGE_KEY = "sg_auth";
 const USER_KEY = "sg_user";
 
 export default function PinGate({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const [unlocked, setUnlocked] = useState(false);
   const [input, setInput] = useState("");
   const [fout, setFout] = useState(false);
@@ -32,13 +39,12 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
       if (naam) {
         sessionStorage.setItem(STORAGE_KEY, "1");
         sessionStorage.setItem(USER_KEY, naam);
-        // Pending-flag zodat de banner 'm oppakt zodra die mount
         sessionStorage.setItem("sg_welkom_pending", naam);
-        // Én een event dispatchen voor het geval de banner al gemount is
         window.dispatchEvent(
           new CustomEvent("sg:welkom", { detail: { naam } })
         );
         setUnlocked(true);
+        router.replace(USER_STANDAARD[naam] ?? "/bb");
       } else {
         setFout(true);
         setTimeout(() => setInput(""), 600);

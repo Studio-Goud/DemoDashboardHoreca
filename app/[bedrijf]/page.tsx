@@ -3,7 +3,6 @@ import { Suspense } from "react";
 import { format, parseISO } from "date-fns";
 import { nl } from "date-fns/locale";
 import PullToRefresh from "@/components/PullToRefresh";
-import BedrijfTabs from "@/components/BedrijfTabs";
 import WelkomBanner from "@/components/WelkomBanner";
 import DashboardSkeleton from "@/components/DashboardSkeleton";
 import LiveRevenue from "@/components/LiveRevenue";
@@ -73,8 +72,7 @@ export default function DashboardPage({ params }: { params: Params }) {
   return (
     <PullToRefresh>
       <main className="min-h-screen p-4 sm:p-6 max-w-7xl mx-auto">
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-          <BedrijfTabs actief={config.slug} />
+        <div className="flex justify-end mb-4">
           <WelkomBanner />
         </div>
 
