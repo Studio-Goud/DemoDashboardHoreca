@@ -36,6 +36,56 @@ function fmt(n: number): string {
   return "€" + n.toLocaleString("nl-NL", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function fmtKort(n: number): string {
+  return "€" + Math.round(n).toLocaleString("nl-NL");
+}
+
+// Sluitingstijd per weekdag (0=zo, 1=ma, ... 6=za) — komt overeen met
+// lib/openingsuren.ts. Gedupliceerd hier omdat dit een client-component is.
+const SLUITINGSTIJDEN: Record<number, number> = {
+  0: 18, 1: 20, 2: 20, 3: 20, 4: 20, 5: 21, 6: 20,
+};
+
+function inEindlastUur(): boolean {
+  const nu = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Amsterdam" }));
+  const close = SLUITINGSTIJDEN[nu.getDay()];
+  if (close === undefined) return false;
+  return nu.getHours() >= close - 1 && nu.getHours() < close;
+}
+
+interface HighlightsInput {
+  bb: { omzet: number; klanten: number; verwachtNu: number };
+  sl: { omzet: number; klanten: number; verwachtNu: number };
+  kl: { omzet: number; klanten: number; verwachtNu: number };
+}
+
+function maakHighlights(staten: HighlightsInput): string[] {
+  const arr = [
+    { naam: "Brunch & Brew",    emoji: "☕", ...staten.bb },
+    { naam: "Saté Lounge",      emoji: "🍢", ...staten.sl },
+    { naam: "Het Kroket Loket", emoji: "🥟", ...staten.kl },
+  ].sort((a, b) => b.omzet - a.omzet);
+
+  const totaal      = arr.reduce((s, x) => s + x.omzet, 0);
+  const totVerwacht = arr.reduce((s, x) => s + x.verwachtNu, 0);
+  const totKlanten  = arr.reduce((s, x) => s + x.klanten, 0);
+  const top         = arr[0];
+  const verschil    = totaal - totVerwacht;
+  const pct         = totVerwacht > 0 ? Math.round((totaal / totVerwacht) * 100) : 0;
+
+  const verschilLabel =
+    totVerwacht > 0
+      ? `${pct}% van verwacht (${verschil >= 0 ? "+" : "−"}${fmtKort(Math.abs(verschil))})`
+      : "verwacht-data nog niet geladen";
+
+  return [
+    `🥇 Top vandaag: ${top.emoji} ${top.naam} met ${fmtKort(top.omzet)}`,
+    `💰 Samen ${fmtKort(totaal)} over de drie tellers`,
+    `📊 ${verschilLabel}`,
+    `👥 ${totKlanten.toLocaleString("nl-NL")} klanten gepasseerd`,
+  ];
+}
+
 // ─── Grap-generator ──────────────────────────────────────────────────────────
 
 interface GrapSet { bb: string; sl: string; kl: string }
@@ -138,7 +188,7 @@ const GRAPPEN: Record<string, GrapSet[]> = {
     { bb: "Kroket-lunch is in trek", sl: "Ten koste van de saté", kl: "Soms gaat het zo" },
     { bb: "SL rustig vandaag, KL actief", sl: "Hou het klein", kl: "Ik hou het lekker" },
     { bb: "BB goes brrr, KL goes blub", sl: "Ik goes stil", kl: "Blub is productief" },
-    { bb: "Studio Goud volgorde: blauw, oranje, groen", sl: "Noteer niet, alsjeblieft", kl: "Screenshot dit." },
+    { bb: "Volgorde vandaag: blauw, oranje, groen", sl: "Noteer niet, alsjeblieft", kl: "Screenshot dit." },
     { bb: "SL-dag is het vandaag niet", sl: "Helaas niet", kl: "Voor mij wel een goede dag" },
   ],
   sl_bb_kl: [
@@ -172,7 +222,7 @@ const GRAPPEN: Record<string, GrapSet[]> = {
     { bb: "KL leidt, BB volgt, SL achter", sl: "Dit klopt helemaal niet", kl: "Het klopt. Check de teller." },
     { bb: "Eindelijk een kroket-dag", sl: "Slechte saté-dag", kl: "Perfecte kroket-dag" },
     { bb: "Rotterdam op kroket", sl: "Rotterdam doet raar", kl: "Rotterdam is wakker" },
-    { bb: "Kroket tilt Studio Goud omhoog", sl: "Ten koste van mij", kl: "Sorry SL. Echt wel sorry." },
+    { bb: "Kroket tilt de dag omhoog", sl: "Ten koste van mij", kl: "Sorry SL. Echt wel sorry." },
     { bb: "Respect voor KL", sl: "Ik zeg niks", kl: "Geniet maar even BB" },
     { bb: "Wij volgen de kroket-trend", sl: "Ik kijk toe", kl: "Toekijken mag ook" },
     { bb: "KL topper, BB tweede", sl: "Saté derde. Geen woorden.", kl: "Topper neemt de titel" },
@@ -198,7 +248,7 @@ const GRAPPEN: Record<string, GrapSet[]> = {
     { bb: "Jullie doen best jullie best", sl: "Dat zeg ik terug", kl: "Mooie dag dit" },
     { bb: "Niemand wint, niemand verliest", sl: "Dat is ook een uitkomst", kl: "Ik noem het: evenwicht" },
     { bb: "Rotterdam als geheel wint", sl: "Mooi gezegd BB", kl: "Voor één keer eens" },
-    { bb: "Studio Goud draait vandaag 🏅", sl: "Samen sterk", kl: "Zoals het hoort" },
+    { bb: "Drie tellers draaien lekker 🏅", sl: "Samen sterk", kl: "Zoals het hoort" },
     { bb: "Gelijk op is ook fijn", sl: "Zolang het duurt", kl: "Ik ga straks gas geven" },
     { bb: "Dit is zeldzaam", sl: "Geniet er maar van", kl: "Screenshot dit" },
     { bb: "Drie vestigingen, één team", sl: "Tot ik ga winnen", kl: "Idem" },
@@ -207,7 +257,7 @@ const GRAPPEN: Record<string, GrapSet[]> = {
     { bb: "Is het toeval of werken we goed?", sl: "Beetje van beiden", kl: "Ik zeg: talent" },
     { bb: "Als dit een race was staan we allen op het podium", sl: "Feyenoord-gevoel", kl: "Beetje wel ja" },
     { bb: "Drie bedrijven in balans", sl: "Balans is een kunst", kl: "Zolang ik niet onderaan sta" },
-    { bb: "Studio Goud vandaag als één", sl: "Prachtig eigenlijk", kl: "Ik ben ook onder de indruk van mezelf" },
+    { bb: "Vandaag draaien we als één", sl: "Prachtig eigenlijk", kl: "Ik ben ook onder de indruk van mezelf" },
     { bb: "Gelijkspel is ook een punt", sl: "In de voetballerij wel", kl: "In de kroket-wereld is het ook prima" },
     { bb: "Vandaag geen winnaar maar wel drie goede cijfers", sl: "Drie goede cijfers is ook wat", kl: "Ik neem het" },
     { bb: "We staan gelijk. Dat is eerlijk.", sl: "Eerlijker kan niet", kl: "Ik zou liever voor staan maar ok" },
@@ -233,7 +283,7 @@ const GRAPPEN: Record<string, GrapSet[]> = {
     { bb: "Alles gelijk. Dat is ook een prestatie.", sl: "In een andere context klinkt dat als falen", kl: "Vandaag is het succes" },
     { bb: "Goed weekend gevoel", sl: "Weekdag gevoel", kl: "Kroket-gevoel" },
     { bb: "Geen verliezers vandaag. Dat is fijn.", sl: "Morgen zijn er wel verliezers", kl: "Ik niet" },
-    { bb: "Studio Goud als merk wint vandaag", sl: "Als merk wint altijd", kl: "Studio Goud met KL-kleuren is het mooiste" },
+    { bb: "Vandaag wint iedereen een beetje", sl: "Een beetje is genoeg", kl: "Een beetje oranje erbij maakt het mooi" },
     { bb: "Iedereen draait mee. Dat is het doel.", sl: "Het doel is winnen maar dit is ook ok", kl: "Ok is ok" },
     { bb: "Balans is kunst. Wij zijn kunstenaars.", sl: "Saté is ook kunst", kl: "Kroket is ook kunst. Gouden korst, zachte binnenkant." },
     { bb: "We verdelen de klandizie eerlijk", sl: "Eerlijk verdelen is ook een kunst", kl: "Ik wil iets meer dan eerlijk" },
@@ -465,11 +515,13 @@ function Papegaai({
 
 // ─── BedrijfKolom ─────────────────────────────────────────────────────────────
 
+interface BedrijfStaat { omzet: number; klanten: number; verwachtNu: number }
+
 function BedrijfKolom({
-  slug, naam, emoji, kleur, onOmzetUpdate, isActief,
+  slug, naam, emoji, kleur, onUpdate, isActief,
 }: {
   slug: Slug; naam: string; emoji: string; kleur: string;
-  onOmzetUpdate: (slug: Slug, omzet: number) => void;
+  onUpdate: (slug: Slug, staat: BedrijfStaat) => void;
   isActief?: boolean;
 }) {
   const [data, setData]         = useState<LiveData | null>(null);
@@ -481,9 +533,8 @@ function BedrijfKolom({
       const res  = await fetch(`/api/sumup/${slug}`, { cache: "no-store" });
       const json = await res.json();
       setData(json);
-      onOmzetUpdate(slug, json.omzetVandaag ?? 0);
     } catch { /* stil */ }
-  }, [slug, onOmzetUpdate]);
+  }, [slug]);
 
   const laadVerwacht = useCallback(async () => {
     try {
@@ -513,10 +564,16 @@ function BedrijfKolom({
   );
 
   const omzet    = data?.omzetVandaag ?? 0;
-  const klanten  = data?.aantalTransactiesVandaag ?? null;
+  const klanten  = data?.aantalTransactiesVandaag ?? 0;
+  const heeftKlanten = data?.aantalTransactiesVandaag !== undefined && data?.aantalTransactiesVandaag !== null;
   const heeftSchema = verwacht !== null && (verwacht.verwachtVandaag > 0 || verwacht.weekdagCurve.some(v => v > 0));
   const voorOp   = omzet >= verwachtNu;
   const verschil = Math.abs(omzet - verwachtNu);
+
+  // Doorlussen naar parent voor o.a. highlights-berekening
+  useEffect(() => {
+    onUpdate(slug, { omzet, klanten, verwachtNu });
+  }, [slug, omzet, klanten, verwachtNu, onUpdate]);
 
   return (
     <div
@@ -551,7 +608,7 @@ function BedrijfKolom({
             schema laadt…
           </span>
         )}
-        {klanten !== null && (
+        {heeftKlanten && (
           <span className="text-[9px] sm:text-[10px] font-mono" style={{ color: "#64748b" }}>
             {klanten} klanten
           </span>
@@ -565,18 +622,43 @@ function BedrijfKolom({
 
 export default function LiveBalk() {
   const pathname   = usePathname();
-  const [omzetten, setOmzetten] = useState<Record<Slug, number>>({ bb: 0, sl: 0, kl: 0 });
+  const LEEG_STAAT: BedrijfStaat = { omzet: 0, klanten: 0, verwachtNu: 0 };
+  const [staten, setStaten] = useState<Record<Slug, BedrijfStaat>>({
+    bb: LEEG_STAAT, sl: LEEG_STAAT, kl: LEEG_STAAT,
+  });
+  const omzetten = useMemo(
+    () => ({ bb: staten.bb.omzet, sl: staten.sl.omzet, kl: staten.kl.omzet }),
+    [staten]
+  );
   // Gesprekstoestand: wie praat nu, welke zin, welk grappenset
   const [spreker, setSpreker]   = useState<number | null>(null); // null = stilte
   const [jokeSetIdx, setJokeSetIdx] = useState(0);
   const [zinIdx, setZinIdx]     = useState(0); // 0=bb 1=sl 2=kl
+  const [highlightTekst, setHighlightTekst] = useState<string | null>(null);
   const convTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const omzettenRef  = useRef(omzetten);
-  omzettenRef.current = omzetten;
+  const statenRef    = useRef(staten);
+  statenRef.current  = staten;
 
-  const updateOmzet = useCallback((slug: Slug, omzet: number) => {
-    setOmzetten(prev => ({ ...prev, [slug]: omzet }));
+  const updateBedrijf = useCallback((slug: Slug, staat: BedrijfStaat) => {
+    setStaten(prev => {
+      const huidig = prev[slug];
+      if (
+        huidig.omzet === staat.omzet &&
+        huidig.klanten === staat.klanten &&
+        huidig.verwachtNu === staat.verwachtNu
+      ) {
+        return prev;
+      }
+      return { ...prev, [slug]: staat };
+    });
   }, []);
+
+  // Highlights-queue: na welkom (en alleen tijdens eindlast-uur) speelt LiveBalk
+  // 4 data-driven highlights af, dan terug naar normale grappen.
+  const highlightsRef = useRef<{ teksten: string[]; stap: number }>({
+    teksten: [],
+    stap: 0,
+  });
 
   // Shuffle-helper — geeft willekeurige volgorde 0,1,2
   const shuffleVolgorde = () => [0, 1, 2].sort(() => Math.random() - 0.5);
@@ -588,6 +670,25 @@ export default function LiveBalk() {
 
   const planVolgendeZin = useCallback(() => {
     if (convTimerRef.current) clearTimeout(convTimerRef.current);
+
+    // Highlights-queue heeft voorrang op normale grappen
+    const hl = highlightsRef.current;
+    if (hl.stap < hl.teksten.length) {
+      const tekst = hl.teksten[hl.stap];
+      const sprekerIdx = hl.stap % 3;
+      hl.stap += 1;
+      setSpreker(sprekerIdx);
+      setHighlightTekst(tekst);
+      // Highlights zijn langer/data-rijk → langere leestijd
+      const leestijd = 4000 + Math.random() * 1500;
+      convTimerRef.current = setTimeout(() => {
+        setSpreker(null);
+        setHighlightTekst(null);
+        const pauze = 700 + Math.random() * 600;
+        convTimerRef.current = setTimeout(planVolgendeZin, pauze);
+      }, leestijd);
+      return;
+    }
 
     const stap = stapRef.current;
 
@@ -639,10 +740,12 @@ export default function LiveBalk() {
   }, [omzetten, jokeSetIdx]);
 
   const ZINNEN: Record<number, string> = { 0: grappen.bb, 1: grappen.sl, 2: grappen.kl };
+  // Tijdens highlights komt de tekst voor de actieve spreker uit highlightTekst
+  // i.p.v. uit het normale grappen-set.
   const TEKSTEN: Record<Slug, string> = {
-    bb: ZINNEN[0],
-    sl: ZINNEN[1],
-    kl: ZINNEN[2],
+    bb: highlightTekst !== null && spreker === 0 ? highlightTekst : ZINNEN[0],
+    sl: highlightTekst !== null && spreker === 1 ? highlightTekst : ZINNEN[1],
+    kl: highlightTekst !== null && spreker === 2 ? highlightTekst : ZINNEN[2],
   };
 
   const DELAYS = [0, 800, 1800];
@@ -662,7 +765,21 @@ export default function LiveBalk() {
       if (!config) return;
       setWelkomOverride(config);
       if (welkomTimerRef.current) clearTimeout(welkomTimerRef.current);
-      welkomTimerRef.current = setTimeout(() => setWelkomOverride(null), 5000);
+      welkomTimerRef.current = setTimeout(() => {
+        setWelkomOverride(null);
+        // Direct na het welkomstbericht: als we in het laatste open-uur
+        // zitten, queue 4 data-driven highlights van vandaag.
+        if (inEindlastUur()) {
+          highlightsRef.current = {
+            teksten: maakHighlights(statenRef.current),
+            stap: 0,
+          };
+          // Onderbreek lopend gesprek en speel highlights direct af
+          if (convTimerRef.current) clearTimeout(convTimerRef.current);
+          stapRef.current = 0;
+          convTimerRef.current = setTimeout(planVolgendeZin, 600);
+        }
+      }, 5000);
     }
     const pending = sessionStorage.getItem("sg_welkom_pending");
     if (pending) {
@@ -777,7 +894,7 @@ export default function LiveBalk() {
               >
                 <BedrijfKolom
                   {...b}
-                  onOmzetUpdate={updateOmzet}
+                  onUpdate={updateBedrijf}
                   isActief={isActief}
                 />
               </Link>
