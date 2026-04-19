@@ -22,6 +22,7 @@ import WeerImpact from "@/components/WeerImpact";
 import ProductCombinaties from "@/components/ProductCombinaties";
 import BtwExport from "@/components/BtwExport";
 import PushAanmelden from "@/components/PushAanmelden";
+import BezettingAdvies from "@/components/BezettingAdvies";
 import type { Bedrijf } from "@/lib/sumup";
 import {
   getZettleJaaroverzicht,
@@ -29,6 +30,7 @@ import {
 } from "@/lib/zettle-excel";
 import { dashboardAggregaten } from "@/lib/dashboard-cache";
 import { getWeer, weerInfo } from "@/lib/weer";
+import { bezettingPerDag, bezettingPerWeekdag, komendeDiensten } from "@/lib/shiftbase";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -93,6 +95,13 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
     Promise.resolve(getProductLevenshistorie(config.slug)),
     getWeer().catch(() => []),
   ]);
+
+  // Shiftbase bezettingsdata (server-side, statisch bestand)
+  const bezDagen     = bezettingPerDag();
+  const bezWekelijks = bezettingPerWeekdag();
+  const bezKomend    = komendeDiensten(14);
+  const vandaagStr   = new Date().toISOString().slice(0, 10);
+  const vandaagBez   = bezDagen.find((d) => d.datum === vandaagStr)?.aantalMensen ?? null;
 
   const {
     sumupTxAantal,
@@ -232,6 +241,15 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
       {kerncijfers && (
         <KerncijfersGrid kerncijfers={kerncijfers} hex={config.hex} />
       )}
+
+      <BezettingAdvies
+        hex={config.hex}
+        weekdagStats={bezWekelijks}
+        bezettingPerDag={bezDagen}
+        dagOmzet={dagOmzet}
+        vandaagBezetting={vandaagBez}
+        komendeDiensten={bezKomend}
+      />
 
       {dagOmzet.length > 0 && (
         <RevenueChart data={dagOmzet} kleur={kleurNaam} hex={config.hex} />
