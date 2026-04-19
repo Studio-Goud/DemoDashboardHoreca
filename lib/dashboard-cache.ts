@@ -1,6 +1,6 @@
 import { unstable_cache } from "next/cache";
 import { getDay } from "date-fns";
-import { fetchAllTransactions, type Bedrijf } from "./sumup";
+import { fetchAllTransactions, type Bedrijf, type SumUpTransaction } from "./sumup";
 import { fetchAllZettlePurchases, normalizeZettleToSumUp } from "./zettle";
 import {
   berekenDagOmzet,
@@ -53,6 +53,24 @@ export interface DashboardAggregaten {
   gegenereerd: string;
 }
 
+// Producten die historisch via een gedeelde kassa verkeerd zijn terechtgekomen
+// in een andere vestiging. Gefilterd uit product-analyses (niet uit omzet).
+const VREEMD_PRODUCT: Partial<Record<Bedrijf, Set<string>>> = {
+  bb: new Set([
+    "Nasi portie 300gr", "Bami portie 300gr",
+    "Saté LOS Stokjes", "Saté los ", "Saté", "Baar en sate",
+  ]),
+};
+
+function schrobProducten(txs: SumUpTransaction[], bedrijf: Bedrijf): SumUpTransaction[] {
+  const vreemd = VREEMD_PRODUCT[bedrijf];
+  if (!vreemd) return txs;
+  return txs.map(tx => ({
+    ...tx,
+    products: (tx.products ?? []).filter(p => !vreemd.has(p.name)),
+  }));
+}
+
 async function berekenDashboardAggregaten(
   bedrijf: Bedrijf
 ): Promise<DashboardAggregaten> {
@@ -94,10 +112,13 @@ async function berekenDashboardAggregaten(
 
   const heeftData = alle.length > 0;
 
+  // Gebruik schoongemaakte transacties voor product-analyses (omzet blijft ongewijzigd)
+  const alleSchoon = schrobProducten(alle, bedrijf);
+
   const dagOmzet       = heeftData ? berekenDagOmzet(alle)                       : [];
-  const piekuren       = heeftData ? berekenPiekuren(alle)                       : [];
-  const topProducten   = heeftData ? berekenTopProducten(alle)                   : [];
-  const productCombinaties = heeftData ? berekenProductCombinaties(alle)         : [];
+  const piekuren       = heeftData ? berekenPiekuren(alleSchoon)                 : [];
+  const topProducten   = heeftData ? berekenTopProducten(alleSchoon)             : [];
+  const productCombinaties = heeftData ? berekenProductCombinaties(alleSchoon)   : [];
   const maandOmzet     = heeftData ? berekenMaandOmzet(alle)                     : [];
   const prognose       = heeftData ? berekenPrognose(alle, bedrijf)              : [];
   const schommelingen  = heeftData ? detecteerSchommelingen(dagOmzet)            : [];
