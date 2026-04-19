@@ -214,15 +214,6 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
         </div>
       )}
 
-      <div className="flex justify-end">
-        <p className="text-slate-400 text-[11px]">
-          {sumupTxAantal.toLocaleString("nl-NL")} SumUp tx ·{" "}
-          {zettleTxAantal.toLocaleString("nl-NL")} Zettle tx ·{" "}
-          {jaaroverzicht.length} Zettle jaaroverzichten ·{" "}
-          {productLevens.length} producten · data van {fmtDatumTijd(opgehaald)}
-        </p>
-      </div>
-
       {heeftData && (
         <LiveRevenue
           bedrijf={config.slug}
@@ -306,22 +297,6 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
 
       <BtwExport bedrijf={config.slug} hex={config.hex} />
 
-      <div className="text-center text-slate-300 text-xs pb-6 space-y-1">
-        <p>
-          SumUp: {sumupTxAantal.toLocaleString("nl-NL")} tx · Zettle API:{" "}
-          {zettleTxAantal.toLocaleString("nl-NL")} tx · Zettle Excel:{" "}
-          {jaaroverzicht.length} jaren · Product Excel:{" "}
-          {productLevens.length} items
-        </p>
-        {eersteDatum && laatsteDatum && (
-          <p>
-            Periode vanaf 2023-01-01:{" "}
-            {format(parseISO(eersteDatum), "dd-MM-yyyy", { locale: nl })} –{" "}
-            {format(parseISO(laatsteDatum), "dd-MM-yyyy", { locale: nl })} ·{" "}
-            {dagOmzet.length} dagen met omzet
-          </p>
-        )}
-      </div>
     </div>
   );
 }

@@ -527,26 +527,8 @@ export default function LiveBalk() {
         className="w-full sticky top-0 z-50"
         style={{ background: "#0a0e14", borderBottom: "1px solid #1e2530" }}
       >
-        {/* Papegaaienrij */}
-        <div className="flex" style={{ borderBottom: "1px solid #1a2030" }}>
-          {BEDRIJVEN.map((b, i) => (
-            <div
-              key={b.slug}
-              className="flex-1 flex justify-center items-end pb-0.5 pt-1.5 border-r last:border-r-0"
-              style={{ borderColor: "#1e2530" }}
-            >
-              <Papegaai
-                kleur={b.kleur}
-                startDelay={DELAYS[i]}
-                tekst={TEKSTEN[b.slug]}
-                actief={spreker === i}
-              />
-            </div>
-          ))}
-        </div>
-
         {/* Datakolommen — klikbaar als navigatie */}
-        <div className="flex">
+        <div className="flex" style={{ borderBottom: "1px solid #1a2030" }}>
           {BEDRIJVEN.map((b) => {
             const isActief = pathname === `/${b.slug}`;
             return (
@@ -564,6 +546,24 @@ export default function LiveBalk() {
               </Link>
             );
           })}
+        </div>
+
+        {/* Papegaaienrij — onderaan de balk */}
+        <div className="flex">
+          {BEDRIJVEN.map((b, i) => (
+            <div
+              key={b.slug}
+              className="flex-1 flex justify-center items-center py-1 border-r last:border-r-0"
+              style={{ borderColor: "#1e2530" }}
+            >
+              <Papegaai
+                kleur={b.kleur}
+                startDelay={DELAYS[i]}
+                tekst={TEKSTEN[b.slug]}
+                actief={spreker === i}
+              />
+            </div>
+          ))}
         </div>
       </div>
     </>
