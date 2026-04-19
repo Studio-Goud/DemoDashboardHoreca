@@ -11,7 +11,8 @@ import {
 } from "recharts";
 
 interface UurRij {
-  uur: number;
+  slot: number;
+  label: string;
   omzet: number;
   txs: number;
 }
@@ -255,12 +256,12 @@ export default function LiveRevenue({
                   </linearGradient>
                 </defs>
                 <XAxis
-                  dataKey="uur"
+                  dataKey="label"
                   tick={{ fill: "rgba(15,23,42,0.5)", fontSize: 9 }}
                   axisLine={false}
                   tickLine={false}
                   interval={3}
-                  tickFormatter={(v) => `${String(v).padStart(2, "0")}`}
+                  tickFormatter={(v: string) => v.endsWith(":00") ? v : ""}
                 />
                 <YAxis hide />
                 <Tooltip
@@ -272,7 +273,7 @@ export default function LiveRevenue({
                   }}
                   formatter={(v: number, _n, item) => [
                     `€${v.toFixed(2)} · ${item.payload.txs} tx`,
-                    `${String(item.payload.uur).padStart(2, "0")}:00`,
+                    item.payload.label,
                   ]}
                   labelFormatter={() => ""}
                 />

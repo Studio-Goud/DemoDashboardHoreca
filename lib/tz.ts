@@ -28,6 +28,24 @@ export function getHoursNL(d: Date | string): number {
   return gfHours(nlDate(d));
 }
 
+// NL-minuten (0-59)
+export function getMinutesNL(d: Date | string): number {
+  const nl = nlDate(d);
+  return nl.getMinutes();
+}
+
+// 30-minuten slot index (0-47): slot 20 = 10:00, slot 21 = 10:30
+export function getHalfUurSlotNL(d: Date | string): number {
+  return getHoursNL(d) * 2 + (getMinutesNL(d) >= 30 ? 1 : 0);
+}
+
+// Label voor een half-uur slot: "10:00", "10:30"
+export function halfUurLabel(slot: number): string {
+  const uur = Math.floor(slot / 2);
+  const min = slot % 2 === 0 ? "00" : "30";
+  return `${String(uur).padStart(2, "0")}:${min}`;
+}
+
 export function getDayNL(d: Date | string): number {
   return gfDay(nlDate(d));
 }

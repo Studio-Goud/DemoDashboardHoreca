@@ -3,7 +3,8 @@ import { fetchTransactions, type Bedrijf } from "@/lib/sumup";
 import {
   nlStartOfDayISO,
   nlEndOfDayISO,
-  getHoursNL,
+  getHalfUurSlotNL,
+  halfUurLabel,
   nlDagKey,
 } from "@/lib/tz";
 
@@ -63,14 +64,14 @@ export async function GET(
     const gemBonVandaag =
       vandaagTxs.length > 0 ? omzetVandaag / vandaagTxs.length : 0;
 
-    // Uur-verdeling — gebaseerd op NL-uren
-    const uurVerdeling = Array.from({ length: 24 }, (_, uur) => {
-      const inUur = vandaagTxs.filter((t) => getHoursNL(t.timestamp) === uur);
+    // Half-uur verdeling (48 slots) — gebaseerd op NL-tijd
+    const uurVerdeling = Array.from({ length: 48 }, (_, slot) => {
+      const inSlot = vandaagTxs.filter((t) => getHalfUurSlotNL(t.timestamp) === slot);
       return {
-        uur,
-        omzet:
-          Math.round(inUur.reduce((s, t) => s + t.amount, 0) * 100) / 100,
-        txs: inUur.length,
+        slot,
+        label: halfUurLabel(slot),
+        omzet: Math.round(inSlot.reduce((s, t) => s + t.amount, 0) * 100) / 100,
+        txs: inSlot.length,
       };
     });
 
