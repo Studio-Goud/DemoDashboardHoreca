@@ -216,6 +216,44 @@ export function parseIngCsv(text: string): IngTransactie[] {
   return transacties.sort((a, b) => a.datum.localeCompare(b.datum));
 }
 
+// ─── GoCardless transactie → IngTransactie ────────────────────────────────────
+
+import type { GcTransaction } from "./gocardless";
+
+export function vanGcTransactie(gc: GcTransaction): IngTransactie | null {
+  const bedragStr = gc.transactionAmount.amount;
+  const bedragNum = parseFloat(bedragStr);
+  if (isNaN(bedragNum)) return null;
+
+  const richting: "debit" | "credit" = bedragNum < 0 ? "debit" : "credit";
+  const bedrag = Math.abs(bedragNum);
+  const datum = gc.bookingDate;
+  const naam = gc.creditorName ?? gc.debtorName ??
+    gc.remittanceInformationUnstructured?.slice(0, 50) ?? "Onbekend";
+  const mededelingen = [
+    gc.remittanceInformationUnstructured,
+    gc.remittanceInformationStructured,
+  ].filter(Boolean).join(" ").slice(0, 200);
+
+  const { btw21, btw9, categorie, btwStatus } = categoriseer(naam, bedrag);
+
+  return {
+    id: gc.transactionId ?? hashId(datum, naam, bedrag),
+    datum,
+    omschrijving: naam,
+    tegenrekening: "",
+    code: gc.bankTransactionCode ?? "",
+    richting,
+    bedrag,
+    mutatiesoort: richting === "credit" ? "Credit" : "Debit",
+    mededelingen,
+    btw21,
+    btw9,
+    categorie,
+    btwStatus,
+  };
+}
+
 export function filterMaand(txs: IngTransactie[], jaar: number, maand: number): IngTransactie[] {
   const prefix = `${jaar}-${String(maand).padStart(2, "0")}`;
   return txs.filter((t) => t.datum.startsWith(prefix));
