@@ -1,0 +1,34 @@
+name: Facturen sync (dagelijks)
+
+on:
+  schedule:
+    - cron: "0 5 * * *"   # 05:00 UTC = 07:00 zomertijd
+  workflow_dispatch:        # ook handmatig te starten via GitHub UI
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - run: npm ci
+
+      - name: Sync facturen BB + SL
+        env:
+          EMAIL_USER_BB: ${{ secrets.EMAIL_USER_BB }}
+          EMAIL_PASS_BB: ${{ secrets.EMAIL_PASS_BB }}
+          EMAIL_USER_SL: ${{ secrets.EMAIL_USER_SL }}
+          EMAIL_PASS_SL: ${{ secrets.EMAIL_PASS_SL }}
+          EMAIL_USER_KL: ${{ secrets.EMAIL_USER_KL }}
+          EMAIL_PASS_KL: ${{ secrets.EMAIL_PASS_KL }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          VERCEL_APP_URL: ${{ secrets.VERCEL_APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: npx tsx scripts/sync-facturen.ts

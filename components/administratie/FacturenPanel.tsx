@@ -36,21 +36,14 @@ export default function FacturenPanel({ bedrijf, hex, jaar }: Props) {
   useEffect(() => { laad(); }, [bedrijf, jaar]);
 
   async function syncEmail() {
+    // De echte sync loopt via GitHub Actions (dagelijks 07:00).
+    // Deze knop herlaadt gewoon de meest recente data uit KV.
     setSyncing(true);
     setFout(null);
     setBericht(null);
-    // Max 2 dagen voor de handmatige knop (Vercel Hobby = 10s timeout)
-    // De nachtelijke cron (06:00) haalt alles op vanaf Q2
     try {
-      const res = await fetch(`/api/administratie/facturen/${bedrijf}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dagenTerug: 2 }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
-      setBericht(data.bericht);
       await laad();
+      setBericht("Facturen herladen vanuit database.");
     } catch (e) {
       setFout(e instanceof Error ? e.message : "Onbekende fout");
     } finally {
@@ -70,7 +63,7 @@ export default function FacturenPanel({ bedrijf, hex, jaar }: Props) {
       <div className="flex items-center justify-between mb-3">
         <div>
           <h3 className="font-semibold text-slate-700">Facturen (email)</h3>
-          <p className="text-[11px] text-slate-400">Automatisch ingelezen via One.com · nachtelijke sync 06:00</p>
+          <p className="text-[11px] text-slate-400">Dagelijkse sync via GitHub Actions · 07:00 NL</p>
         </div>
         <button
           onClick={syncEmail}
