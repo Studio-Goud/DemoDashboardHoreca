@@ -26,10 +26,12 @@ export interface IngTransactie {
 
 interface BtwRegel {
   patroon: RegExp;
-  tarief21: number; // absolute euro of 0
+  tarief21: number; // -1 = auto, 0 = geen, >0 = vast bedrag
   tarief9: number;
   categorie: string;
   status: "auto" | "nvt";
+  split9?: number;  // fractie van bedrag tegen 9% (voor gemengde leveranciers)
+  split21?: number; // fractie van bedrag tegen 21%
 }
 
 // Opgebouwd uit de echte transactiedata van BB + Saté Q1 2026
@@ -41,24 +43,43 @@ const BTW_REGELS: BtwRegel[] = [
   { patroon: /makro/i,                     tarief21: 0, tarief9: -1, categorie: "levensmiddelen",   status: "auto" },
   { patroon: /harvest\s*coffee/i,          tarief21: 0, tarief9: -1, categorie: "levensmiddelen",   status: "auto" },
   { patroon: /bakkerij\s*havenaar/i,       tarief21: 0, tarief9: -1, categorie: "levensmiddelen",   status: "auto" },
+  { patroon: /fleur\s*de\s*caf/i,          tarief21: 0, tarief9: -1, categorie: "levensmiddelen",   status: "auto" },
+  { patroon: /tea\s*bar/i,                 tarief21: 0, tarief9: -1, categorie: "levensmiddelen",   status: "auto" },
   { patroon: /south\s*american\s*food/i,   tarief21: 0, tarief9: -1, categorie: "levensmiddelen",   status: "auto" },
   { patroon: /meledi/i,                    tarief21: 0, tarief9: -1, categorie: "levensmiddelen",   status: "auto" },
   { patroon: /pay\.nl\*safe2/i,            tarief21: 0, tarief9: -1, categorie: "levensmiddelen",   status: "auto" },
   { patroon: /johans\s*supermarkt/i,       tarief21: -1, tarief9: 0, categorie: "levensmiddelen",   status: "auto" },
+  // South American Food via BCK pin: 80% 9% tarief, 20% 21% tarief
+  { patroon: /bck\*south\s*american/i,     tarief21: 0, tarief9: 0, split9: 0.8, split21: 0.2, categorie: "levensmiddelen", status: "auto" },
 
   // 21% zakelijke diensten / huur / telecom
   { patroon: /klepierre/i,                 tarief21: -1, tarief9: 0, categorie: "huur",             status: "auto" },
-  { patroon: /echt\s*rotterdams/i,          tarief21: 0,  tarief9: 0, categorie: "salaris",          status: "nvt"  },
+  { patroon: /echt\s*rotterdams/i,         tarief21: 0,  tarief9: 0, categorie: "salaris",          status: "nvt"  },
   { patroon: /odido/i,                     tarief21: -1, tarief9: 0, categorie: "telecom",          status: "auto" },
   { patroon: /t-mobile/i,                  tarief21: -1, tarief9: 0, categorie: "telecom",          status: "auto" },
   { patroon: /kpn/i,                       tarief21: -1, tarief9: 0, categorie: "telecom",          status: "auto" },
   { patroon: /one\.com/i,                  tarief21: -1, tarief9: 0, categorie: "hosting",          status: "auto" },
   { patroon: /spotify/i,                   tarief21: -1, tarief9: 0, categorie: "abonnement",       status: "auto" },
   { patroon: /horeca.*platform|horecaontwikkel|stichting\s*horeca/i, tarief21: -1, tarief9: 0, categorie: "software", status: "auto" },
+  { patroon: /shiftbase/i,                 tarief21: -1, tarief9: 0, categorie: "software",         status: "auto" },
   { patroon: /directsocials/i,             tarief21: -1, tarief9: 0, categorie: "marketing",        status: "auto" },
   { patroon: /gemeente\s*rotterdam/i,      tarief21: -1, tarief9: 0, categorie: "gemeentekosten",   status: "auto" },
   { patroon: /praxis/i,                    tarief21: -1, tarief9: 0, categorie: "materiaal",        status: "auto" },
   { patroon: /bck\*markthal/i,             tarief21: -1, tarief9: 0, categorie: "markthal",         status: "auto" },
+  { patroon: /disposable\s*discounter/i,   tarief21: -1, tarief9: 0, categorie: "materiaal",        status: "auto" },
+  { patroon: /fjord\s*eat/i,               tarief21: -1, tarief9: 0, categorie: "representatie",    status: "auto" },
+  { patroon: /stofzakkie/i,                tarief21: -1, tarief9: 0, categorie: "representatie",    status: "auto" },
+  { patroon: /printerpro/i,                tarief21: -1, tarief9: 0, categorie: "representatie",    status: "auto" },
+  { patroon: /action\s+\d|action\s+[a-z]{2,}/i, tarief21: -1, tarief9: 0, categorie: "representatie", status: "auto" },
+  { patroon: /bck\*xenos/i,                tarief21: -1, tarief9: 0, categorie: "representatie",    status: "auto" },
+
+  // Geen BTW — verzekering, cash opname, vergoedingen
+  { patroon: /surebusiness/i,              tarief21: 0,  tarief9: 0, categorie: "verzekering",      status: "nvt" },
+  { patroon: /geldmaat/i,                  tarief21: 0,  tarief9: 0, categorie: "contant",          status: "nvt" },
+  { patroon: /via\s*tikkie/i,              tarief21: 0,  tarief9: 0, categorie: "vergoeding",       status: "nvt" },
+
+  // Salaris / personeel — initialen + achternaam patroon (bijv. T COSTA, HL FRANKEN-SNOEI, M DE CARVALHO PINHO BARBOSA)
+  { patroon: /^[A-Z]{1,3}\s+(?:(?:de|van|den|der|ter|te|het|in|op|'t)\s+)?[A-Z][A-Z\s-]{1,}$/i, tarief21: 0, tarief9: 0, categorie: "salaris", status: "nvt" },
 
   // 0% / geen BTW (loonkosten, belasting, pensioenen, banktransfers)
   { patroon: /pensioenfonds/i,             tarief21: 0,  tarief9: 0, categorie: "pensioen",         status: "nvt" },
@@ -74,8 +95,16 @@ const BTW_REGELS: BtwRegel[] = [
   { patroon: /ing\s*deposit/i,             tarief21: 0,  tarief9: 0, categorie: "deposit",          status: "nvt" },
 ];
 
-// Bereken BTW-bedrag: tarief -1 betekent "bereken op basis van bedrag"
-function berekenBtw(bedrag: number, tarief21: number, tarief9: number): { btw21: number; btw9: number } {
+// Bereken BTW: tarief -1 = auto berekenen, split = gemengd tarief
+function berekenBtw(bedrag: number, tarief21: number, tarief9: number, split21?: number, split9?: number): { btw21: number; btw9: number } {
+  if (split21 !== undefined || split9 !== undefined) {
+    const deel21 = bedrag * (split21 ?? 0);
+    const deel9  = bedrag * (split9  ?? 0);
+    return {
+      btw21: rnd(deel21 - deel21 / 1.21),
+      btw9:  rnd(deel9  - deel9  / 1.09),
+    };
+  }
   return {
     btw21: tarief21 === -1 ? rnd(bedrag - bedrag / 1.21) : tarief21,
     btw9:  tarief9  === -1 ? rnd(bedrag - bedrag / 1.09) : tarief9,
@@ -91,7 +120,7 @@ function categoriseer(naam: string, bedrag: number): {
 } {
   for (const regel of BTW_REGELS) {
     if (regel.patroon.test(naam)) {
-      const { btw21, btw9 } = berekenBtw(bedrag, regel.tarief21, regel.tarief9);
+      const { btw21, btw9 } = berekenBtw(bedrag, regel.tarief21, regel.tarief9, regel.split21, regel.split9);
       return { btw21, btw9, categorie: regel.categorie, btwStatus: regel.status };
     }
   }
