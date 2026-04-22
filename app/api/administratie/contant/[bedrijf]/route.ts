@@ -42,7 +42,9 @@ export async function POST(
     datum: string;
     omschrijving: string;
     bedrag: number;
-    tarief: 0 | 9 | 21;
+    tarief?: 0 | 9 | 21;
+    btw21?: number;
+    btw9?: number;
     type: "inkomst" | "uitgave";
   };
 
@@ -50,7 +52,10 @@ export async function POST(
     return NextResponse.json({ error: "datum, omschrijving en bedrag zijn verplicht" }, { status: 400 });
   }
 
-  const { btw21, btw9 } = berekenBtw(Math.abs(body.bedrag), body.tarief ?? 9);
+  // Gebruik directe BTW bedragen als opgegeven, anders bereken via tarief
+  const { btw21, btw9 } = (body.btw21 !== undefined || body.btw9 !== undefined)
+    ? { btw21: body.btw21 ?? 0, btw9: body.btw9 ?? 0 }
+    : berekenBtw(Math.abs(body.bedrag), body.tarief ?? 9);
   const id = `contant-${body.datum}-${Date.now()}`;
 
   const regel: ContantRegel = {
