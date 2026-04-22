@@ -122,6 +122,11 @@ export default function MaandPnL({ bedrijf, hex }: Props) {
             </div>
           </div>
 
+          {/* Kostenbreakdown per categorie */}
+          {s.categorieBreakdown && Object.keys(s.categorieBreakdown).length > 0 && (
+            <CategorieBreakdown breakdown={s.categorieBreakdown} omzet={s.omzetBruto} />
+          )}
+
           {data.reviewItems > 0 && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
               ⚠️ {data.reviewItems} transacties vereisen handmatige BTW-controle
@@ -148,6 +153,67 @@ function Kaart({
       <p className="font-semibold text-slate-800" style={{ color: negatief && waarde > 0 ? "#CC0000" : kleur }}>
         {negatief && waarde > 0 ? "- " : ""}{new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR" }).format(waarde)}
       </p>
+    </div>
+  );
+}
+
+const CAT_META: Record<string, { label: string; emoji: string; groep: string }> = {
+  levensmiddelen: { label: "Inkoop",           emoji: "🛒", groep: "inkoop"    },
+  huur:           { label: "Huur",             emoji: "🏠", groep: "huur"      },
+  telecom:        { label: "Telecom",          emoji: "📡", groep: "overhead"  },
+  hosting:        { label: "Internet/Hosting", emoji: "🌐", groep: "overhead"  },
+  software:       { label: "Software",         emoji: "💻", groep: "overhead"  },
+  abonnement:     { label: "Abonnementen",     emoji: "🎵", groep: "overhead"  },
+  marketing:      { label: "Marketing",        emoji: "📢", groep: "overhead"  },
+  materiaal:      { label: "Materiaal",        emoji: "🔧", groep: "overhead"  },
+  markthal:       { label: "Markthal",         emoji: "🏪", groep: "overhead"  },
+  gemeentekosten: { label: "Gemeentekosten",   emoji: "🏛️", groep: "overhead"  },
+  bankkosten:     { label: "Bankkosten",       emoji: "🏦", groep: "overhead"  },
+  belasting:      { label: "Belasting",        emoji: "📋", groep: "overhead"  },
+  "sociale-lasten": { label: "Sociale lasten", emoji: "👥", groep: "personeel" },
+  pensioen:       { label: "Pensioen",         emoji: "🏦", groep: "personeel" },
+  salaris:        { label: "Personeel",        emoji: "👤", groep: "personeel" },
+};
+
+function CategorieBreakdown({ breakdown, omzet }: { breakdown: Record<string, number>; omzet: number }) {
+  const fmt = (n: number) => new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR" }).format(n);
+
+  const inkoop = Object.entries(breakdown)
+    .filter(([cat]) => (CAT_META[cat]?.groep ?? "overhead") === "inkoop")
+    .reduce((s, [, v]) => s + v, 0);
+
+  const rows = Object.entries(breakdown)
+    .filter(([, v]) => v > 0)
+    .sort(([, a], [, b]) => b - a);
+
+  const brutomarge = omzet > 0 ? omzet - inkoop : null;
+  const margePercent = omzet > 0 ? Math.round(((omzet - inkoop) / omzet) * 100) : null;
+
+  return (
+    <div className="bg-slate-50 rounded-lg p-3 mb-3">
+      <p className="text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wide">Kostenbreakdown</p>
+
+      {rows.map(([cat, bedrag]) => {
+        const meta = CAT_META[cat] ?? { label: cat, emoji: "📌", groep: "overhead" };
+        return (
+          <div key={cat} className="flex justify-between text-sm py-0.5">
+            <span className="text-slate-600">{meta.emoji} {meta.label}</span>
+            <span className="font-medium text-slate-700">- {fmt(bedrag)}</span>
+          </div>
+        );
+      })}
+
+      {brutomarge !== null && (
+        <div className="border-t border-slate-200 mt-2 pt-2">
+          <div className="flex justify-between text-sm font-semibold">
+            <span className="text-slate-700">Bruto marge</span>
+            <span style={{ color: brutomarge >= 0 ? "#00A650" : "#CC0000" }}>
+              {fmt(brutomarge)} {margePercent !== null ? `(${margePercent}%)` : ""}
+            </span>
+          </div>
+          <p className="text-[10px] text-slate-400 mt-0.5">Omzet minus inkoop (excl. overige kosten)</p>
+        </div>
+      )}
     </div>
   );
 }

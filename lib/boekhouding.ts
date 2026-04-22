@@ -35,6 +35,8 @@ export interface MaandSamenvatting {
   status: "winst" | "quitte" | "verlies";
   // BTW aangifte
   btwTeVoldoen: number;       // omzetBtw - voorbelasting (positief = betalen, negatief = ontvangen)
+  // Kostenbreakdown per categorie (excl. salarissen)
+  categorieBreakdown: Record<string, number>;
 }
 
 export interface KwartaalRapport {
@@ -94,14 +96,17 @@ export function berekenMaand(
   let voorb21Ing = 0;
   let voorb9Ing = 0;
   let salarissen = 0;
+  const catMap: Record<string, number> = {};
 
   for (const tx of maandTxs) {
     if (isSalaris(tx)) {
       salarissen += tx.bedrag;
+      catMap["salaris"] = (catMap["salaris"] ?? 0) + tx.bedrag;
     } else if (tx.categorie !== "omzet" && tx.categorie !== "deposit") {
       kostenIng += tx.bedrag;
       voorb21Ing += tx.btw21;
       voorb9Ing += tx.btw9;
+      catMap[tx.categorie] = (catMap[tx.categorie] ?? 0) + tx.bedrag;
     }
   }
 
@@ -134,6 +139,11 @@ export function berekenMaand(
   const status: MaandSamenvatting["status"] =
     nettoResultaat > 100 ? "winst" : nettoResultaat < -100 ? "verlies" : "quitte";
 
+  const categorieBreakdown: Record<string, number> = {};
+  for (const [cat, bedrag] of Object.entries(catMap)) {
+    categorieBreakdown[cat] = rnd(bedrag);
+  }
+
   return {
     jaar, maand,
     omzetBruto: rnd(omzetBruto),
@@ -151,6 +161,7 @@ export function berekenMaand(
     nettoResultaat,
     status,
     btwTeVoldoen,
+    categorieBreakdown,
   };
 }
 

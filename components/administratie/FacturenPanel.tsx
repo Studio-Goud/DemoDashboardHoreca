@@ -39,11 +39,14 @@ export default function FacturenPanel({ bedrijf, hex, jaar }: Props) {
     setSyncing(true);
     setFout(null);
     setBericht(null);
+    // Haal facturen op vanaf 1 april 2026 (start Q2, Q1 is al ingediend)
+    const sindsQ2 = new Date("2026-04-01");
+    const dagenTerug = Math.ceil((Date.now() - sindsQ2.getTime()) / 86400000);
     try {
       const res = await fetch(`/api/administratie/facturen/${bedrijf}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dagenTerug: 90 }),
+        body: JSON.stringify({ dagenTerug }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
