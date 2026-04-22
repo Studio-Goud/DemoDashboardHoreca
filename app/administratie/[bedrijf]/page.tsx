@@ -64,11 +64,16 @@ export default function AdministratiePage({ params }: { params: { bedrijf: strin
             Stel de volgende environment variables in via <strong>Vercel → Settings → Environment Variables</strong>:
           </p>
           <div className="font-mono text-xs text-blue-900 space-y-1 bg-white rounded-lg p-3">
-            <p><strong>Email ({config.naam}):</strong></p>
+            <p><strong>ING koppeling (Tink):</strong></p>
+            <p>TINK_CLIENT_ID = (van console.tink.com)</p>
+            <p>TINK_CLIENT_SECRET = (van console.tink.com)</p>
+            <p>NEXT_PUBLIC_BASE_URL = https://dashboardoverview.vercel.app</p>
+            <p>CRON_SECRET = (zelf te kiezen wachtwoord)</p>
+            <p className="mt-2"><strong>Email ({config.naam}):</strong></p>
             <p>EMAIL_USER_{bedrijf.toUpperCase()} = info@jullie-domein.nl</p>
             <p>EMAIL_PASS_{bedrijf.toUpperCase()} = email-wachtwoord</p>
             <p className="mt-2"><strong>Claude AI (factuur parser):</strong></p>
-            <p>ANTHROPIC_API_KEY = sk-ant-...</p>
+            <p>ANTHROPIC_API_KEY = sk-ant-... (staat er al in)</p>
           </div>
         </div>
       </div>

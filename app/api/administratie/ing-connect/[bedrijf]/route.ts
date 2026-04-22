@@ -16,9 +16,9 @@ export async function GET(
     return NextResponse.json({ error: "Ongeldig bedrijf" }, { status: 400 });
   }
 
-  if (!process.env.GC_SECRET_ID || !process.env.GC_SECRET_KEY) {
+  if (!process.env.TINK_CLIENT_ID || !process.env.TINK_CLIENT_SECRET) {
     return NextResponse.json({
-      error: "GoCardless niet geconfigureerd. Stel GC_SECRET_ID en GC_SECRET_KEY in Vercel in.",
+      error: "Tink niet geconfigureerd. Stel TINK_CLIENT_ID en TINK_CLIENT_SECRET in Vercel in.",
     }, { status: 503 });
   }
 
