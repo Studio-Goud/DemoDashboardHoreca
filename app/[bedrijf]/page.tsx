@@ -292,6 +292,21 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
 
       <BtwExport bedrijf={config.slug} hex={config.hex} />
 
+      {/* Administratie & Boekhouding */}
+      <a
+        href={`/administratie/${config.slug}`}
+        className="card flex items-center justify-between group hover:shadow-md transition-shadow"
+        style={{ borderLeft: `4px solid ${config.hex}` }}
+      >
+        <div>
+          <p className="font-semibold text-slate-700">Administratie & Boekhouding</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">
+            ING koppelen · facturen · contant · kwartaalrapport · BTW aangifte
+          </p>
+        </div>
+        <span className="text-slate-300 group-hover:text-slate-500 text-lg ml-3">→</span>
+      </a>
+
     </div>
   );
 }
