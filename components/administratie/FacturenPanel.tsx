@@ -39,14 +39,13 @@ export default function FacturenPanel({ bedrijf, hex, jaar }: Props) {
     setSyncing(true);
     setFout(null);
     setBericht(null);
-    // Haal facturen op vanaf 1 april 2026 (start Q2, Q1 is al ingediend)
-    const sindsQ2 = new Date("2026-04-01");
-    const dagenTerug = Math.ceil((Date.now() - sindsQ2.getTime()) / 86400000);
+    // Max 2 dagen voor de handmatige knop (Vercel Hobby = 10s timeout)
+    // De nachtelijke cron (06:00) haalt alles op vanaf Q2
     try {
       const res = await fetch(`/api/administratie/facturen/${bedrijf}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dagenTerug }),
+        body: JSON.stringify({ dagenTerug: 2 }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
@@ -71,7 +70,7 @@ export default function FacturenPanel({ bedrijf, hex, jaar }: Props) {
       <div className="flex items-center justify-between mb-3">
         <div>
           <h3 className="font-semibold text-slate-700">Facturen (email)</h3>
-          <p className="text-[11px] text-slate-400">Automatisch ingelezen via One.com mailbox</p>
+          <p className="text-[11px] text-slate-400">Automatisch ingelezen via One.com · nachtelijke sync 06:00</p>
         </div>
         <button
           onClick={syncEmail}
