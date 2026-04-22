@@ -17,12 +17,10 @@ export interface ImapConfig {
   mailbox?: string;
 }
 
-// One.com standaard IMAP instellingen
 export function oneComConfig(user: string, password: string): ImapConfig {
   return { host: "mail.one.com", port: 993, user, password, mailbox: "INBOX" };
 }
 
-// Haal alle PDF-bijlagen op van de afgelopen N dagen
 export async function haalFactuurPdfs(
   config: ImapConfig,
   sindsDate: Date
@@ -39,56 +37,56 @@ export async function haalFactuurPdfs(
 
   try {
     await client.connect();
-    await client.mailboxOpen(config.mailbox ?? "INBOX");
+    const lock = await client.getMailboxLock(config.mailbox ?? "INBOX");
 
-    const sindsStr = sindsDate.toLocaleDateString("en-US", {
-      day: "2-digit", month: "short", year: "numeric",
-    });
+    try {
+      // Zoek UIDs van emails vanaf sindsDate
+      const uids = await client.search({ since: sindsDate }, { uid: true });
+      if (!uids || uids.length === 0) return [];
 
-    // Zoek emails met PDF bijlage, vanaf sindsDate
-    const berichten = await client.search({ since: sindsDate });
-    if (!berichten || berichten.length === 0) return [];
+      // Fetch envelope + bodyStructure per UID
+      for await (const bericht of client.fetch(
+        uids,
+        { envelope: true, bodyStructure: true },
+        { uid: true }
+      )) {
+        const uid = bericht.uid;
+        const envelope = bericht.envelope;
+        const datum = envelope?.date
+          ? envelope.date.toISOString().slice(0, 10)
+          : new Date().toISOString().slice(0, 10);
+        const van = envelope?.from?.[0]?.address ?? "";
+        const onderwerp = envelope?.subject ?? "";
 
-    for await (const bericht of client.fetch(berichten, {
-      uid: true,
-      envelope: true,
-      bodyStructure: true,
-    })) {
-      const uid = bericht.uid;
-      const envelope = bericht.envelope;
-      const datum = envelope?.date
-        ? envelope.date.toISOString().slice(0, 10)
-        : new Date().toISOString().slice(0, 10);
-      const van = envelope?.from?.[0]?.address ?? "";
-      const onderwerp = envelope?.subject ?? "";
+        const pdfParts = zoekPdfParts(bericht.bodyStructure);
+        if (pdfParts.length === 0) continue;
 
-      // Zoek PDF bijlagen in de body structure
-      const pdfParts = zoekPdfParts(bericht.bodyStructure);
-      if (pdfParts.length === 0) continue;
+        for (const part of pdfParts) {
+          try {
+            const download = await client.download(`${uid}`, part.part, { uid: true });
+            if (!download?.content) continue;
 
-      for (const part of pdfParts) {
-        try {
-          const download = await client.download(String(uid), part.part, { uid: true });
-          if (!download?.content) continue;
-          const chunks: Buffer[] = [];
-          for await (const buf of download.content) {
-            chunks.push(buf as Buffer);
+            const chunks: Buffer[] = [];
+            for await (const buf of download.content) {
+              chunks.push(buf as Buffer);
+            }
+            if (chunks.length === 0) continue;
+
+            resultaten.push({
+              uid,
+              datum,
+              van,
+              onderwerp,
+              bestandsnaam: part.naam,
+              pdfBuffer: Buffer.concat(chunks),
+            });
+          } catch {
+            // Skip onleesbare bijlage
           }
-          if (chunks.length === 0) continue;
-          const pdfBuffer = Buffer.concat(chunks);
-
-          resultaten.push({
-            uid,
-            datum,
-            van,
-            onderwerp,
-            bestandsnaam: part.naam,
-            pdfBuffer,
-          });
-        } catch {
-          // Skip onleesbare bijlagen
         }
       }
+    } finally {
+      lock.release();
     }
   } finally {
     await client.logout().catch(() => {});
@@ -110,11 +108,14 @@ function zoekPdfParts(struct: unknown, prefix = ""): PdfPart[] {
   const type = String(s.type ?? "").toLowerCase();
   const subtype = String(s.subtype ?? "").toLowerCase();
 
-  if (type === "application" && (subtype === "pdf" || subtype === "octet-stream")) {
-    const dispositionParams = (s.dispositionParameters as Record<string, string>) ?? {};
+  if (
+    type === "application" &&
+    (subtype === "pdf" || subtype === "octet-stream")
+  ) {
+    const dispParams = (s.dispositionParameters as Record<string, string>) ?? {};
     const typeParams = (s.parameters as Record<string, string>) ?? {};
     const naam =
-      dispositionParams.filename ??
+      dispParams.filename ??
       typeParams.name ??
       `bijlage-${prefix || "1"}.pdf`;
     if (naam.toLowerCase().endsWith(".pdf")) {
@@ -122,7 +123,6 @@ function zoekPdfParts(struct: unknown, prefix = ""): PdfPart[] {
     }
   }
 
-  // Recursief door multipart
   if (Array.isArray(s.childNodes)) {
     (s.childNodes as unknown[]).forEach((child, idx) => {
       const childPrefix = prefix ? `${prefix}.${idx + 1}` : String(idx + 1);
