@@ -119,6 +119,16 @@ function rnd(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+export function herclassificeer(txs: IngTransactie[]): IngTransactie[] {
+  return txs.map((tx) => {
+    if (tx.btwStatus !== "review" && tx.btwStatus !== "handmatig") return tx;
+    if (tx.btwStatus === "handmatig") return tx; // handmatig niet overschrijven
+    const cat = categoriseer(tx.omschrijving, tx.bedrag);
+    if (cat.btwStatus === "review") return tx; // nog steeds onbekend
+    return { ...tx, ...cat };
+  });
+}
+
 function categoriseer(naam: string, bedrag: number): {
   btw21: number; btw9: number; categorie: string; btwStatus: IngTransactie["btwStatus"];
 } {

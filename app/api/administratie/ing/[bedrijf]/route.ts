@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { parseIngExcel, parseIngCsv } from "@/lib/ing";
+import { parseIngExcel, parseIngCsv, herclassificeer } from "@/lib/ing";
 import { slaIngOp, haalIngOp, updateIngTransactie } from "@/lib/boekhouding-kv";
 
 type BedrijfSlug = "bb" | "sl" | "kl";
@@ -62,6 +62,30 @@ export async function GET(
 
   const txs = await haalIngOp(bedrijf, jaar, maanden);
   return NextResponse.json({ transacties: txs, totaal: txs.length });
+}
+
+// PUT /api/administratie/ing/[bedrijf] — herclassificeer alle review-transacties met huidige regels
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: { bedrijf: string } }
+) {
+  const bedrijf = checkBedrijf(params.bedrijf);
+  if (!bedrijf) return NextResponse.json({ error: "Ongeldig bedrijf" }, { status: 400 });
+
+  const { searchParams } = new URL(req.url);
+  const jaar = Number(searchParams.get("jaar") ?? new Date().getFullYear());
+
+  const txs = await haalIngOp(bedrijf, jaar);
+  const bijgewerkt = herclassificeer(txs);
+  const veranderd = bijgewerkt.filter((t, i) => t.btwStatus !== txs[i].btwStatus || t.categorie !== txs[i].categorie);
+
+  await slaIngOp(bedrijf, bijgewerkt);
+
+  return NextResponse.json({
+    verwerkt: txs.length,
+    bijgewerkt: veranderd.length,
+    reviewOver: bijgewerkt.filter((t) => t.btwStatus === "review").length,
+  });
 }
 
 // PATCH /api/administratie/ing/[bedrijf] — handmatig BTW corrigeren

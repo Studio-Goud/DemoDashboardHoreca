@@ -51,6 +51,7 @@ export default function ReviewPanel({ bedrijf, hex, jaar }: Props) {
   const [laden, setLaden] = useState(true);
   const [keuzes, setKeuzes] = useState<Record<string, { categorie: string; tarief: number }>>({});
   const [bezig, setBezig] = useState<Record<string, boolean>>({});
+  const [herbezig, setHerbezig] = useState(false);
 
   const laadReview = useCallback(async () => {
     setLaden(true);
@@ -70,6 +71,16 @@ export default function ReviewPanel({ bedrijf, hex, jaar }: Props) {
     if (keuzes[tx.id]) return keuzes[tx.id];
     const def = CATEGORIEEN[0];
     return { categorie: def.value, tarief: def.tarief };
+  }
+
+  async function herclassificeer() {
+    setHerbezig(true);
+    try {
+      const res = await fetch(`/api/administratie/ing/${bedrijf}?jaar=${jaar}`, { method: "PUT" });
+      if (res.ok) await laadReview();
+    } finally {
+      setHerbezig(false);
+    }
   }
 
   async function slaOp(tx: Tx) {
@@ -99,10 +110,18 @@ export default function ReviewPanel({ bedrijf, hex, jaar }: Props) {
     <div className="card border-l-4" style={{ borderLeftColor: "#f59e0b" }}>
       <div className="flex items-center gap-2 mb-4">
         <span className="text-xl">⚠️</span>
-        <div>
+        <div className="flex-1">
           <h3 className="font-semibold text-slate-700">BTW-controle vereist</h3>
           <p className="text-xs text-slate-400">{txs.length} transacties zijn nog niet gecategoriseerd</p>
         </div>
+        <button
+          onClick={herclassificeer}
+          disabled={herbezig}
+          className="text-xs px-3 py-1.5 rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+          title="Herclassificeer automatisch met nieuwe regels"
+        >
+          {herbezig ? "…" : "🔄 Herclassificeer"}
+        </button>
       </div>
 
       <div className="space-y-3">
