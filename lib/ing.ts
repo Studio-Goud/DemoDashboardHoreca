@@ -78,14 +78,18 @@ const BTW_REGELS: BtwRegel[] = [
   { patroon: /geldmaat/i,                  tarief21: 0,  tarief9: 0, categorie: "contant",          status: "nvt" },
   { patroon: /via\s*tikkie/i,              tarief21: 0,  tarief9: 0, categorie: "vergoeding",       status: "nvt" },
 
-  // Salaris / personeel — initialen + achternaam patroon (bijv. T COSTA, HL FRANKEN-SNOEI, M DE CARVALHO PINHO BARBOSA)
-  { patroon: /^[A-Z]{1,3}\s+(?:(?:de|van|den|der|ter|te|het|in|op|'t)\s+)?[A-Z][A-Z\s-]{1,}$/i, tarief21: 0, tarief9: 0, categorie: "salaris", status: "nvt" },
+  // Salaris / personeel — initialen + achternaam patroon (bijv. T COSTA, HL FRANKEN-SNOEI, M DE CARVALHO PINHO BARBOSA, J.P. MEIJER)
+  { patroon: /^[A-Z]{1,3}(?:\.[A-Z])*\.?\s+(?:(?:de|van|den|der|ter|te|het|in|op|'t)\s+)?[A-Z][A-Z\s-]{1,}$/i, tarief21: 0, tarief9: 0, categorie: "salaris", status: "nvt" },
+  { patroon: /^salarissen$/i,              tarief21: 0,  tarief9: 0, categorie: "salaris",          status: "nvt" },
 
   // 0% / geen BTW (loonkosten, belasting, pensioenen, banktransfers)
-  { patroon: /pensioenfonds/i,             tarief21: 0,  tarief9: 0, categorie: "pensioen",         status: "nvt" },
+  { patroon: /pensioen/i,                  tarief21: 0,  tarief9: 0, categorie: "pensioen",         status: "nvt" },
+  { patroon: /loonbelasting/i,             tarief21: 0,  tarief9: 0, categorie: "belasting",        status: "nvt" },
+  { patroon: /btw\s*betalen/i,             tarief21: 0,  tarief9: 0, categorie: "belasting",        status: "nvt" },
   { patroon: /belastingdienst/i,           tarief21: 0,  tarief9: 0, categorie: "belasting",        status: "nvt" },
   { patroon: /uwv/i,                       tarief21: 0,  tarief9: 0, categorie: "sociale-lasten",   status: "nvt" },
-  { patroon: /kosten\s*zakelijk\s*betalingsverkeer/i, tarief21: 0, tarief9: 0, categorie: "bankkosten", status: "nvt" },
+  { patroon: /kosten\s*zakelijk\s*betalingsverkeer|^bankkosten$/i, tarief21: 0, tarief9: 0, categorie: "bankkosten", status: "nvt" },
+  { patroon: /statiegeld/i,               tarief21: 0,  tarief9: 0, categorie: "overig",            status: "nvt" },
 
   // Omzet (credit = inkomsten, geen inkoop-BTW)
   { patroon: /sumup/i,                     tarief21: 0,  tarief9: 0, categorie: "omzet",            status: "nvt" },
@@ -153,6 +157,8 @@ function verwerkRij(row: unknown[]): IngTransactie | null {
   const mededelingen = String(row[10] ?? "");
 
   if (!datum || !naam || bedragRaw === "" || bedragRaw === undefined) return null;
+  // Sla samenvattingsrijen over
+  if (/^(totaal|inkomsten|uitgaven|saldo)\b/i.test(naam)) return null;
 
   const richting: "debit" | "credit" = richtingRaw.includes("debit") || richtingRaw === "af" ? "debit" : "credit";
   const bedrag = Math.abs(Number(String(bedragRaw).replace(",", ".")));

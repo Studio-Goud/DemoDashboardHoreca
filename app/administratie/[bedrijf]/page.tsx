@@ -7,6 +7,7 @@ import FacturenPanel from "@/components/administratie/FacturenPanel";
 import ContantInvoer from "@/components/administratie/ContantInvoer";
 import MaandPnL from "@/components/administratie/MaandPnL";
 import KwartaalRapport from "@/components/administratie/KwartaalRapport";
+import ReviewPanel from "@/components/administratie/ReviewPanel";
 
 type BedrijfSlug = "bb" | "sl" | "kl";
 
@@ -47,6 +48,9 @@ export default function AdministratiePage({ params }: { params: { bedrijf: strin
 
         {/* ING bankafschrift upload */}
         <IngUpload bedrijf={bedrijf} hex={config.hex} onSuccess={refresh} />
+
+        {/* Review: ongecategoriseerde transacties */}
+        <ReviewPanel bedrijf={bedrijf} hex={config.hex} jaar={jaar} key={`review-${refreshTrigger}`} />
 
         {/* Email facturen */}
         <FacturenPanel bedrijf={bedrijf} hex={config.hex} jaar={jaar} />
