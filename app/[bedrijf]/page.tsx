@@ -21,6 +21,7 @@ import ProductCombinaties from "@/components/ProductCombinaties";
 import BtwExport from "@/components/BtwExport";
 import PushAanmelden from "@/components/PushAanmelden";
 import BezettingAdvies from "@/components/BezettingAdvies";
+import DashboardNav from "@/components/DashboardNav";
 import type { Bedrijf } from "@/lib/sumup";
 import {
   getZettleJaaroverzicht,
@@ -188,27 +189,29 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
     );
   }
 
+  const TABS = [
+    { id: "omzet",       label: "Omzet",       emoji: "📈" },
+    { id: "planning",    label: "Planning",    emoji: "📅" },
+    { id: "producten",   label: "Producten",   emoji: "🛍️" },
+    { id: "inzichten",   label: "Inzichten",   emoji: "💡" },
+    { id: "admin",       label: "Administratie", emoji: "📋" },
+  ];
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      {/* Foutmeldingen */}
       {sumupFout && (
         <div className="card border-red-500/30 py-3">
-          <p className="text-red-600 text-sm">
-            <strong>SumUp:</strong> {sumupFout}
-          </p>
+          <p className="text-red-600 text-sm"><strong>SumUp:</strong> {sumupFout}</p>
         </div>
       )}
       {zettleFout && (
         <div className="card border-amber-300 py-3">
-          <p className="text-amber-700 text-sm">
-            <strong>Zettle historie:</strong> {zettleFout}
-          </p>
-          <p className="text-amber-700/80 text-[11px] mt-1">
-            App werkt door met alleen SumUp-data. Zet ZETTLE_CLIENT_ID_* en
-            ZETTLE_TOKEN_* in Vercel environment variables.
-          </p>
+          <p className="text-amber-700 text-sm"><strong>Zettle:</strong> {zettleFout}</p>
         </div>
       )}
 
+      {/* Altijd bovenaan: live omzet + kerncijfers */}
       {heeftData && (
         <LiveRevenue
           bedrijf={config.slug}
@@ -231,82 +234,88 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
         <KerncijfersGrid kerncijfers={kerncijfers} hex={config.hex} />
       )}
 
-      {dagOmzet.length > 0 && (
-        <RevenueChart data={dagOmzet} kleur={kleurNaam} hex={config.hex} />
-      )}
+      {/* Tab-navigatie voor de rest */}
+      <DashboardNav tabs={TABS} hex={config.hex}>
+        {/* Tab 1 — Omzet */}
+        <>
+          {dagOmzet.length > 0 && (
+            <RevenueChart data={dagOmzet} kleur={kleurNaam} hex={config.hex} />
+          )}
+          {dagOmzet.length > 0 && (
+            <Vergelijken
+              dagOmzet={dagOmzet}
+              maandOmzet={maandOmzet}
+              jaarTotalen={jaarTotalen}
+              hex={config.hex}
+            />
+          )}
+          {heeftData && (
+            <RecenteTransacties bedrijf={config.slug} hex={config.hex} />
+          )}
+        </>
 
-      {dagOmzet.length > 0 && (
-        <Vergelijken
-          dagOmzet={dagOmzet}
-          maandOmzet={maandOmzet}
-          jaarTotalen={jaarTotalen}
-          hex={config.hex}
-        />
-      )}
+        {/* Tab 2 — Planning */}
+        <>
+          <FeestdagenKalender events={verrijkteEvents} bedrijf={config.slug} />
+          <CruiseAgenda dagen={cruiseDagen} />
+          {prognose.length > 0 && kerncijfers && (
+            <Forecast
+              data={prognose}
+              omzetVandaag={kerncijfers.vandaag.omzet}
+              bedrijf={config.slug}
+              cruises={cruiseHints}
+              weer={weerHints}
+            />
+          )}
+        </>
 
-      <FeestdagenKalender events={verrijkteEvents} bedrijf={config.slug} />
+        {/* Tab 3 — Producten */}
+        <>
+          {topProducten.length > 0 && (
+            <ProductsTable data={topProducten} hex={config.hex} />
+          )}
+          {productCombinaties.length > 0 && (
+            <ProductCombinaties data={productCombinaties} hex={config.hex} />
+          )}
+          {productLevens.length > 0 && (
+            <ProductenLevenslang
+              data={productLevens}
+              hex={config.hex}
+              periodeLabel={config.paypalPeriode}
+            />
+          )}
+        </>
 
-      <CruiseAgenda dagen={cruiseDagen} />
+        {/* Tab 4 — Inzichten */}
+        <>
+          <Schommelingen data={schommelingen} />
+          {weerData.length > 0 && dagOmzet.length > 0 && (
+            <WeerImpact dagOmzet={dagOmzet} weer={weerData} hex={config.hex} />
+          )}
+          {suggesties.length > 0 && (
+            <OptimizatieSuggesties suggesties={suggesties} />
+          )}
+        </>
 
-      {suggesties.length > 0 && (
-        <OptimizatieSuggesties suggesties={suggesties} />
-      )}
-
-      {prognose.length > 0 && kerncijfers && (
-        <Forecast
-          data={prognose}
-          omzetVandaag={kerncijfers.vandaag.omzet}
-          bedrijf={config.slug}
-          cruises={cruiseHints}
-          weer={weerHints}
-        />
-      )}
-
-      <Schommelingen data={schommelingen} />
-
-      {weerData.length > 0 && dagOmzet.length > 0 && (
-        <WeerImpact dagOmzet={dagOmzet} weer={weerData} hex={config.hex} />
-      )}
-
-      {topProducten.length > 0 && (
-        <ProductsTable data={topProducten} hex={config.hex} />
-      )}
-
-      {productCombinaties.length > 0 && (
-        <ProductCombinaties data={productCombinaties} hex={config.hex} />
-      )}
-
-      {productLevens.length > 0 && (
-        <ProductenLevenslang
-          data={productLevens}
-          hex={config.hex}
-          periodeLabel={config.paypalPeriode}
-        />
-      )}
-
-      {heeftData && (
-        <RecenteTransacties bedrijf={config.slug} hex={config.hex} />
-      )}
-
-      <PushAanmelden hex={config.hex} />
-
-      <BtwExport bedrijf={config.slug} hex={config.hex} />
-
-      {/* Administratie & Boekhouding */}
-      <a
-        href={`/administratie/${config.slug}`}
-        className="card flex items-center justify-between group hover:shadow-md transition-shadow"
-        style={{ borderLeft: `4px solid ${config.hex}` }}
-      >
-        <div>
-          <p className="font-semibold text-slate-700">Administratie & Boekhouding</p>
-          <p className="text-[11px] text-slate-400 mt-0.5">
-            ING koppelen · facturen · contant · kwartaalrapport · BTW aangifte
-          </p>
-        </div>
-        <span className="text-slate-300 group-hover:text-slate-500 text-lg ml-3">→</span>
-      </a>
-
+        {/* Tab 5 — Administratie */}
+        <>
+          <BtwExport bedrijf={config.slug} hex={config.hex} />
+          <a
+            href={`/administratie/${config.slug}`}
+            className="card flex items-center justify-between group hover:shadow-md transition-shadow"
+            style={{ borderLeft: `4px solid ${config.hex}` }}
+          >
+            <div>
+              <p className="font-semibold text-slate-700">Administratie & Boekhouding</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                ING upload · facturen · contant · kwartaalrapport · BTW aangifte
+              </p>
+            </div>
+            <span className="text-slate-300 group-hover:text-slate-500 text-lg ml-3">→</span>
+          </a>
+          <PushAanmelden hex={config.hex} />
+        </>
+      </DashboardNav>
     </div>
   );
 }
