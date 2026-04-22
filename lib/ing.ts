@@ -48,7 +48,7 @@ const BTW_REGELS: BtwRegel[] = [
 
   // 21% zakelijke diensten / huur / telecom
   { patroon: /klepierre/i,                 tarief21: -1, tarief9: 0, categorie: "huur",             status: "auto" },
-  { patroon: /echt\s*rotterdams/i,         tarief21: -1, tarief9: 0, categorie: "huur",             status: "auto" },
+  { patroon: /echt\s*rotterdams/i,          tarief21: 0,  tarief9: 0, categorie: "salaris",          status: "nvt"  },
   { patroon: /odido/i,                     tarief21: -1, tarief9: 0, categorie: "telecom",          status: "auto" },
   { patroon: /t-mobile/i,                  tarief21: -1, tarief9: 0, categorie: "telecom",          status: "auto" },
   { patroon: /kpn/i,                       tarief21: -1, tarief9: 0, categorie: "telecom",          status: "auto" },
