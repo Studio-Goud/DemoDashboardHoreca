@@ -51,7 +51,8 @@ export default function FacturenPanel({ bedrijf, hex, jaar }: Props) {
     }
   }
 
-  async function verwijder(id: string) {
+  async function verwijder(id: string, leverancier: string) {
+    if (!confirm(`Factuur van ${leverancier} verwijderen?`)) return;
     await fetch(`/api/administratie/facturen/${bedrijf}?jaar=${jaar}&id=${id}`, { method: "DELETE" });
     setFacturen((prev) => prev.filter((f) => f.id !== id));
   }
@@ -130,11 +131,11 @@ export default function FacturenPanel({ bedrijf, hex, jaar }: Props) {
                 </div>
               </div>
               <button
-                onClick={() => verwijder(f.id)}
-                className="ml-2 text-slate-300 hover:text-red-400 shrink-0"
+                onClick={() => verwijder(f.id, f.leverancier)}
+                className="ml-2 px-2 py-1 text-xs text-red-400 hover:text-white hover:bg-red-400 rounded transition-colors shrink-0"
                 title="Verwijderen"
               >
-                ✕
+                Verwijder
               </button>
             </div>
           ))}

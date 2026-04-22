@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { haalIngOp, haalFacturenOp, haalContantOp } from "@/lib/boekhouding-kv";
 import { berekenMaand } from "@/lib/boekhouding";
+import { dashboardAggregaten } from "@/lib/dashboard-cache";
 
 type BedrijfSlug = "bb" | "sl" | "kl";
 const GELDIGE_BEDRIJVEN = new Set<BedrijfSlug>(["bb", "sl", "kl"]);
@@ -22,13 +23,22 @@ export async function GET(
   const jaar = Number(searchParams.get("jaar") ?? nu.getFullYear());
   const maand = Number(searchParams.get("maand") ?? nu.getMonth() + 1);
 
-  const [ingTxs, facturen, contant] = await Promise.all([
+  const [ingTxs, facturen, contant, agg] = await Promise.all([
     haalIngOp(bedrijf, jaar, [maand]),
     haalFacturenOp(bedrijf, jaar),
     haalContantOp(bedrijf, jaar),
+    dashboardAggregaten(bedrijf).catch(() => null),
   ]);
 
-  const samenvatting = berekenMaand(jaar, maand, ingTxs, facturen, contant);
+  // Haal omzet op uit SumUp/Zettle aggregaten voor de juiste maand
+  const maandOmzetItem = agg?.maandOmzet?.find(
+    (m) => m.jaar === jaar && m.maand === maand
+  );
+  const omzetBruto = maandOmzetItem?.omzet ?? 0;
+  // Horeca BTW 9%: omzet is incl. BTW, dus BTW = omzet - omzet/1.09
+  const omzetBtwBetaald = Math.round((omzetBruto - omzetBruto / 1.09) * 100) / 100;
+
+  const samenvatting = berekenMaand(jaar, maand, ingTxs, facturen, contant, omzetBruto, omzetBtwBetaald);
 
   return NextResponse.json({
     samenvatting,
