@@ -138,7 +138,7 @@ export function berekenMaand(
       catMap["salaris"] = (catMap["salaris"] ?? 0) + tx.bedrag;
       if (tx.categorie === "dga-er") dgaEchtRotterdams += tx.bedrag;
       if (tx.categorie === "dga-mp5") dgaMp5 += tx.bedrag;
-    } else if (tx.categorie !== "omzet" && tx.categorie !== "deposit" && tx.categorie !== "contant") {
+    } else if (tx.categorie !== "omzet" && tx.categorie !== "contant") {
       kostenIng += tx.bedrag;
       voorb21Ing += tx.btw21;
       voorb9Ing += tx.btw9;
