@@ -49,6 +49,14 @@ export async function haalIngOp(
   return resultaten.sort((a, b) => a.datum.localeCompare(b.datum));
 }
 
+export async function verwijderIngMaand(
+  bedrijf: BedrijfSlug,
+  jaar: number,
+  maand: number
+): Promise<void> {
+  await kv.del(ingKey(bedrijf, jaar, maand));
+}
+
 export async function haalIngKwartaal(
   bedrijf: BedrijfSlug,
   jaar: number,

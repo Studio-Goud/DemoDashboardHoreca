@@ -37,6 +37,13 @@ export default function MaandPnL({ bedrijf, hex }: Props) {
     }
   }
 
+  async function wisMaand() {
+    if (!confirm(`Alle ING-transacties voor ${maand}/${jaar} verwijderen?`)) return;
+    await fetch(`/api/administratie/ing/${bedrijf}?jaar=${jaar}&maand=${maand}`, { method: "DELETE" });
+    setData(null);
+    await laad();
+  }
+
   useEffect(() => { laad(); }, [bedrijf, jaar, maand]);
 
   const s = data?.samenvatting;
@@ -48,7 +55,7 @@ export default function MaandPnL({ bedrijf, hex }: Props) {
     <div className="card">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold text-slate-700">Maandoverzicht</h3>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
           <select
             value={maand}
             onChange={(e) => setMaand(Number(e.target.value))}
@@ -67,6 +74,15 @@ export default function MaandPnL({ bedrijf, hex }: Props) {
               <option key={j} value={j}>{j}</option>
             ))}
           </select>
+          {s && (s.kostenIng ?? 0) > 0 && (
+            <button
+              onClick={wisMaand}
+              className="px-2 py-1 text-xs text-red-400 border border-red-200 rounded hover:bg-red-50"
+              title="Verwijder ING-data voor deze maand"
+            >
+              Wis maand
+            </button>
+          )}
         </div>
       </div>
 

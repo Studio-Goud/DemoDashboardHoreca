@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseIngExcel, parseIngCsv, herclassificeer } from "@/lib/ing";
-import { slaIngOp, haalIngOp, updateIngTransactie } from "@/lib/boekhouding-kv";
+import { slaIngOp, haalIngOp, updateIngTransactie, verwijderIngMaand } from "@/lib/boekhouding-kv";
 
 type BedrijfSlug = "bb" | "sl" | "kl";
 const GELDIGE_BEDRIJVEN = new Set<BedrijfSlug>(["bb", "sl", "kl"]);
@@ -86,6 +86,23 @@ export async function PUT(
     bijgewerkt: veranderd.length,
     reviewOver: bijgewerkt.filter((t) => t.btwStatus === "review").length,
   });
+}
+
+// DELETE /api/administratie/ing/[bedrijf]?jaar=2026&maand=4 — wis alle ING data voor een maand
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: { bedrijf: string } }
+) {
+  const bedrijf = checkBedrijf(params.bedrijf);
+  if (!bedrijf) return NextResponse.json({ error: "Ongeldig bedrijf" }, { status: 400 });
+
+  const { searchParams } = new URL(req.url);
+  const jaar = Number(searchParams.get("jaar"));
+  const maand = Number(searchParams.get("maand"));
+  if (!jaar || !maand) return NextResponse.json({ error: "jaar en maand verplicht" }, { status: 400 });
+
+  await verwijderIngMaand(bedrijf, jaar, maand);
+  return NextResponse.json({ ok: true, bericht: `ING data voor ${jaar}-${String(maand).padStart(2, "0")} verwijderd.` });
 }
 
 // PATCH /api/administratie/ing/[bedrijf] — handmatig BTW corrigeren
