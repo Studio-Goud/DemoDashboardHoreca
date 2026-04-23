@@ -94,7 +94,31 @@ export function berekenMaand(
 ): MaandSamenvatting {
   const prefix = `${jaar}-${String(maand).padStart(2, "0")}`;
 
-  const maandTxs = ingTxs.filter((t) => t.datum.startsWith(prefix) && t.richting === "debit");
+  // Volgende maand voor salarisoverheveling
+  const vMaand = maand === 12 ? 1 : maand + 1;
+  const vJaar  = maand === 12 ? jaar + 1 : jaar;
+  const vPrefix = `${vJaar}-${String(vMaand).padStart(2, "0")}`;
+
+  const maandDebits = ingTxs.filter((t) => t.datum.startsWith(prefix) && t.richting === "debit");
+
+  // Salarissen op dag 1-3 van DEZE maand horen bij vorige maand → uitsluiten
+  const vroegeSalarisIds = new Set(
+    maandDebits
+      .filter((t) => isSalaris(t) && parseInt(t.datum.slice(8, 10)) <= 3)
+      .map((t) => t.id)
+  );
+
+  // Salarissen op dag 1-3 van VOLGENDE maand horen bij DEZE maand → toevoegen
+  const salarisOverloop = ingTxs.filter(
+    (t) => t.datum.startsWith(vPrefix) && t.richting === "debit" &&
+            isSalaris(t) && parseInt(t.datum.slice(8, 10)) <= 3
+  );
+
+  const maandTxs = [
+    ...maandDebits.filter((t) => !vroegeSalarisIds.has(t.id)),
+    ...salarisOverloop,
+  ];
+
   const maandFacturen = facturen.filter((f) => f.datum.startsWith(prefix));
   const maandContant = contant.filter((c) => c.datum.startsWith(prefix));
 

@@ -23,12 +23,19 @@ export async function GET(
   const jaar = Number(searchParams.get("jaar") ?? nu.getFullYear());
   const maand = Number(searchParams.get("maand") ?? nu.getMonth() + 1);
 
-  const [ingTxs, facturen, contant, agg] = await Promise.all([
+  // Haal ook volgende maand op (eerste 3 dagen) voor salarisoverheveling
+  const vMaand = maand === 12 ? 1 : maand + 1;
+  const vJaar  = maand === 12 ? jaar + 1 : jaar;
+
+  const [ingTxs, ingVolgend, facturen, contant, agg] = await Promise.all([
     haalIngOp(bedrijf, jaar, [maand]),
+    haalIngOp(bedrijf, vJaar, [vMaand]),
     haalFacturenOp(bedrijf, jaar),
     haalContantOp(bedrijf, jaar),
     dashboardAggregaten(bedrijf).catch(() => null),
   ]);
+
+  const alleIngTxs = [...ingTxs, ...ingVolgend];
 
   // Haal omzet op uit SumUp/Zettle aggregaten voor de juiste maand
   const maandOmzetItem = agg?.maandOmzet?.find(
@@ -38,10 +45,10 @@ export async function GET(
   // Horeca BTW 9%: omzet is incl. BTW, dus BTW = omzet - omzet/1.09
   const omzetBtwBetaald = Math.round((omzetBruto - omzetBruto / 1.09) * 100) / 100;
 
-  const samenvatting = berekenMaand(jaar, maand, ingTxs, facturen, contant, omzetBruto, omzetBtwBetaald);
+  const samenvatting = berekenMaand(jaar, maand, alleIngTxs, facturen, contant, omzetBruto, omzetBtwBetaald);
 
   return NextResponse.json({
     samenvatting,
-    reviewItems: ingTxs.filter((t) => t.btwStatus === "review").length,
+    reviewItems: alleIngTxs.filter((t) => t.btwStatus === "review").length,
   });
 }
