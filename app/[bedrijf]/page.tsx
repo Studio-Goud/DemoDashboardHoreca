@@ -18,8 +18,6 @@ import Vergelijken from "@/components/Vergelijken";
 import CruiseAgenda from "@/components/CruiseAgenda";
 import WeerImpact from "@/components/WeerImpact";
 import ProductCombinaties from "@/components/ProductCombinaties";
-import BtwExport from "@/components/BtwExport";
-import PushAanmelden from "@/components/PushAanmelden";
 import BezettingAdvies from "@/components/BezettingAdvies";
 import DashboardNav from "@/components/DashboardNav";
 import type { Bedrijf } from "@/lib/sumup";
@@ -194,7 +192,7 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
     { id: "planning",    label: "Planning",    emoji: "📅" },
     { id: "producten",   label: "Producten",   emoji: "🛍️" },
     { id: "inzichten",   label: "Inzichten",   emoji: "💡" },
-    { id: "admin",       label: "Administratie", emoji: "📋" },
+    { id: "admin",       label: "Administratie", emoji: "📋", href: `/administratie/${config.slug}` },
   ];
 
   return (
@@ -297,24 +295,8 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
           )}
         </>
 
-        {/* Tab 5 — Administratie */}
-        <>
-          <BtwExport bedrijf={config.slug} hex={config.hex} />
-          <a
-            href={`/administratie/${config.slug}`}
-            className="card flex items-center justify-between group hover:shadow-md transition-shadow"
-            style={{ borderLeft: `4px solid ${config.hex}` }}
-          >
-            <div>
-              <p className="font-semibold text-slate-700">Administratie & Boekhouding</p>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                ING upload · facturen · contant · kwartaalrapport · BTW aangifte
-              </p>
-            </div>
-            <span className="text-slate-300 group-hover:text-slate-500 text-lg ml-3">→</span>
-          </a>
-          <PushAanmelden hex={config.hex} />
-        </>
+        {/* Tab 5 — Administratie: navigeert direct via href op de tab */}
+        <></>
       </DashboardNav>
     </div>
   );

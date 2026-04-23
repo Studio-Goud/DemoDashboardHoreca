@@ -6,6 +6,7 @@ export interface TabDef {
   id: string;
   label: string;
   emoji: string;
+  href?: string;
 }
 
 interface Props {
@@ -15,7 +16,7 @@ interface Props {
 }
 
 export default function DashboardNav({ tabs, hex, children }: Props) {
-  const [actief, setActief] = useState(tabs[0]?.id ?? "");
+  const [actief, setActief] = useState(tabs.find((t) => !t.href)?.id ?? tabs[0]?.id ?? "");
   const navRef = useRef<HTMLDivElement>(null);
 
   // Scroll actieve tab in beeld op mobiel
@@ -23,6 +24,9 @@ export default function DashboardNav({ tabs, hex, children }: Props) {
     const el = navRef.current?.querySelector(`[data-tab="${actief}"]`) as HTMLElement;
     el?.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
   }, [actief]);
+
+  // Tabs zonder href krijgen een index in children; tabs met href hebben geen content
+  const contentTabs = tabs.filter((t) => !t.href);
 
   return (
     <>
@@ -34,17 +38,32 @@ export default function DashboardNav({ tabs, hex, children }: Props) {
         >
           {tabs.map((tab) => {
             const isActief = tab.id === actief;
+            const style = isActief
+              ? { backgroundColor: hex + "18", color: hex, boxShadow: `inset 0 0 0 1.5px ${hex}55` }
+              : { color: "#64748B" };
+
+            if (tab.href) {
+              return (
+                <a
+                  key={tab.id}
+                  href={tab.href}
+                  data-tab={tab.id}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all shrink-0"
+                  style={style}
+                >
+                  <span>{tab.emoji}</span>
+                  <span>{tab.label}</span>
+                </a>
+              );
+            }
+
             return (
               <button
                 key={tab.id}
                 data-tab={tab.id}
                 onClick={() => setActief(tab.id)}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all shrink-0"
-                style={
-                  isActief
-                    ? { backgroundColor: hex + "18", color: hex, boxShadow: `inset 0 0 0 1.5px ${hex}55` }
-                    : { color: "#64748B" }
-                }
+                style={style}
               >
                 <span>{tab.emoji}</span>
                 <span>{tab.label}</span>
@@ -56,7 +75,7 @@ export default function DashboardNav({ tabs, hex, children }: Props) {
 
       {/* Tab inhoud */}
       <div className="mt-4">
-        {tabs.map((tab, idx) => (
+        {contentTabs.map((tab, idx) => (
           <div
             key={tab.id}
             className={`space-y-6 ${actief === tab.id ? "block" : "hidden"}`}
