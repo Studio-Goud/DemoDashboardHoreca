@@ -41,6 +41,9 @@ export interface MaandSamenvatting {
   kostenIng: number;
   kostenFacturen: number;
   kostenContant: number;
+  // DGA salaris
+  dgaEchtRotterdams: number;
+  dgaMp5: number;
 }
 
 export interface KwartaalRapport {
@@ -67,7 +70,7 @@ function rnd(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-const SALARIS_CATEGORIEEN = new Set(["salaris", "loon", "loonkosten"]);
+const SALARIS_CATEGORIEEN = new Set(["salaris", "loon", "loonkosten", "dga-er", "dga-mp5"]);
 
 function isSalaris(tx: IngTransactie): boolean {
   // Online Banking transfers naar personen (naam zonder bedrijfsaanduiding) zonder BTW
@@ -100,12 +103,16 @@ export function berekenMaand(
   let voorb21Ing = 0;
   let voorb9Ing = 0;
   let salarissen = 0;
+  let dgaEchtRotterdams = 0;
+  let dgaMp5 = 0;
   const catMap: Record<string, number> = {};
 
   for (const tx of maandTxs) {
     if (isSalaris(tx)) {
       salarissen += tx.bedrag;
       catMap["salaris"] = (catMap["salaris"] ?? 0) + tx.bedrag;
+      if (tx.categorie === "dga-er") dgaEchtRotterdams += tx.bedrag;
+      if (tx.categorie === "dga-mp5") dgaMp5 += tx.bedrag;
     } else if (tx.categorie !== "omzet" && tx.categorie !== "deposit" && tx.categorie !== "contant") {
       kostenIng += tx.bedrag;
       voorb21Ing += tx.btw21;
@@ -157,6 +164,8 @@ export function berekenMaand(
     kostenIng: rnd(kostenIng),
     kostenFacturen: rnd(kostenFacturen),
     kostenContant: rnd(contantUitgaven),
+    dgaEchtRotterdams: rnd(dgaEchtRotterdams),
+    dgaMp5: rnd(dgaMp5),
     voorbelasting21,
     voorbelasting9,
     voorbelastingTotaal,
