@@ -44,6 +44,7 @@ export interface MaandSamenvatting {
   // DGA salaris
   dgaEchtRotterdams: number;
   dgaMp5: number;
+  dgaMp5Genormaliseerd: number; // kwartaalbetaling gespreid over 3 maanden
 }
 
 export interface KwartaalRapport {
@@ -163,6 +164,15 @@ export function berekenMaand(
   const contantBtw21 = maandContant.reduce((s, c) => s + c.btw21, 0);
   const contantBtw9  = maandContant.reduce((s, c) => s + c.btw9, 0);
 
+  // MP5 kwartaaltotaal: alle dga-mp5 betalingen in hetzelfde kwartaal als deze maand
+  const qStart = Math.ceil(maand / 3) * 3 - 2;
+  const qPrefixes = [qStart, qStart + 1, qStart + 2].map(
+    (m) => `${jaar}-${String(m).padStart(2, "0")}`
+  );
+  const mp5KwartaalTotaal = ingTxs
+    .filter((t) => qPrefixes.some((p) => t.datum.startsWith(p)) && t.categorie === "dga-mp5")
+    .reduce((s, t) => s + t.bedrag, 0);
+
   const kostenTotaal = rnd(kostenIng + kostenFacturen + contantUitgaven);
   const voorbelasting21 = rnd(voorb21Ing + voorb21Facturen + contantBtw21);
   const voorbelasting9  = rnd(voorb9Ing  + voorb9Facturen  + contantBtw9);
@@ -190,6 +200,7 @@ export function berekenMaand(
     kostenContant: rnd(contantUitgaven),
     dgaEchtRotterdams: rnd(dgaEchtRotterdams),
     dgaMp5: rnd(dgaMp5),
+    dgaMp5Genormaliseerd: rnd(mp5KwartaalTotaal / 3),
     voorbelasting21,
     voorbelasting9,
     voorbelastingTotaal,

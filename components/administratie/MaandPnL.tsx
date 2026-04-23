@@ -122,13 +122,20 @@ export default function MaandPnL({ bedrijf, hex }: Props) {
                 <span className="font-medium text-slate-700">- {euro(s.dgaEchtRotterdams ?? 0)}</span>
               </div>
               <div className="flex justify-between text-sm mt-1">
-                <span className="text-slate-600">MP5 <span className="text-slate-400 text-xs">(60%)</span></span>
-                <span className="font-medium text-slate-700">- {euro(s.dgaMp5 ?? 0)}</span>
+                <span className="text-slate-600">
+                  MP5 <span className="text-slate-400 text-xs">(60% · kwartaal ÷ 3)</span>
+                </span>
+                <span className="font-medium text-slate-700">- {euro(s.dgaMp5Genormaliseerd ?? s.dgaMp5 ?? 0)}</span>
               </div>
-              {(s.dgaEchtRotterdams ?? 0) > 0 && (s.dgaMp5 ?? 0) > 0 && (
+              {(s.dgaMp5 ?? 0) > 0 && (s.dgaMp5Genormaliseerd ?? 0) !== (s.dgaMp5 ?? 0) && (
+                <div className="text-[10px] text-slate-400 text-right">
+                  betaald: {euro(s.dgaMp5 ?? 0)} · genormaliseerd per maand
+                </div>
+              )}
+              {(s.dgaEchtRotterdams ?? 0) > 0 && (s.dgaMp5Genormaliseerd ?? 0) > 0 && (
                 <div className="border-t border-slate-200 mt-2 pt-2 text-xs text-slate-400">
-                  Verhouding: {Math.round(((s.dgaMp5 ?? 0) / (s.dgaEchtRotterdams ?? 1)) * 100)}% van ER
-                  {Math.abs(Math.round(((s.dgaMp5 ?? 0) / (s.dgaEchtRotterdams ?? 1)) * 100) - 60) > 5 && (
+                  Verhouding: {Math.round(((s.dgaMp5Genormaliseerd ?? 0) / (s.dgaEchtRotterdams ?? 1)) * 100)}% van ER
+                  {Math.abs(Math.round(((s.dgaMp5Genormaliseerd ?? 0) / (s.dgaEchtRotterdams ?? 1)) * 100) - 60) > 5 && (
                     <span className="text-amber-600 ml-2">⚠ afwijking van verwachte 60%</span>
                   )}
                 </div>

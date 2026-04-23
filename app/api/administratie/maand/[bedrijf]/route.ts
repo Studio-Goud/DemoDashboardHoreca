@@ -10,6 +10,11 @@ function checkBedrijf(b: string): BedrijfSlug | null {
   return GELDIGE_BEDRIJVEN.has(b as BedrijfSlug) ? (b as BedrijfSlug) : null;
 }
 
+function kwartaalMaanden(maand: number): number[] {
+  const start = Math.ceil(maand / 3) * 3 - 2;
+  return [start, start + 1, start + 2];
+}
+
 // GET /api/administratie/maand/[bedrijf]?jaar=2026&maand=3
 export async function GET(
   req: NextRequest,
@@ -23,26 +28,27 @@ export async function GET(
   const jaar = Number(searchParams.get("jaar") ?? nu.getFullYear());
   const maand = Number(searchParams.get("maand") ?? nu.getMonth() + 1);
 
-  // Haal ook volgende maand op (eerste 3 dagen) voor salarisoverheveling
+  // Volgende maand voor salarisoverheveling (dag 1-6)
   const vMaand = maand === 12 ? 1 : maand + 1;
   const vJaar  = maand === 12 ? jaar + 1 : jaar;
 
-  const [ingTxs, ingVolgend, facturen, contant, agg] = await Promise.all([
-    haalIngOp(bedrijf, jaar, [maand]),
+  // Volledige kwartaalmaanden voor MP5-spreiding
+  const qMaanden = kwartaalMaanden(maand);
+
+  const [ingKwartaal, ingVolgend, facturen, contant, agg] = await Promise.all([
+    haalIngOp(bedrijf, jaar, qMaanden),
     haalIngOp(bedrijf, vJaar, [vMaand]),
     haalFacturenOp(bedrijf, jaar),
     haalContantOp(bedrijf, jaar),
     dashboardAggregaten(bedrijf).catch(() => null),
   ]);
 
-  const alleIngTxs = [...ingTxs, ...ingVolgend];
+  const alleIngTxs = [...ingKwartaal, ...ingVolgend];
 
-  // Haal omzet op uit SumUp/Zettle aggregaten voor de juiste maand
   const maandOmzetItem = agg?.maandOmzet?.find(
     (m) => m.jaar === jaar && m.maand === maand
   );
   const omzetBruto = maandOmzetItem?.omzet ?? 0;
-  // Horeca BTW 9%: omzet is incl. BTW, dus BTW = omzet - omzet/1.09
   const omzetBtwBetaald = Math.round((omzetBruto - omzetBruto / 1.09) * 100) / 100;
 
   const samenvatting = berekenMaand(jaar, maand, alleIngTxs, facturen, contant, omzetBruto, omzetBtwBetaald);
