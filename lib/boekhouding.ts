@@ -104,14 +104,14 @@ export function berekenMaand(
   // Salarissen op dag 1-3 van DEZE maand horen bij vorige maand → uitsluiten
   const vroegeSalarisIds = new Set(
     maandDebits
-      .filter((t) => isSalaris(t) && parseInt(t.datum.slice(8, 10)) <= 3)
+      .filter((t) => isSalaris(t) && parseInt(t.datum.slice(8, 10)) <= 6)
       .map((t) => t.id)
   );
 
   // Salarissen op dag 1-3 van VOLGENDE maand horen bij DEZE maand → toevoegen
   const salarisOverloop = ingTxs.filter(
     (t) => t.datum.startsWith(vPrefix) && t.richting === "debit" &&
-            isSalaris(t) && parseInt(t.datum.slice(8, 10)) <= 3
+            isSalaris(t) && parseInt(t.datum.slice(8, 10)) <= 6
   );
 
   const maandTxs = [
