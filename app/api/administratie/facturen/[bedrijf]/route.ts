@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { haalFactuurPdfs, oneComConfig } from "@/lib/imap-facturen";
 import { parseFactuurPdf } from "@/lib/factuur-ai";
-import { slaFacturenOp, haalFacturenOp, verwijderFactuur } from "@/lib/boekhouding-kv";
+import { slaFacturenOp, haalFacturenOp, verwijderFactuur, updateFactuur } from "@/lib/boekhouding-kv";
 
 export const maxDuration = 60;
 
@@ -89,6 +89,33 @@ export async function GET(
 
   const facturen = await haalFacturenOp(bedrijf, jaar);
   return NextResponse.json({ facturen, totaal: facturen.length });
+}
+
+// PATCH /api/administratie/facturen/[bedrijf] — corrigeer en/of keur goed
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: { bedrijf: string } }
+) {
+  const bedrijf = checkBedrijf(params.bedrijf);
+  if (!bedrijf) return NextResponse.json({ error: "Ongeldig bedrijf" }, { status: 400 });
+
+  const body = await req.json() as {
+    id: string; jaar: number;
+    datum?: string; bedragInclBtw?: number; bedragExclBtw?: number;
+    btw21?: number; btw9?: number; leverancier?: string; goedkeuren?: boolean;
+  };
+
+  await updateFactuur(bedrijf, body.jaar, body.id, {
+    ...(body.datum !== undefined && { datum: body.datum }),
+    ...(body.bedragInclBtw !== undefined && { bedragInclBtw: body.bedragInclBtw }),
+    ...(body.bedragExclBtw !== undefined && { bedragExclBtw: body.bedragExclBtw }),
+    ...(body.btw21 !== undefined && { btw21: body.btw21 }),
+    ...(body.btw9 !== undefined && { btw9: body.btw9 }),
+    ...(body.leverancier !== undefined && { leverancier: body.leverancier }),
+    ...(body.goedkeuren && { status: "verwerkt" }),
+  });
+
+  return NextResponse.json({ ok: true });
 }
 
 // DELETE /api/administratie/facturen/[bedrijf]?jaar=2026&id=xxx

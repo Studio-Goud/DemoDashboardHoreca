@@ -116,6 +116,20 @@ export async function haalFacturenOp(
   return (await kv.get(key)) ?? [];
 }
 
+export async function updateFactuur(
+  bedrijf: BedrijfSlug,
+  jaar: number,
+  id: string,
+  update: Partial<Pick<Factuur, "datum" | "bedragInclBtw" | "bedragExclBtw" | "btw21" | "btw9" | "leverancier" | "status">>
+): Promise<void> {
+  const key = facturenKey(bedrijf, jaar);
+  const facturen: Factuur[] = (await kv.get(key)) ?? [];
+  const idx = facturen.findIndex((f) => f.id === id);
+  if (idx === -1) return;
+  facturen[idx] = { ...facturen[idx], ...update };
+  await kv.set(key, facturen);
+}
+
 export async function verwijderFactuur(
   bedrijf: BedrijfSlug,
   jaar: number,
