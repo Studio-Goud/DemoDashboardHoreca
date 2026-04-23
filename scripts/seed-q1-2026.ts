@@ -10,7 +10,8 @@ import * as fs from "fs";
 import * as path from "path";
 
 const BASE_URL = process.env.VERCEL_APP_URL ?? "https://dashboardoverview.vercel.app";
-const EXCEL_PAD = path.join(process.cwd(), "Q1 2026 Administratie.xlsx");
+const EXCEL_BB   = path.join(process.cwd(), "Q1 2026 Administratie BB.xlsx");
+const EXCEL_SL   = path.join(process.cwd(), "Q1 2026 Administratie Sate.xlsx");
 
 // Excel datum serial → YYYY-MM-DD
 function excelDatumNaarIso(serial: unknown): string | null {
@@ -23,7 +24,7 @@ function excelDatumNaarIso(serial: unknown): string | null {
 
 async function importeerIng(bedrijf: "bb" | "sl") {
   console.log(`\n[${bedrijf}] ING transacties uploaden…`);
-  const buffer = fs.readFileSync(EXCEL_PAD);
+  const buffer = fs.readFileSync(bedrijf === "bb" ? EXCEL_BB : EXCEL_SL);
   const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
   const form = new FormData();
   form.append("bestand", blob, "Q1 2026 Administratie.xlsx");
@@ -40,7 +41,7 @@ async function importeerIng(bedrijf: "bb" | "sl") {
 
 async function importeerContant(bedrijf: "bb" | "sl") {
   console.log(`\n[${bedrijf}] Contant transacties importeren…`);
-  const wb = XLSX.readFile(EXCEL_PAD);
+  const wb = XLSX.readFile(bedrijf === "bb" ? EXCEL_BB : EXCEL_SL);
   const ws = wb.Sheets["Contant"];
   if (!ws) { console.log(`[${bedrijf}] Geen Contant sheet gevonden`); return; }
 
@@ -85,16 +86,17 @@ async function importeerContant(bedrijf: "bb" | "sl") {
 }
 
 async function main() {
-  if (!fs.existsSync(EXCEL_PAD)) {
-    throw new Error(`Excel niet gevonden: ${EXCEL_PAD}`);
-  }
+  if (!fs.existsSync(EXCEL_BB)) throw new Error(`Excel niet gevonden: ${EXCEL_BB}`);
+  if (!fs.existsSync(EXCEL_SL)) throw new Error(`Excel niet gevonden: ${EXCEL_SL}`);
   console.log(`Importeren Q1 2026 naar ${BASE_URL}…`);
 
-  // BB heeft het ING bestand (IBAN NL65INGB0100914934)
   await importeerIng("bb");
   await importeerContant("bb");
 
-  console.log("\n✓ Klaar! Controleer /administratie/bb");
+  await importeerIng("sl");
+  await importeerContant("sl");
+
+  console.log("\n✓ Klaar! Controleer /administratie/bb en /administratie/sl");
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

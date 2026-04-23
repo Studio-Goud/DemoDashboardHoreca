@@ -59,6 +59,17 @@ export default function FacturenPanel({ bedrijf, hex, jaar }: Props) {
 
   const reviewFacturen = facturen.filter((f) => f.status === "review");
 
+  // Groepeer per maand voor diagnose
+  const perMaand = facturen.reduce<Record<string, { count: number; totaal: number }>>((acc, f) => {
+    const maand = f.datum.slice(0, 7); // "2026-04"
+    if (!acc[maand]) acc[maand] = { count: 0, totaal: 0 };
+    acc[maand].count++;
+    acc[maand].totaal += f.bedragInclBtw;
+    return acc;
+  }, {});
+  const maandKeys = Object.keys(perMaand).sort();
+  const totalBedrag = facturen.reduce((s, f) => s + f.bedragInclBtw, 0);
+
   return (
     <div className="card">
       <div className="flex items-center justify-between mb-3">
@@ -98,6 +109,28 @@ export default function FacturenPanel({ bedrijf, hex, jaar }: Props) {
         </div>
       )}
 
+      {/* Maand-verdeling diagnose */}
+      {maandKeys.length > 0 && (
+        <div className="bg-slate-50 rounded-lg p-3 mb-3">
+          <p className="text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wide">Verdeling per maand</p>
+          {maandKeys.map((m) => {
+            const { count, totaal } = perMaand[m];
+            return (
+              <div key={m} className="flex justify-between text-sm py-0.5">
+                <span className="text-slate-600">{m} <span className="text-slate-400 text-xs">({count}x)</span></span>
+                <span className={`font-medium ${totaal > 20000 ? "text-red-600" : "text-slate-700"}`}>
+                  {euro(totaal)}
+                </span>
+              </div>
+            );
+          })}
+          <div className="border-t border-slate-200 mt-2 pt-2 flex justify-between text-sm font-bold">
+            <span className="text-slate-700">Totaal {jaar}</span>
+            <span className="text-slate-800">{euro(totalBedrag)}</span>
+          </div>
+        </div>
+      )}
+
       {laden ? (
         <p className="text-slate-400 text-sm">Laden…</p>
       ) : facturen.length === 0 ? (
@@ -123,6 +156,11 @@ export default function FacturenPanel({ bedrijf, hex, jaar }: Props) {
                 <div className="text-[11px] text-slate-500 mt-0.5">
                   {f.datum} · {f.factuurnummer} · {f.btwTarief} BTW
                 </div>
+                {f.status === "review" && f.reviewReden && (
+                  <div className="text-[10px] text-amber-700 mt-0.5">
+                    ⚠ {f.reviewReden}
+                  </div>
+                )}
               </div>
               <div className="text-right ml-3 shrink-0">
                 <div className="font-semibold text-slate-700">{euro(f.bedragInclBtw)}</div>
@@ -143,11 +181,15 @@ export default function FacturenPanel({ bedrijf, hex, jaar }: Props) {
       )}
 
       {facturen.length > 0 && (
-        <div className="mt-3 pt-3 border-t border-slate-100 flex justify-between text-sm">
-          <span className="text-slate-500">{facturen.length} facturen</span>
-          <span className="font-semibold text-slate-700">
-            Totaal BTW: {euro(facturen.reduce((s, f) => s + f.btw21 + f.btw9, 0))}
-          </span>
+        <div className="mt-3 pt-3 border-t border-slate-100 text-sm space-y-1">
+          <div className="flex justify-between">
+            <span className="text-slate-500">{facturen.length} facturen</span>
+            <span className="font-semibold text-slate-700">{euro(totalBedrag)}</span>
+          </div>
+          <div className="flex justify-between text-slate-400 text-xs">
+            <span>Waarvan BTW</span>
+            <span>{euro(facturen.reduce((s, f) => s + f.btw21 + f.btw9, 0))}</span>
+          </div>
         </div>
       )}
     </div>

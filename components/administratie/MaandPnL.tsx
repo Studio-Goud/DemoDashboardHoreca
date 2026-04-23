@@ -124,7 +124,12 @@ export default function MaandPnL({ bedrijf, hex }: Props) {
 
           {/* Kostenbreakdown per categorie */}
           {s.categorieBreakdown && Object.keys(s.categorieBreakdown).length > 0 && (
-            <CategorieBreakdown breakdown={s.categorieBreakdown} omzet={s.omzetBruto} />
+            <CategorieBreakdown
+              breakdown={s.categorieBreakdown}
+              omzet={s.omzetBruto}
+              kostenFacturen={s.kostenFacturen ?? 0}
+              kostenContant={s.kostenContant ?? 0}
+            />
           )}
 
           {data.reviewItems > 0 && (
@@ -175,7 +180,7 @@ const CAT_META: Record<string, { label: string; emoji: string; groep: string }> 
   salaris:        { label: "Personeel",        emoji: "👤", groep: "personeel" },
 };
 
-function CategorieBreakdown({ breakdown, omzet }: { breakdown: Record<string, number>; omzet: number }) {
+function CategorieBreakdown({ breakdown, omzet, kostenFacturen, kostenContant }: { breakdown: Record<string, number>; omzet: number; kostenFacturen: number; kostenContant: number }) {
   const fmt = (n: number) => new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR" }).format(n);
 
   const inkoop = Object.entries(breakdown)
@@ -202,6 +207,18 @@ function CategorieBreakdown({ breakdown, omzet }: { breakdown: Record<string, nu
           </div>
         );
       })}
+      {kostenFacturen > 0 && (
+        <div className="flex justify-between text-sm py-0.5 border-t border-slate-200 mt-1 pt-1">
+          <span className="text-amber-700">📧 Email facturen</span>
+          <span className="font-medium text-amber-700">- {fmt(kostenFacturen)}</span>
+        </div>
+      )}
+      {kostenContant > 0 && (
+        <div className="flex justify-between text-sm py-0.5">
+          <span className="text-slate-600">💵 Contante uitgaven</span>
+          <span className="font-medium text-slate-700">- {fmt(kostenContant)}</span>
+        </div>
+      )}
 
       {brutomarge !== null && (
         <div className="border-t border-slate-200 mt-2 pt-2">

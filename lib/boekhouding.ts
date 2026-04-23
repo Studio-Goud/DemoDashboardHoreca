@@ -37,6 +37,10 @@ export interface MaandSamenvatting {
   btwTeVoldoen: number;       // omzetBtw - voorbelasting (positief = betalen, negatief = ontvangen)
   // Kostenbreakdown per categorie (excl. salarissen)
   categorieBreakdown: Record<string, number>;
+  // Opsplitsing kostenbronnen
+  kostenIng: number;
+  kostenFacturen: number;
+  kostenContant: number;
 }
 
 export interface KwartaalRapport {
@@ -102,7 +106,7 @@ export function berekenMaand(
     if (isSalaris(tx)) {
       salarissen += tx.bedrag;
       catMap["salaris"] = (catMap["salaris"] ?? 0) + tx.bedrag;
-    } else if (tx.categorie !== "omzet" && tx.categorie !== "deposit") {
+    } else if (tx.categorie !== "omzet" && tx.categorie !== "deposit" && tx.categorie !== "contant") {
       kostenIng += tx.bedrag;
       voorb21Ing += tx.btw21;
       voorb9Ing += tx.btw9;
@@ -116,6 +120,7 @@ export function berekenMaand(
   let voorb9Facturen = 0;
 
   for (const f of maandFacturen) {
+    if (f.status === "review") continue; // niet meetellen tot handmatig goedgekeurd
     kostenFacturen += f.bedragInclBtw;
     voorb21Facturen += f.btw21;
     voorb9Facturen += f.btw9;
@@ -149,6 +154,9 @@ export function berekenMaand(
     omzetBruto: rnd(omzetBruto),
     omzetBtwBetaald: rnd(omzetBtwBetaald),
     kostenTotaal,
+    kostenIng: rnd(kostenIng),
+    kostenFacturen: rnd(kostenFacturen),
+    kostenContant: rnd(contantUitgaven),
     voorbelasting21,
     voorbelasting9,
     voorbelastingTotaal,
