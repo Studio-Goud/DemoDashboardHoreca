@@ -75,8 +75,9 @@ export async function PUT(
   const { searchParams } = new URL(req.url);
   const jaar = Number(searchParams.get("jaar") ?? new Date().getFullYear());
 
+  const force = searchParams.get("force") === "true";
   const txs = await haalIngOp(bedrijf, jaar);
-  const bijgewerkt = herclassificeer(txs);
+  const bijgewerkt = herclassificeer(txs, force);
   const veranderd = bijgewerkt.filter((t, i) => t.btwStatus !== txs[i].btwStatus || t.categorie !== txs[i].categorie);
 
   await slaIngOp(bedrijf, bijgewerkt);

@@ -168,6 +168,9 @@ export default function MaandPnL({ bedrijf, hex }: Props) {
               omzet={s.omzetBruto}
               kostenFacturen={s.kostenFacturen ?? 0}
               kostenContant={s.kostenContant ?? 0}
+              bedrijf={bedrijf}
+              jaar={jaar}
+              maand={maand}
             />
           )}
 
@@ -219,17 +222,39 @@ const CAT_META: Record<string, { label: string; emoji: string; groep: string }> 
   salaris:        { label: "Personeel",        emoji: "👤", groep: "personeel" },
 };
 
-function CategorieBreakdown({ breakdown, omzet, kostenFacturen, kostenContant }: { breakdown: Record<string, number>; omzet: number; kostenFacturen: number; kostenContant: number }) {
+interface IngTx { id: string; datum: string; omschrijving: string; bedrag: number; categorie: string; }
+
+function CategorieBreakdown({
+  breakdown, omzet, kostenFacturen, kostenContant, bedrijf, jaar, maand,
+}: {
+  breakdown: Record<string, number>; omzet: number; kostenFacturen: number;
+  kostenContant: number; bedrijf: string; jaar: number; maand: number;
+}) {
   const fmt = (n: number) => new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR" }).format(n);
+  const [open, setOpen] = useState<string | null>(null);
+  const [txCache, setTxCache] = useState<IngTx[]>([]);
+  const [txLaden, setTxLaden] = useState(false);
+
+  async function toggle(cat: string) {
+    if (open === cat) { setOpen(null); return; }
+    setOpen(cat);
+    if (txCache.length === 0) {
+      setTxLaden(true);
+      try {
+        const res = await fetch(`/api/administratie/ing/${bedrijf}?jaar=${jaar}&maand=${maand}`);
+        if (res.ok) {
+          const data = await res.json();
+          setTxCache(data.transacties ?? []);
+        }
+      } finally { setTxLaden(false); }
+    }
+  }
 
   const inkoop = Object.entries(breakdown)
     .filter(([cat]) => (CAT_META[cat]?.groep ?? "overhead") === "inkoop")
     .reduce((s, [, v]) => s + v, 0);
 
-  const rows = Object.entries(breakdown)
-    .filter(([, v]) => v > 0)
-    .sort(([, a], [, b]) => b - a);
-
+  const rows = Object.entries(breakdown).filter(([, v]) => v > 0).sort(([, a], [, b]) => b - a);
   const brutomarge = omzet > 0 ? omzet - inkoop : null;
   const margePercent = omzet > 0 ? Math.round(((omzet - inkoop) / omzet) * 100) : null;
 
@@ -239,13 +264,40 @@ function CategorieBreakdown({ breakdown, omzet, kostenFacturen, kostenContant }:
 
       {rows.map(([cat, bedrag]) => {
         const meta = CAT_META[cat] ?? { label: cat, emoji: "📌", groep: "overhead" };
+        const isOpen = open === cat;
+        const detail = txCache.filter((t) => t.categorie === cat).sort((a, b) => a.datum.localeCompare(b.datum));
         return (
-          <div key={cat} className="flex justify-between text-sm py-0.5">
-            <span className="text-slate-600">{meta.emoji} {meta.label}</span>
-            <span className="font-medium text-slate-700">- {fmt(bedrag)}</span>
+          <div key={cat}>
+            <button
+              onClick={() => toggle(cat)}
+              className="w-full flex justify-between items-center text-sm py-1 hover:bg-slate-100 rounded px-1 -mx-1 transition-colors"
+            >
+              <span className="text-slate-600">{meta.emoji} {meta.label}</span>
+              <span className="flex items-center gap-1.5">
+                <span className="font-medium text-slate-700">- {fmt(bedrag)}</span>
+                <span className="text-slate-400 text-xs">{isOpen ? "▲" : "▼"}</span>
+              </span>
+            </button>
+            {isOpen && (
+              <div className="ml-4 mb-1 border-l-2 border-slate-200 pl-2">
+                {txLaden ? (
+                  <p className="text-xs text-slate-400 py-1">Laden…</p>
+                ) : detail.length === 0 ? (
+                  <p className="text-xs text-slate-400 py-1">Geen transacties gevonden</p>
+                ) : (
+                  detail.map((tx) => (
+                    <div key={tx.id} className="flex justify-between text-xs py-0.5 text-slate-500">
+                      <span className="truncate max-w-[60%]">{tx.datum.slice(5)} · {tx.omschrijving}</span>
+                      <span className="font-medium text-slate-600 shrink-0">- {fmt(tx.bedrag)}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
           </div>
         );
       })}
+
       {kostenFacturen > 0 && (
         <div className="flex justify-between text-sm py-0.5 border-t border-slate-200 mt-1 pt-1">
           <span className="text-amber-700">📧 Email facturen</span>
