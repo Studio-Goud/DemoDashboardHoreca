@@ -79,6 +79,29 @@ export default function MedewerkerBeheer({
     }
   }
 
+  async function uitnodigen(m: Medewerker) {
+    if (!m.email || m.email.startsWith("geen-email-")) {
+      setFout("Deze medewerker heeft geen geldig e-mailadres");
+      return;
+    }
+    if (!confirm(`Uitnodigingsmail sturen naar ${m.email}?\n\nDe medewerker kan dan een eigen PIN aanmaken en inloggen.`))
+      return;
+    setBusy(true);
+    setFout(null);
+    try {
+      const res = await fetch(`/api/medewerkers/${m.id}/uitnodigen`, { method: "POST" });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({ error: "fout" }));
+        throw new Error(j.error || "uitnodigen mislukt");
+      }
+      alert(`Uitnodiging verstuurd naar ${m.email}.`);
+    } catch (e) {
+      setFout(e instanceof Error ? e.message : "fout");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function verwijderen(m: Medewerker) {
     if (!confirm(`${m.naam} verwijderen uit het rooster?\n\nLet op: in Shiftbase wordt de einddatum op vandaag gezet.`))
       return;
@@ -142,6 +165,15 @@ export default function MedewerkerBeheer({
                       </p>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => uitnodigen(m)}
+                        disabled={busy}
+                        className="px-2 py-1 text-[12px] rounded-md disabled:opacity-50"
+                        style={{ color: "var(--text-2)" }}
+                        title="Uitnodigingsmail sturen voor PIN-registratie"
+                      >
+                        Uitnodigen
+                      </button>
                       <button
                         onClick={() => startBewerken(m)}
                         className="px-2 py-1 text-[12px] rounded-md"
