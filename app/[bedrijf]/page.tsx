@@ -199,6 +199,12 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
   const TABS = [
     { id: "omzet",     label: "Omzet",         icon: "trending-up" as const },
     { id: "planning",  label: "Planning",      icon: "calendar"    as const },
+    {
+      id: "rooster",
+      label: "Rooster",
+      icon: "calendar-clock" as const,
+      href: `/${config.slug}/rooster`,
+    },
     { id: "producten", label: "Producten",     icon: "shopping-bag" as const },
     { id: "inzichten", label: "Inzichten",     icon: "lightbulb"   as const },
     {

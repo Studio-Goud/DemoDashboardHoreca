@@ -139,9 +139,11 @@ async function _fetchDienstenInRange(minDate: string, maxDate: string): Promise<
     limit: "500",
   });
 
+  // Retourneer ALLE diensten (gepubliceerd + concept). Consumers die alleen
+  // gepubliceerde willen filteren zelf via `d.gepubliceerd`.
   return json.data
     .map(mapRoster)
-    .filter((d): d is Dienst => d !== null && d.gepubliceerd);
+    .filter((d): d is Dienst => d !== null);
 }
 
 export const fetchDienstenInRange = unstable_cache(
@@ -190,12 +192,12 @@ function groepeerPerDag(diensten: Dienst[], filterBedrijf?: Bedrijf): DagBezetti
 
 // --- Public API ----------------------------------------------------------
 
-// Diensten van vandaag voor één bedrijf (gepubliceerd)
+// Diensten van vandaag voor één bedrijf (alleen gepubliceerd)
 export async function dienstenVandaag(bedrijf: Bedrijf): Promise<Dienst[]> {
   const vandaag = vandaagISO();
   const alle = await fetchDienstenInRange(vandaag, vandaag);
   return alle
-    .filter((d) => d.bedrijf === bedrijf)
+    .filter((d) => d.bedrijf === bedrijf && d.gepubliceerd)
     .sort((a, b) => a.start.localeCompare(b.start));
 }
 
@@ -207,7 +209,7 @@ export async function bezettingKomendePeriode(
   const vandaag = vandaagISO();
   const grens = isoNDagenVooruit(dagenVooruit);
   const alle = await fetchDienstenInRange(vandaag, grens);
-  return groepeerPerDag(alle, bedrijf);
+  return groepeerPerDag(alle.filter((d) => d.gepubliceerd), bedrijf);
 }
 
 // Backwards-compat: vroeger gebruikt op dashboard om "hoeveel mensen vandaag"
@@ -220,7 +222,7 @@ export async function komendeDiensten(
   const vandaag = vandaagISO();
   const grens = isoNDagenVooruit(dagVooruitMax);
   const alle = await fetchDienstenInRange(vandaag, grens);
-  const gegroepeerd = groepeerPerDag(alle, bedrijf);
+  const gegroepeerd = groepeerPerDag(alle.filter((d) => d.gepubliceerd), bedrijf);
 
   return gegroepeerd.map((g) => ({
     datum: g.datum,
@@ -237,7 +239,7 @@ export async function bezettingPerWeekdag(
   const eind = vandaagISO();
   const start = isoNDagenVooruit(-90);
   const alle = await fetchDienstenInRange(start, eind);
-  const gegroepeerd = groepeerPerDag(alle, bedrijf);
+  const gegroepeerd = groepeerPerDag(alle.filter((d) => d.gepubliceerd), bedrijf);
 
   const perWd = new Map<number, { mensen: number[]; uren: number[] }>();
   for (const dag of gegroepeerd) {
@@ -256,3 +258,315 @@ export async function bezettingPerWeekdag(
     }))
     .sort((a, b) => a.weekdag - b.weekdag);
 }
+
+// =============================================================================
+// EDITOR-LAAG: medewerkers + shift templates + CRUD op rosters en users
+// =============================================================================
+
+// Team-id's per vestiging (uit echte Shiftbase-account 95253)
+const TEAM_ID: Record<Bedrijf, string> = {
+  bb: "192809", // Brunch and Brew
+  sl: "221243", // Saté Lounge
+  kl: "253985", // Het Kroket Loket
+};
+
+export interface Medewerker {
+  id: string;
+  voornaam: string;
+  achternaam: string;
+  naam: string;            // full display name
+  email: string;
+  startdatum: string | null;
+  einddatum: string | null;
+  avatar?: string;
+  anoniem: boolean;
+  bedrijven: Bedrijf[];     // welke vestigingen via teams
+}
+
+export interface ShiftTemplate {
+  id: string;
+  bedrijf: Bedrijf;
+  korteNaam: string;        // bv. "MORN"
+  langeNaam: string;        // bv. "Ochtend"
+  start: string;            // HH:MM
+  eind: string;             // HH:MM
+  pauze: number;            // minuten
+  kleur: string;
+}
+
+interface UserApiItem {
+  User: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    prefix: string;
+    name: string;
+    email: string;
+    startdate: string | null;
+    enddate: string | null;
+    avatar_30x30?: string;
+    anonymized?: boolean;
+  };
+  Team?: Array<{ id: string; department_id: string; name: string }>;
+}
+
+interface UsersApiResponse { data: UserApiItem[]; meta: { status: string } }
+
+interface ShiftTemplateApiItem {
+  Shift: {
+    id: string;
+    department_id: string;
+    name: string;
+    long_name: string;
+    starttime: string;
+    endtime: string;
+    break: string | number;
+    color: string;
+    deleted?: boolean;
+    is_task?: boolean;
+  };
+}
+interface ShiftTemplatesApiResponse { data: ShiftTemplateApiItem[]; meta: { status: string } }
+
+function mapUser(item: UserApiItem): Medewerker {
+  const teams = item.Team ?? [];
+  const bedrijven = Array.from(
+    new Set(
+      teams
+        .map((t) => BEDRIJF_VAN_DEPARTMENT[t.department_id])
+        .filter((b): b is Bedrijf => b !== undefined),
+    ),
+  );
+  return {
+    id: item.User.id,
+    voornaam: item.User.first_name,
+    achternaam: [item.User.prefix, item.User.last_name].filter(Boolean).join(" ").trim(),
+    naam: item.User.name,
+    email: item.User.email,
+    startdatum: item.User.startdate,
+    einddatum: item.User.enddate,
+    avatar: item.User.avatar_30x30,
+    anoniem: !!item.User.anonymized,
+    bedrijven,
+  };
+}
+
+async function _fetchMedewerkers(): Promise<Medewerker[]> {
+  // Shiftbase paginate-veilig: 500 is genoeg voor alle medewerkers in 1 account
+  const json = await shiftbaseFetch<UsersApiResponse>("/users", { limit: "500" });
+  return json.data.map(mapUser).filter((m) => !m.anoniem && m.einddatum === null);
+}
+
+export const fetchMedewerkers = unstable_cache(
+  _fetchMedewerkers,
+  ["shiftbase-medewerkers"],
+  { revalidate: 300, tags: ["shiftbase", "shiftbase-medewerkers"] },
+);
+
+export async function medewerkersPerBedrijf(bedrijf: Bedrijf): Promise<Medewerker[]> {
+  const alle = await fetchMedewerkers();
+  return alle
+    .filter((m) => m.bedrijven.includes(bedrijf))
+    .sort((a, b) => a.voornaam.localeCompare(b.voornaam));
+}
+
+async function _fetchShiftTemplates(): Promise<ShiftTemplate[]> {
+  const json = await shiftbaseFetch<ShiftTemplatesApiResponse>("/shifts", { limit: "500" });
+  return json.data
+    .filter((s) => !s.Shift.deleted && !s.Shift.is_task)
+    .map((s) => ({
+      id: s.Shift.id,
+      bedrijf: BEDRIJF_VAN_DEPARTMENT[s.Shift.department_id] as Bedrijf,
+      korteNaam: s.Shift.name,
+      langeNaam: s.Shift.long_name || s.Shift.name,
+      start: tijdNaarHHMM(s.Shift.starttime),
+      eind: tijdNaarHHMM(s.Shift.endtime),
+      pauze: typeof s.Shift.break === "string" ? parseInt(s.Shift.break, 10) : s.Shift.break,
+      kleur: s.Shift.color,
+    }))
+    .filter((s) => s.bedrijf !== undefined);
+}
+
+export const fetchShiftTemplates = unstable_cache(
+  _fetchShiftTemplates,
+  ["shiftbase-shift-templates"],
+  { revalidate: 600, tags: ["shiftbase", "shiftbase-templates"] },
+);
+
+export async function shiftTemplatesPerBedrijf(bedrijf: Bedrijf): Promise<ShiftTemplate[]> {
+  const alle = await fetchShiftTemplates();
+  return alle
+    .filter((s) => s.bedrijf === bedrijf)
+    .sort((a, b) => a.start.localeCompare(b.start));
+}
+
+// --- Schrijf-helpers --------------------------------------------------------
+
+async function shiftbaseMutate(
+  method: "POST" | "PUT" | "DELETE",
+  endpoint: string,
+  body?: unknown,
+): Promise<unknown> {
+  const url = `${SHIFTBASE_BASE}${endpoint}`;
+  const res = await fetch(url, {
+    method,
+    headers: {
+      Authorization: `API ${getApiKey()}`,
+      "Content-Type": "application/json",
+    },
+    body: body ? JSON.stringify(body) : undefined,
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Shiftbase ${method} ${endpoint} → ${res.status}: ${text.slice(0, 300)}`);
+  }
+  return res.json().catch(() => ({}));
+}
+
+// Roster CRUD
+
+export interface NieuweDienst {
+  bedrijf: Bedrijf;
+  userId: string;
+  datum: string;          // YYYY-MM-DD
+  start: string;          // HH:MM
+  eind: string;           // HH:MM
+  shiftTemplateId?: string;
+  pauzeMin?: number;
+  notitie?: string;
+  gepubliceerd?: boolean;
+}
+
+function uurNaarSeconden(hhmm: string): string {
+  return /^\d{2}:\d{2}$/.test(hhmm) ? `${hhmm}:00` : hhmm;
+}
+
+export async function createRoster(data: NieuweDienst): Promise<{ id: string }> {
+  const teamId = TEAM_ID[data.bedrijf];
+  const deptId = DEPARTMENT_ID[data.bedrijf];
+
+  const payload = {
+    Roster: {
+      account_id: "95253",
+      department_id: deptId,
+      team_id: teamId,
+      user_id: data.userId,
+      shift_id: data.shiftTemplateId ?? null,
+      date: data.datum,
+      starttime: uurNaarSeconden(data.start),
+      endtime: uurNaarSeconden(data.eind),
+      break: String(data.pauzeMin ?? 0),
+      description: data.notitie ?? "",
+      published: data.gepubliceerd ?? false,
+    },
+  };
+  const resp = (await shiftbaseMutate("POST", "/rosters", payload)) as {
+    data?: { Roster?: { id?: string } };
+  };
+  return { id: resp.data?.Roster?.id ?? "" };
+}
+
+export async function updateRoster(
+  id: string,
+  patch: Partial<NieuweDienst> & { bedrijf: Bedrijf },
+): Promise<void> {
+  const teamId = TEAM_ID[patch.bedrijf];
+  const deptId = DEPARTMENT_ID[patch.bedrijf];
+
+  const payload = {
+    Roster: {
+      id,
+      department_id: deptId,
+      team_id: teamId,
+      ...(patch.userId        ? { user_id: patch.userId } : {}),
+      ...(patch.shiftTemplateId !== undefined ? { shift_id: patch.shiftTemplateId } : {}),
+      ...(patch.datum         ? { date: patch.datum } : {}),
+      ...(patch.start         ? { starttime: uurNaarSeconden(patch.start) } : {}),
+      ...(patch.eind          ? { endtime: uurNaarSeconden(patch.eind) } : {}),
+      ...(patch.pauzeMin !== undefined ? { break: String(patch.pauzeMin) } : {}),
+      ...(patch.notitie !== undefined ? { description: patch.notitie } : {}),
+      ...(patch.gepubliceerd !== undefined ? { published: patch.gepubliceerd } : {}),
+    },
+  };
+  await shiftbaseMutate("PUT", `/rosters/${id}`, payload);
+}
+
+export async function deleteRoster(id: string): Promise<void> {
+  await shiftbaseMutate("DELETE", `/rosters/${id}`);
+}
+
+// Publiceer alle ongepubliceerde diensten voor een week (concept → publiek)
+export async function publiceerWeek(bedrijf: Bedrijf, startDatum: string, eindDatum: string): Promise<number> {
+  const alle = await fetchDienstenInRange(startDatum, eindDatum);
+  const concepten = alle.filter((d) => d.bedrijf === bedrijf && !d.gepubliceerd);
+  for (const d of concepten) {
+    await updateRoster(d.id, { bedrijf, gepubliceerd: true });
+  }
+  return concepten.length;
+}
+
+// User CRUD
+
+export interface NieuweMedewerker {
+  bedrijf: Bedrijf;
+  voornaam: string;
+  achternaam: string;
+  email: string;
+  startdatum?: string;     // YYYY-MM-DD
+}
+
+export async function createMedewerker(data: NieuweMedewerker): Promise<{ id: string }> {
+  const teamId = TEAM_ID[data.bedrijf];
+  const payload = {
+    User: {
+      first_name: data.voornaam,
+      last_name: data.achternaam,
+      email: data.email,
+      startdate: data.startdatum ?? new Intl.DateTimeFormat("sv-SE").format(new Date()),
+      locale: "nl-NL",
+    },
+    Team: [{ id: teamId }],
+  };
+  const resp = (await shiftbaseMutate("POST", "/users", payload)) as {
+    data?: { User?: { id?: string } };
+  };
+  return { id: resp.data?.User?.id ?? "" };
+}
+
+export interface MedewerkerPatch {
+  voornaam?: string;
+  achternaam?: string;
+  email?: string;
+  startdatum?: string;
+  einddatum?: string | null;
+}
+
+export async function updateMedewerker(id: string, patch: MedewerkerPatch): Promise<void> {
+  const payload = {
+    User: {
+      id,
+      ...(patch.voornaam   !== undefined ? { first_name: patch.voornaam } : {}),
+      ...(patch.achternaam !== undefined ? { last_name:  patch.achternaam } : {}),
+      ...(patch.email      !== undefined ? { email: patch.email } : {}),
+      ...(patch.startdatum !== undefined ? { startdate: patch.startdatum } : {}),
+      ...(patch.einddatum  !== undefined ? { enddate: patch.einddatum } : {}),
+    },
+  };
+  await shiftbaseMutate("PUT", `/users/${id}`, payload);
+}
+
+export async function deleteMedewerker(id: string): Promise<void> {
+  // Shiftbase: "verwijder" = enddate vandaag zetten (echte delete bestaat alleen
+  // voor users zonder historie). Voor zekerheid eerst soft-delete via enddate.
+  const vandaag = new Intl.DateTimeFormat("sv-SE").format(new Date());
+  try {
+    await shiftbaseMutate("PUT", `/users/${id}`, { User: { id, enddate: vandaag } });
+  } catch {
+    await shiftbaseMutate("DELETE", `/users/${id}`);
+  }
+}
+
+// --- Cache-invalidatie helper ----------------------------------------------
+
+export const SHIFTBASE_TAGS = ["shiftbase", "shiftbase-medewerkers", "shiftbase-templates"] as const;
