@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Dienst, Medewerker, ShiftTemplate } from "@/lib/shiftbase";
+import type { Dienst, Medewerker, ShiftTemplate } from "@/lib/rooster";
 import type { Bedrijf } from "@/lib/sumup";
 import Icon from "./Icon";
 

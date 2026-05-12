@@ -5,7 +5,7 @@ import {
   medewerkersPerBedrijf,
   shiftTemplatesPerBedrijf,
   fetchBeschikbaarheid,
-} from "@/lib/shiftbase";
+} from "@/lib/rooster";
 import RoosterEditor from "@/components/RoosterEditor";
 
 export const dynamic = "force-dynamic";

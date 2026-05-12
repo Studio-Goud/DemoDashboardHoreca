@@ -3,7 +3,7 @@ import {
   dienstenVandaag,
   bezettingKomendePeriode,
   type Dienst,
-} from "@/lib/shiftbase";
+} from "@/lib/rooster";
 import type { Bedrijf } from "@/lib/sumup";
 
 export const dynamic = "force-dynamic";

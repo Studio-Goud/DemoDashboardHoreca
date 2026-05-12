@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Dienst } from "@/lib/shiftbase";
+import type { Dienst } from "@/lib/rooster";
 import Icon from "./Icon";
 
 interface Props {

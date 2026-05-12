@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
-import { updateRoster, deleteRoster } from "@/lib/shiftbase";
+import { updateRoster, deleteRoster } from "@/lib/rooster";
 import type { Bedrijf } from "@/lib/sumup";
 
 export const dynamic = "force-dynamic";

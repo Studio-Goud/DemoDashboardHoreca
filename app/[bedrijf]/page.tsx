@@ -27,7 +27,7 @@ import {
 } from "@/lib/zettle-excel";
 import { dashboardAggregaten } from "@/lib/dashboard-cache";
 import { getWeer, weerInfo } from "@/lib/weer";
-import { dienstenVandaag, bezettingKomendePeriode } from "@/lib/shiftbase";
+import { dienstenVandaag, bezettingKomendePeriode } from "@/lib/rooster";
 import RoosterVandaag from "@/components/RoosterVandaag";
 import RoosterWeek from "@/components/RoosterWeek";
 import ManagerWidgets from "@/components/ManagerWidgets";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Medewerker } from "@/lib/shiftbase";
+import type { Medewerker } from "@/lib/rooster";
 import type { Bedrijf } from "@/lib/sumup";
 import Icon from "./Icon";
 

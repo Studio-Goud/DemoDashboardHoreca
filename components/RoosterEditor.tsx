@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { Dienst, Medewerker, ShiftTemplate, Beschikbaarheid } from "@/lib/shiftbase";
+import type { Dienst, Medewerker, ShiftTemplate, Beschikbaarheid } from "@/lib/rooster";
 import type { Bedrijf } from "@/lib/sumup";
 import Icon from "./Icon";
 import DienstModal from "./DienstModal";

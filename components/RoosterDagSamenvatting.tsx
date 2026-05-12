@@ -1,6 +1,6 @@
 "use client";
 
-import type { Dienst, Medewerker } from "@/lib/shiftbase";
+import type { Dienst, Medewerker } from "@/lib/rooster";
 
 interface Props {
   weekDatums: string[];        // 7 dagen, ma → zo

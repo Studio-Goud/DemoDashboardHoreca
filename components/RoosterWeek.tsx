@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { DagBezetting } from "@/lib/shiftbase";
+import type { DagBezetting } from "@/lib/rooster";
 import Icon from "./Icon";
 
 interface Props {

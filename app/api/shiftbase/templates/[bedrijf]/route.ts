@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { shiftTemplatesPerBedrijf } from "@/lib/shiftbase";
+import { shiftTemplatesPerBedrijf } from "@/lib/rooster";
 import type { Bedrijf } from "@/lib/sumup";
 
 export const dynamic = "force-dynamic";
