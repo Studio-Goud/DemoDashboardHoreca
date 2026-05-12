@@ -27,7 +27,9 @@ import {
 } from "@/lib/zettle-excel";
 import { dashboardAggregaten } from "@/lib/dashboard-cache";
 import { getWeer, weerInfo } from "@/lib/weer";
-import { dienstenVandaag } from "@/lib/shiftbase";
+import { dienstenVandaag, bezettingKomendePeriode } from "@/lib/shiftbase";
+import RoosterVandaag from "@/components/RoosterVandaag";
+import RoosterWeek from "@/components/RoosterWeek";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -78,14 +80,18 @@ export default function DashboardPage({ params }: { params: Params }) {
 async function DashboardData({ config }: { config: BedrijfConfig }) {
   // Zware data + aggregaties komen uit de gedeelde server-cache (5 min TTL).
   // Eerste request per 5 min is traag; volgende requests instant.
-  const [agg, jaaroverzicht, productLevens, weerData, diensten] = await Promise.all([
+  const [agg, jaaroverzicht, productLevens, weerData, diensten, weekRooster] = await Promise.all([
     dashboardAggregaten(config.slug),
     Promise.resolve(getZettleJaaroverzicht(config.slug)),
     Promise.resolve(getProductLevenshistorie(config.slug)),
     getWeer().catch(() => []),
     dienstenVandaag(config.slug).catch((e) => {
-      console.error("Shiftbase fout:", e);
+      console.error("Shiftbase vandaag fout:", e);
       return [] as Awaited<ReturnType<typeof dienstenVandaag>>;
+    }),
+    bezettingKomendePeriode(config.slug, 7).catch((e) => {
+      console.error("Shiftbase week fout:", e);
+      return [] as Awaited<ReturnType<typeof bezettingKomendePeriode>>;
     }),
   ]);
 
@@ -256,6 +262,8 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
 
         {/* Tab 2 — Planning */}
         <>
+          <RoosterVandaag diensten={diensten} hex={config.hex} />
+          <RoosterWeek dagen={weekRooster} hex={config.hex} />
           <FeestdagenKalender events={verrijkteEvents} bedrijf={config.slug} />
           <CruiseAgenda dagen={cruiseDagen} />
           {prognose.length > 0 && kerncijfers && (

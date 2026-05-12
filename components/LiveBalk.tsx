@@ -12,9 +12,11 @@ const BEDRIJVEN = [
 
 type Slug = "bb" | "sl" | "kl";
 
+interface UurRij { slot: number; label: string; omzet: number; txs: number; }
 interface LiveData {
   omzetVandaag: number;
   aantalTransactiesVandaag: number;
+  uurVerdeling?: UurRij[];
 }
 interface VerwachtData {
   verwachtVandaag: number;
@@ -468,43 +470,50 @@ function Papegaai({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // animatie-state behouden voor backwards compat, maar visueel niet meer gebruikt
+  void huidig; void animKey; void planVolgende;
+
   return (
     <div className="relative flex flex-col items-center">
-      {/* Papegaai emoji */}
-      <span
-        key={animKey}
-        className="text-3xl select-none cursor-default"
-        style={{
-          filter: `drop-shadow(0 0 8px ${kleur}) drop-shadow(0 0 16px ${kleur}66)`,
-          animation: `${huidig.naam} ${huidig.duur} ${huidig.timing} ${huidig.herh}`,
-          display: "inline-block",
-          transformOrigin: "bottom center",
-        }}
-        onAnimationEnd={planVolgende}
-      >
-        🦜
-      </span>
-
-      {/* Speech bubble — hangt ONDER de papegaai */}
+      {/* Gradient-orb — pulseert subtiel wanneer dit bedrijf "praat" */}
       <div
-        className="absolute top-full mt-0.5 px-2 py-1 rounded-lg text-[9px] font-semibold text-white w-[140px] text-center leading-tight transition-all duration-500 z-50"
+        className="relative w-2 h-2 rounded-full transition-all duration-700"
         style={{
-          background: kleur + "ee",
+          background: actief
+            ? `radial-gradient(circle at 35% 30%, #ffffff 0%, ${kleur} 55%, ${kleur} 100%)`
+            : `${kleur}40`,
+          boxShadow: actief
+            ? `0 0 0 3px ${kleur}22, 0 0 14px 2px ${kleur}88`
+            : `0 0 0 1px ${kleur}30`,
+          transform: actief ? "scale(1.25)" : "scale(1)",
+        }}
+      />
+
+      {/* Speech bubble — onder de orb, Apple Liquid-stijl */}
+      <div
+        className="absolute top-full mt-1.5 px-2.5 py-1.5 rounded-[10px] text-[10.5px] text-center w-[160px] leading-snug transition-all duration-500 z-50 font-medium"
+        style={{
+          background:
+            "color-mix(in srgb, var(--bg-elev) 92%, transparent)",
+          color: "var(--text)",
+          border: `1px solid ${kleur}55`,
           opacity: actief ? 1 : 0,
-          transform: actief ? "translateY(0) scale(1)" : "translateY(-4px) scale(0.9)",
+          transform: actief ? "translateY(0) scale(1)" : "translateY(-4px) scale(0.94)",
           pointerEvents: "none",
-          boxShadow: actief ? `0 2px 12px ${kleur}66` : "none",
+          boxShadow: actief
+            ? `0 4px 16px -4px ${kleur}66, 0 1px 2px rgba(0,0,0,0.08)`
+            : "none",
           wordBreak: "break-word",
           overflowWrap: "break-word",
-          whiteSpace: "normal",
         }}
       >
         <span
-          className="absolute left-1/2 -top-1 -translate-x-1/2 w-0 h-0"
+          className="absolute left-1/2 -top-1 -translate-x-1/2 w-2 h-2 rotate-45"
           style={{
-            borderLeft: "5px solid transparent",
-            borderRight: "5px solid transparent",
-            borderBottom: `5px solid ${kleur}ee`,
+            background:
+              "color-mix(in srgb, var(--bg-elev) 92%, transparent)",
+            borderTop: `1px solid ${kleur}55`,
+            borderLeft: `1px solid ${kleur}55`,
           }}
         />
         {tekst}
@@ -575,44 +584,111 @@ function BedrijfKolom({
     onUpdate(slug, { omzet, klanten, verwachtNu });
   }, [slug, omzet, klanten, verwachtNu, onUpdate]);
 
+  // Sparkline-data: cumulatieve uurcurve t/m nu (zelfde stijl als Apple Stocks)
+  const sparkPoints = (() => {
+    const uren = data?.uurVerdeling;
+    if (!uren || uren.length === 0) return [] as { x: number; y: number }[];
+    let cum = 0;
+    const punten: { x: number; y: number }[] = [];
+    const huidigUur = new Date().getHours();
+    for (let i = 0; i <= Math.min(huidigUur, 23); i++) {
+      cum += uren[i]?.omzet ?? 0;
+      punten.push({ x: i, y: cum });
+    }
+    return punten;
+  })();
+  const max = sparkPoints.length > 0 ? Math.max(...sparkPoints.map((p) => p.y), 1) : 1;
+  const sparkPath = sparkPoints
+    .map((p, i) => {
+      const x = (p.x / 23) * 100;
+      const y = 100 - (p.y / max) * 100;
+      return `${i === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`;
+    })
+    .join(" ");
+  const sparkFill = sparkPath
+    ? `${sparkPath} L 100 100 L 0 100 Z`
+    : "";
+
   return (
     <div
-      className="px-3 sm:px-4 py-2 border-r last:border-r-0"
-      style={{ borderColor: "#1e2530" }}
+      className="relative px-3 sm:px-4 py-2.5 overflow-hidden transition-colors"
+      style={{
+        borderRight: "1px solid rgba(255,255,255,0.06)",
+        background: isActief ? `${kleur}0F` : "transparent",
+      }}
     >
-      <div className="flex items-center gap-1.5 mb-1">
-        <span className="text-sm leading-none">{emoji}</span>
-        <span
-          className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.15em] font-mono truncate"
-          style={{ color: kleur, opacity: isActief ? 1 : 0.6 }}
+      {/* Sparkline-achtergrond */}
+      {sparkPath && (
+        <svg
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          className="absolute inset-0 w-full h-full pointer-events-none"
+          style={{ opacity: 0.6 }}
+          aria-hidden="true"
         >
-          {naam}
-        </span>
-      </div>
-      <p
-        className="text-sm sm:text-base font-bold font-mono tabular-nums leading-tight"
-        style={{ color: "#e2e8f0" }}
-      >
-        {data ? fmt(omzet) : "€–"}
-      </p>
-      <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3 mt-0.5 gap-0.5">
-        {heeftSchema ? (
+          <defs>
+            <linearGradient id={`spark-${slug}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"   stopColor={kleur} stopOpacity={0.32} />
+              <stop offset="100%" stopColor={kleur} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <path d={sparkFill} fill={`url(#spark-${slug})`} />
+          <path
+            d={sparkPath}
+            fill="none"
+            stroke={kleur}
+            strokeWidth={1.2}
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+      )}
+
+      <div className="relative">
+        <div className="flex items-center gap-1.5 mb-1">
           <span
-            className="text-[9px] sm:text-[10px] font-mono font-semibold"
-            style={{ color: voorOp ? "#4ade80" : "#f87171" }}
+            className="w-1.5 h-1.5 rounded-full"
+            style={{
+              background: kleur,
+              boxShadow: isActief ? `0 0 6px ${kleur}` : "none",
+              opacity: isActief ? 1 : 0.6,
+            }}
+          />
+          <span
+            className="text-[10px] sm:text-[11px] font-semibold tracking-tight truncate"
+            style={{ color: "#e5e7eb", opacity: isActief ? 1 : 0.75, letterSpacing: "-0.005em" }}
           >
-            {voorOp ? "✓" : "✗"} {voorOp ? "+" : "-"}{fmt(verschil)}
+            {naam}
           </span>
-        ) : (
-          <span className="text-[9px] sm:text-[10px] font-mono" style={{ color: "#475569" }}>
-            schema laadt…
-          </span>
-        )}
-        {heeftKlanten && (
-          <span className="text-[9px] sm:text-[10px] font-mono" style={{ color: "#64748b" }}>
-            {klanten} klanten
-          </span>
-        )}
+        </div>
+
+        <p
+          className="text-[15px] sm:text-[17px] font-semibold tabular-nums leading-tight"
+          style={{ color: "#f5f5f7", letterSpacing: "-0.014em" }}
+        >
+          {data ? fmt(omzet) : "€–"}
+        </p>
+
+        <div className="flex items-center gap-2 mt-0.5">
+          {heeftSchema ? (
+            <span
+              className="text-[10px] tabular-nums font-medium"
+              style={{ color: voorOp ? "#34D399" : "#FB923C" }}
+            >
+              {voorOp ? "+" : "−"}{fmt(verschil).replace("€", "€ ")}
+            </span>
+          ) : (
+            <span className="text-[10px]" style={{ color: "#64748b" }}>
+              schema laadt…
+            </span>
+          )}
+          {heeftKlanten && (
+            <span className="text-[10px] tabular-nums" style={{ color: "#94a3b8" }}>
+              {klanten} klanten
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -803,86 +879,15 @@ export default function LiveBalk() {
 
   return (
     <>
-      {/* CSS animaties */}
-      <style>{`
-        /* Idle: heel rustige schommel */
-        @keyframes pIdle {
-          0%,100% { transform: rotate(0deg) scale(1); }
-          50%     { transform: rotate(3deg) scale(1.03); }
-        }
-        /* Bob: rustige op-neer */
-        @keyframes pBob {
-          0%,100% { transform: translateY(0); }
-          40%     { transform: translateY(-8px) scale(1.05); }
-          70%     { transform: translateY(-4px); }
-        }
-        /* Vleugels spreiden: breed uitklappen */
-        @keyframes pSpread {
-          0%,100% { transform: scaleX(1)   scaleY(1); }
-          30%     { transform: scaleX(1.8) scaleY(0.65); }
-          60%     { transform: scaleX(1.5) scaleY(0.8); }
-          80%     { transform: scaleX(1.1) scaleY(0.95); }
-        }
-        /* Gapen: rek en gaap */
-        @keyframes pGaap {
-          0%,100% { transform: scaleY(1)   scaleX(1); }
-          20%     { transform: scaleY(1.25) scaleX(0.85); }
-          50%     { transform: scaleY(1.35) scaleX(0.8); }
-          80%     { transform: scaleY(1.1)  scaleX(0.95); }
-        }
-        /* Hoofd schudden: nee nee nee */
-        @keyframes pSchud {
-          0%,100% { transform: rotate(0deg); }
-          25%     { transform: rotate(-22deg); }
-          75%     { transform: rotate(22deg); }
-        }
-        /* Springen: squat → lucht → landen */
-        @keyframes pSprong {
-          0%,100% { transform: translateY(0)    scaleY(1)    scaleX(1); }
-          15%     { transform: translateY(3px)   scaleY(0.7)  scaleX(1.2); }
-          40%     { transform: translateY(-20px) scaleY(1.15) scaleX(0.9); }
-          75%     { transform: translateY(-6px)  scaleY(1.05) scaleX(0.97); }
-          90%     { transform: translateY(2px)   scaleY(0.85) scaleX(1.1); }
-        }
-        /* Wiebelen: heupen zwaaien */
-        @keyframes pWiebel {
-          0%,100% { transform: translateX(0)   rotate(0deg); }
-          25%     { transform: translateX(-6px) rotate(-12deg); }
-          75%     { transform: translateX(6px)  rotate(12deg); }
-        }
-        /* Buigen: diep buigen en terug */
-        @keyframes pBuig {
-          0%,100% { transform: rotate(0deg); }
-          30%,60% { transform: rotate(40deg); }
-        }
-        /* Opgewonden trillen */
-        @keyframes pTril {
-          0%,100% { transform: translateX(0)   rotate(0deg); }
-          25%     { transform: translateX(-4px) rotate(-6deg); }
-          75%     { transform: translateX(4px)  rotate(6deg); }
-        }
-        /* Omdraaien/flip (scaleX) */
-        @keyframes pDraai {
-          0%    { transform: scaleX(1); }
-          25%   { transform: scaleX(0.1) scaleY(1.1); }
-          50%   { transform: scaleX(-1); }
-          75%   { transform: scaleX(-0.1) scaleY(1.1); }
-          100%  { transform: scaleX(1); }
-        }
-        /* Knikken: ja ja ja */
-        @keyframes pKnik {
-          0%,100% { transform: rotate(0deg); }
-          30%     { transform: rotate(-18deg); }
-          60%     { transform: rotate(8deg); }
-        }
-      `}</style>
-
       <div
-        className="w-full sticky top-0 z-50"
-        style={{ background: "#0a0e14", borderBottom: "1px solid #1e2530" }}
+        className="w-full sticky top-0 z-50 backdrop-blur-xl"
+        style={{
+          background: "rgba(10, 14, 20, 0.85)",
+          borderBottom: "1px solid rgba(255,255,255,0.08)",
+        }}
       >
         {/* Datakolommen — klikbaar als navigatie */}
-        <div className="flex" style={{ borderBottom: "1px solid #1a2030" }}>
+        <div className="flex" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
           {BEDRIJVEN.map((b) => {
             const isActief = pathname === `/${b.slug}`;
             return (
@@ -911,8 +916,7 @@ export default function LiveBalk() {
             return (
               <div
                 key={b.slug}
-                className="flex-1 flex justify-center items-center py-1 border-r last:border-r-0"
-                style={{ borderColor: "#1e2530" }}
+                className="flex-1 flex justify-center items-center py-2.5 pb-4"
               >
                 <Papegaai
                   kleur={b.kleur}
