@@ -1,6 +1,7 @@
 "use client";
 
 import type { KernCijfers } from "@/lib/analytics";
+import Icon from "./Icon";
 
 interface Props {
   kerncijfers: KernCijfers;
@@ -23,16 +24,25 @@ function fmtEurKort(n: number): string {
 }
 
 function Delta({ waarde }: { waarde: number }) {
-  if (waarde === 0) return <span className="text-slate-400 text-xs">±0%</span>;
+  if (waarde === 0) {
+    return (
+      <span
+        className="inline-flex items-center gap-0.5 text-[12px] font-medium tabular-nums"
+        style={{ color: "var(--muted)" }}
+      >
+        <Icon name="minus" size={11} strokeWidth={2.5} />
+        0%
+      </span>
+    );
+  }
   const pos = waarde > 0;
   return (
     <span
-      className={`text-xs font-semibold tabular-nums ${
-        pos ? "text-emerald-600" : "text-red-500"
-      }`}
+      className="inline-flex items-center gap-0.5 text-[12px] font-medium tabular-nums"
+      style={{ color: pos ? "#30B26F" : "#E5484D" }}
     >
-      {pos ? "▲" : "▼"} {pos ? "+" : ""}
-      {waarde}%
+      <Icon name={pos ? "arrow-up" : "arrow-down"} size={11} strokeWidth={2.5} />
+      {pos ? "+" : ""}{waarde}%
     </span>
   );
 }
@@ -48,13 +58,14 @@ function PeriodeRow({ label, huidig, vergelijking, groei }: PeriodeRowProps) {
   return (
     <div className="grid grid-cols-[1fr_auto] items-center gap-3 py-3">
       <div className="min-w-0">
-        <p className="text-[11px] uppercase tracking-wider text-slate-400 mb-0.5">
-          {label}
-        </p>
-        <p className="text-lg font-bold tabular-nums text-slate-900">
+        <p className="eyebrow mb-1">{label}</p>
+        <p
+          className="text-[19px] font-semibold tabular-nums"
+          style={{ color: "var(--text)", letterSpacing: "-0.014em" }}
+        >
           {fmtEur(huidig.omzet)}
         </p>
-        <p className="text-[11px] text-slate-400 truncate">
+        <p className="text-[12px] truncate" style={{ color: "var(--muted)" }}>
           {huidig.txs.toLocaleString("nl-NL")} tx · vs {fmtEurKort(vergelijking.omzet)} ({vergelijking.label})
         </p>
       </div>
@@ -65,17 +76,22 @@ function PeriodeRow({ label, huidig, vergelijking, groei }: PeriodeRowProps) {
   );
 }
 
-export default function KerncijfersGrid({ kerncijfers: k, hex }: Props) {
+export default function KerncijfersGrid({ kerncijfers: k }: Props) {
   return (
     <div className="card">
       <div className="flex items-baseline justify-between mb-2">
-        <h3 className="font-semibold text-slate-700">Kerncijfers</h3>
-        <span className="text-[11px] text-slate-400">
+        <h3 className="text-[15px] font-semibold" style={{ color: "var(--text)" }}>
+          Kerncijfers
+        </h3>
+        <span className="text-[11px]" style={{ color: "var(--muted)" }}>
           bedragen incl. BTW · live
         </span>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 divide-y divide-slate-100 sm:divide-y-0">
+      <div
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 sm:divide-y-0"
+        style={{ borderColor: "var(--hairline-2)" }}
+      >
         <PeriodeRow
           label="Vandaag tot nu"
           huidig={{ ...k.vandaag }}
@@ -124,24 +140,23 @@ export default function KerncijfersGrid({ kerncijfers: k, hex }: Props) {
         />
         <div className="grid grid-cols-[1fr_auto] items-center gap-3 py-3">
           <div>
-            <p className="text-[11px] uppercase tracking-wider text-slate-400 mb-0.5">
-              Gemiddelde dag
-            </p>
-            <p className="text-lg font-bold tabular-nums text-slate-900">
+            <p className="eyebrow mb-1">Gemiddelde dag</p>
+            <p
+              className="text-[19px] font-semibold tabular-nums"
+              style={{ color: "var(--text)", letterSpacing: "-0.014em" }}
+            >
               {fmtEur(k.gemOmzetPerDag)}
             </p>
-            <p className="text-[11px] text-slate-400">
+            <p className="text-[12px]" style={{ color: "var(--muted)" }}>
               {k.gemTxPerDag} tx/dag
-              {k.druksteDag
-                ? ` · beste: ${fmtEurKort(k.druksteDag.omzet)}`
-                : ""}
+              {k.druksteDag ? ` · beste: ${fmtEurKort(k.druksteDag.omzet)}` : ""}
             </p>
           </div>
         </div>
       </div>
 
       {k.laatsteTx && (
-        <p className="text-[11px] text-slate-400 mt-3 pt-3 border-t border-slate-100">
+        <p className="text-[11px] mt-3 pt-3 hairline" style={{ color: "var(--muted)" }}>
           Laatste transactie: {fmtEur(k.laatsteTx.amount)} ·{" "}
           {k.tijdSindsLaatsteTxMin !== null
             ? k.tijdSindsLaatsteTxMin < 1

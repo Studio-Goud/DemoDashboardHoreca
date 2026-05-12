@@ -27,7 +27,7 @@ import {
 } from "@/lib/zettle-excel";
 import { dashboardAggregaten } from "@/lib/dashboard-cache";
 import { getWeer, weerInfo } from "@/lib/weer";
-import { komendeDiensten } from "@/lib/shiftbase";
+import { dienstenVandaag } from "@/lib/shiftbase";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -35,22 +35,19 @@ export const revalidate = 0;
 const BEDRIJVEN = {
   bb: {
     naam: "Brunch & Brew",
-    emoji: "☕",
-    hex: "#00B8FF",
+    hex: "#0A84FF",
     slug: "bb" as Bedrijf,
     paypalPeriode: "apr 2022 – nu",
   },
   sl: {
     naam: "Saté Lounge",
-    emoji: "🍢",
-    hex: "#00D27A",
+    hex: "#30B26F",
     slug: "sl" as Bedrijf,
     paypalPeriode: "apr 2023 – nu",
   },
   kl: {
     naam: "Het Kroket Loket",
-    emoji: "🥟",
-    hex: "#FF8A00",
+    hex: "#E07A1F",
     slug: "kl" as Bedrijf,
     paypalPeriode: "historie nog niet beschikbaar",
   },
@@ -81,16 +78,21 @@ export default function DashboardPage({ params }: { params: Params }) {
 async function DashboardData({ config }: { config: BedrijfConfig }) {
   // Zware data + aggregaties komen uit de gedeelde server-cache (5 min TTL).
   // Eerste request per 5 min is traag; volgende requests instant.
-  const [agg, jaaroverzicht, productLevens, weerData] = await Promise.all([
+  const [agg, jaaroverzicht, productLevens, weerData, diensten] = await Promise.all([
     dashboardAggregaten(config.slug),
     Promise.resolve(getZettleJaaroverzicht(config.slug)),
     Promise.resolve(getProductLevenshistorie(config.slug)),
     getWeer().catch(() => []),
+    dienstenVandaag(config.slug).catch((e) => {
+      console.error("Shiftbase fout:", e);
+      return [] as Awaited<ReturnType<typeof dienstenVandaag>>;
+    }),
   ]);
 
-  // Shiftbase: hoeveel mensen vandaag gepland (voor vergelijking)
-  const vandaagStr = new Date().toISOString().slice(0, 10);
-  const bezVandaag = komendeDiensten(0)?.find((d) => d.datum === vandaagStr)?.aantalMensen ?? null;
+  // Aantal unieke mensen gepland vandaag op dit bedrijf
+  const bezVandaag = diensten.length > 0
+    ? new Set(diensten.map((d) => d.medewerker.id)).size
+    : null;
 
   const {
     sumupTxAantal,
@@ -188,11 +190,11 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
   }
 
   const TABS = [
-    { id: "omzet",       label: "Omzet",       emoji: "📈" },
-    { id: "planning",    label: "Planning",    emoji: "📅" },
-    { id: "producten",   label: "Producten",   emoji: "🛍️" },
-    { id: "inzichten",   label: "Inzichten",   emoji: "💡" },
-    { id: "admin",       label: "Administratie", emoji: "📋", href: `/administratie/${config.slug}` },
+    { id: "omzet",     label: "Omzet",         icon: "trending-up" as const },
+    { id: "planning",  label: "Planning",      icon: "calendar"    as const },
+    { id: "producten", label: "Producten",     icon: "shopping-bag" as const },
+    { id: "inzichten", label: "Inzichten",     icon: "lightbulb"   as const },
+    { id: "admin",     label: "Administratie", icon: "clipboard"   as const, href: `/administratie/${config.slug}` },
   ];
 
   return (

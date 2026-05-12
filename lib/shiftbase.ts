@@ -1,127 +1,250 @@
-import fs from "fs";
-import path from "path";
+import { unstable_cache } from "next/cache";
+import type { Bedrijf } from "./sumup";
 
-export interface DienstRegel {
-  naam: string;
-  datum: string;    // YYYY-MM-DD
-  weekdag: number;  // 0=zo 1=ma 2=di 3=wo 4=do 5=vr 6=za
-  start: string;    // HH:MM
-  eind: string;     // HH:MM
-  uren: number;
-  bedrijf: "bb" | "sl" | "kl" | null;
-}
+const SHIFTBASE_BASE = "https://api.shiftbase.com/api";
 
-export interface BezettingPerDag {
-  datum: string;
-  weekdag: number;
-  aantalMensen: number;
-  totaalUren: number;
-}
-
-export interface BezettingPerWeekdag {
-  weekdag: number;    // 0=zo..6=za
-  label: string;
-  gemMensen: number;
-  gemUren: number;
-}
-
-// Bekende medewerkers → bedrijf mapping (op basis van periode-overzicht)
-const MEDEWERKER_BEDRIJF: Record<string, "bb" | "sl" | "kl"> = {
-  "Denise Tuncel":            "bb",
-  "Sophie van Nieuwenhoven":  "bb",
-  "Hannah Kaya":              "bb",
-  "Radha Matahoera":          "sl",
-  "Luna Broeders":            "sl",
-  "Jikke Maat":               "sl",
-  "Kevin Itjoe":              "sl",
-  "Bele de Bruin":            "kl",
-  "Naemi Yonathan":           "kl",
-  "Gianni Gasparinetti":      "kl",
+const DEPARTMENT_ID: Record<Bedrijf, string> = {
+  bb: "132936", // Brunch and Brew
+  sl: "149318", // Saté Lounge
+  kl: "167737", // Het Kroket Loket
 };
 
-const DAG_NAMEN = ["zo", "ma", "di", "wo", "do", "vr", "za"];
+const BEDRIJF_VAN_DEPARTMENT: Record<string, Bedrijf> = {
+  "132936": "bb",
+  "149318": "sl",
+  "167737": "kl",
+};
+
 const DAG_LABELS = ["Zondag", "Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag"];
 
-function csvDagNaarWeekdag(dag: string): number {
-  const idx = DAG_NAMEN.indexOf(dag.trim().toLowerCase());
-  return idx >= 0 ? idx : -1;
+export interface Dienst {
+  id: string;
+  datum: string;       // YYYY-MM-DD
+  weekdag: number;     // 0=zo..6=za
+  start: string;       // HH:MM
+  eind: string;        // HH:MM
+  uren: number;
+  bedrijf: Bedrijf;
+  medewerker: {
+    id: string;
+    naam: string;
+    voornaam: string;
+    avatar?: string;
+  };
+  shiftType: string;   // bv. "Ochtend", "Avond"
+  gepubliceerd: boolean;
 }
 
-function parseUren(start: string, eind: string): number {
-  const [sh, sm] = start.split(":").map(Number);
-  const [eh, em] = eind.split(":").map(Number);
-  const mins = (eh * 60 + em) - (sh * 60 + sm);
-  return Math.max(0, mins / 60);
+export interface DagBezetting {
+  datum: string;       // YYYY-MM-DD
+  weekdag: number;
+  label: string;       // "Dinsdag 12-05"
+  aantalMensen: number;
+  totaalUren: number;
+  diensten: Dienst[];
 }
 
-// Parse CSV en retourneer alle dienstregel
-function parseDiensten(): DienstRegel[] {
-  const filePath = path.join(process.cwd(), "data", "shiftbase-diensten.csv");
-  if (!fs.existsSync(filePath)) return [];
+interface RosterApiItem {
+  Roster: {
+    id: string;
+    department_id: string;
+    date: string;
+    starttime: string;
+    endtime: string;
+    hours: number | string;
+    published: boolean;
+    name: string;
+  };
+  User: {
+    id: string;
+    name: string;
+    first_name: string;
+    avatar_30x30?: string;
+  };
+  Shift: {
+    long_name: string;
+    name: string;
+  };
+}
 
-  const raw = fs.readFileSync(filePath, "utf-8");
-  const lines = raw.split("\n").slice(1); // skip header
+interface RosterApiResponse {
+  data: RosterApiItem[];
+  meta: { status: string };
+}
 
-  const result: DienstRegel[] = [];
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
+function getApiKey(): string {
+  const key = process.env.SHIFTBASE_API_KEY;
+  if (!key) throw new Error("SHIFTBASE_API_KEY ontbreekt in environment variables");
+  return key;
+}
 
-    // Format: "Naam",YYYY-MM-DD,dag,HH:MM:SS,HH:MM:SS
-    const match = trimmed.match(
-      /^"([^"]*)",(\d{4}-\d{2}-\d{2}),(\w+),(\d{2}:\d{2}):\d{2},(\d{2}:\d{2}):\d{2}/
-    );
-    if (!match) continue;
+async function shiftbaseFetch<T>(endpoint: string, params: Record<string, string> = {}): Promise<T> {
+  const url = new URL(`${SHIFTBASE_BASE}${endpoint}`);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
 
-    const [, naam, datum, dag, start, eind] = match;
-    const weekdag = csvDagNaarWeekdag(dag);
-    if (weekdag < 0) continue;
+  const res = await fetch(url.toString(), {
+    headers: { Authorization: `API ${getApiKey()}` },
+    cache: "no-store",
+  });
 
-    result.push({
-      naam,
-      datum,
-      weekdag,
-      start,
-      eind,
-      uren: parseUren(start, eind),
-      bedrijf: MEDEWERKER_BEDRIJF[naam] ?? null,
-    });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Shiftbase API ${res.status} op ${endpoint}: ${text.slice(0, 200)}`);
   }
-  return result;
+  return res.json() as Promise<T>;
 }
 
-// Headcount per datum (unieke namen per dag)
-export function bezettingPerDag(): BezettingPerDag[] {
-  const diensten = parseDiensten();
+function tijdNaarHHMM(t: string): string {
+  // "09:30:00" → "09:30"
+  return t.slice(0, 5);
+}
 
-  const perDag = new Map<string, { namen: Set<string>; uren: number; weekdag: number }>();
+function weekdagVanDatum(dateStr: string): number {
+  // Veilig zonder timezone-issues: parse YYYY-MM-DD als UTC en gebruik UTC day
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+}
+
+function mapRoster(item: RosterApiItem): Dienst | null {
+  const r = item.Roster;
+  const bedrijf = BEDRIJF_VAN_DEPARTMENT[r.department_id];
+  if (!bedrijf) return null;
+
+  return {
+    id: r.id,
+    datum: r.date,
+    weekdag: weekdagVanDatum(r.date),
+    start: tijdNaarHHMM(r.starttime),
+    eind: tijdNaarHHMM(r.endtime),
+    uren: typeof r.hours === "string" ? parseFloat(r.hours) : r.hours,
+    bedrijf,
+    medewerker: {
+      id: item.User.id,
+      naam: item.User.name,
+      voornaam: item.User.first_name,
+      avatar: item.User.avatar_30x30,
+    },
+    shiftType: item.Shift?.long_name || item.Shift?.name || r.name,
+    gepubliceerd: r.published,
+  };
+}
+
+// Ruwe diensten ophalen voor een datumrange (gecached 5 min)
+async function _fetchDienstenInRange(minDate: string, maxDate: string): Promise<Dienst[]> {
+  // Shiftbase paginated: we kunnen niet zomaar 1 grote call doen voor lange periodes.
+  // Voor periodes ≤ 90 dagen werkt limit=500 prima.
+  const json = await shiftbaseFetch<RosterApiResponse>("/rosters", {
+    min_date: minDate,
+    max_date: maxDate,
+    limit: "500",
+  });
+
+  return json.data
+    .map(mapRoster)
+    .filter((d): d is Dienst => d !== null && d.gepubliceerd);
+}
+
+export const fetchDienstenInRange = unstable_cache(
+  _fetchDienstenInRange,
+  ["shiftbase-diensten-range"],
+  { revalidate: 300, tags: ["shiftbase"] },
+);
+
+function vandaagISO(): string {
+  // Lokale tijd, formaat YYYY-MM-DD (Europe/Amsterdam)
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Amsterdam" }).format(new Date());
+}
+
+function isoNDagenVooruit(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Amsterdam" }).format(d);
+}
+
+// Groepeer diensten per dag, optioneel gefilterd op bedrijf
+function groepeerPerDag(diensten: Dienst[], filterBedrijf?: Bedrijf): DagBezetting[] {
+  const perDag = new Map<string, Dienst[]>();
   for (const d of diensten) {
-    const entry = perDag.get(d.datum) ?? { namen: new Set(), uren: 0, weekdag: d.weekdag };
-    entry.namen.add(d.naam);
-    entry.uren += d.uren;
-    perDag.set(d.datum, entry);
+    if (filterBedrijf && d.bedrijf !== filterBedrijf) continue;
+    const lijst = perDag.get(d.datum) ?? [];
+    lijst.push(d);
+    perDag.set(d.datum, lijst);
   }
 
   return Array.from(perDag.entries())
-    .map(([datum, v]) => ({
-      datum,
-      weekdag: v.weekdag,
-      aantalMensen: v.namen.size,
-      totaalUren: Math.round(v.uren * 10) / 10,
-    }))
+    .map(([datum, diensten]) => {
+      const uniekeMensen = new Set(diensten.map((d) => d.medewerker.id));
+      const totaalUren = diensten.reduce((s, d) => s + d.uren, 0);
+      const wd = diensten[0].weekdag;
+      return {
+        datum,
+        weekdag: wd,
+        label: `${DAG_LABELS[wd]} ${datum.slice(8)}-${datum.slice(5, 7)}`,
+        aantalMensen: uniekeMensen.size,
+        totaalUren: Math.round(totaalUren * 10) / 10,
+        diensten: diensten.sort((a, b) => a.start.localeCompare(b.start)),
+      };
+    })
     .sort((a, b) => a.datum.localeCompare(b.datum));
 }
 
-// Gemiddelde bezetting per weekdag (0=zo..6=za)
-export function bezettingPerWeekdag(): BezettingPerWeekdag[] {
-  const dagen = bezettingPerDag();
+// --- Public API ----------------------------------------------------------
+
+// Diensten van vandaag voor één bedrijf (gepubliceerd)
+export async function dienstenVandaag(bedrijf: Bedrijf): Promise<Dienst[]> {
+  const vandaag = vandaagISO();
+  const alle = await fetchDienstenInRange(vandaag, vandaag);
+  return alle
+    .filter((d) => d.bedrijf === bedrijf)
+    .sort((a, b) => a.start.localeCompare(b.start));
+}
+
+// Bezetting per dag voor één bedrijf, komende N dagen (incl. vandaag)
+export async function bezettingKomendePeriode(
+  bedrijf: Bedrijf,
+  dagenVooruit = 14,
+): Promise<DagBezetting[]> {
+  const vandaag = vandaagISO();
+  const grens = isoNDagenVooruit(dagenVooruit);
+  const alle = await fetchDienstenInRange(vandaag, grens);
+  return groepeerPerDag(alle, bedrijf);
+}
+
+// Backwards-compat: vroeger gebruikt op dashboard om "hoeveel mensen vandaag"
+// te tonen. Nu bedrijfsspecifiek - oude code riep zonder bedrijf aan en
+// kreeg alle bedrijven door elkaar; daarom optionele bedrijf-parameter.
+export async function komendeDiensten(
+  dagVooruitMax = 14,
+  bedrijf?: Bedrijf,
+): Promise<{ datum: string; label: string; mensen: string[]; aantalMensen: number }[]> {
+  const vandaag = vandaagISO();
+  const grens = isoNDagenVooruit(dagVooruitMax);
+  const alle = await fetchDienstenInRange(vandaag, grens);
+  const gegroepeerd = groepeerPerDag(alle, bedrijf);
+
+  return gegroepeerd.map((g) => ({
+    datum: g.datum,
+    label: g.label,
+    mensen: Array.from(new Set(g.diensten.map((d) => d.medewerker.naam))),
+    aantalMensen: g.aantalMensen,
+  }));
+}
+
+// Bezetting per weekdag (laatste 90 dagen historie) — voor patroon-analyse
+export async function bezettingPerWeekdag(
+  bedrijf: Bedrijf,
+): Promise<{ weekdag: number; label: string; gemMensen: number; gemUren: number }[]> {
+  const eind = vandaagISO();
+  const start = isoNDagenVooruit(-90);
+  const alle = await fetchDienstenInRange(start, eind);
+  const gegroepeerd = groepeerPerDag(alle, bedrijf);
 
   const perWd = new Map<number, { mensen: number[]; uren: number[] }>();
-  for (const d of dagen) {
-    const entry = perWd.get(d.weekdag) ?? { mensen: [], uren: [] };
-    entry.mensen.push(d.aantalMensen);
-    entry.uren.push(d.totaalUren);
-    perWd.set(d.weekdag, entry);
+  for (const dag of gegroepeerd) {
+    const entry = perWd.get(dag.weekdag) ?? { mensen: [], uren: [] };
+    entry.mensen.push(dag.aantalMensen);
+    entry.uren.push(dag.totaalUren);
+    perWd.set(dag.weekdag, entry);
   }
 
   return Array.from(perWd.entries())
@@ -132,104 +255,4 @@ export function bezettingPerWeekdag(): BezettingPerWeekdag[] {
       gemUren: Math.round((v.uren.reduce((s, x) => s + x, 0) / v.uren.length) * 10) / 10,
     }))
     .sort((a, b) => a.weekdag - b.weekdag);
-}
-
-export interface TypischeShift {
-  start: string;   // "09:30"
-  eind: string;    // "15:00"
-  uren: number;    // shift-duur in uren
-  freq: number;    // hoe vaak gezien in historische data
-}
-
-export interface WeekdagShiftProfiel {
-  weekdag: number;
-  label: string;
-  gemMensen: number;  // gem. aantal unieke mensen die dag
-  shifts: TypischeShift[];  // top shifts op basis van frequentie
-}
-
-// Rond minuten op naar dichtsbijzijnde 15 min
-function roundTo15(hhmm: string): string {
-  const [h, m] = hhmm.split(":").map(Number);
-  const rounded = Math.round(m / 15) * 15;
-  const finalH = h + Math.floor(rounded / 60);
-  const finalM = rounded % 60;
-  return `${String(finalH).padStart(2, "0")}:${String(finalM).padStart(2, "0")}`;
-}
-
-// Meest voorkomende shift-slots per weekdag (uit historische diensten)
-export function typischeShiftsPerWeekdag(): WeekdagShiftProfiel[] {
-  const diensten = parseDiensten();
-
-  // Groepeer per weekdag
-  const perWd = new Map<number, {
-    namen: Map<string, Set<string>>;  // datum → namen
-    slots: Map<string, number>;       // "09:30-15:00" → freq
-  }>();
-
-  for (const d of diensten) {
-    if (d.naam === "Anonymous User") continue; // skip anoniem
-    const wd = d.weekdag;
-    if (!perWd.has(wd)) perWd.set(wd, { namen: new Map(), slots: new Map() });
-    const entry = perWd.get(wd)!;
-
-    // Unieke mensen per datum (voor gem berekening)
-    const namenOpDag = entry.namen.get(d.datum) ?? new Set<string>();
-    namenOpDag.add(d.naam);
-    entry.namen.set(d.datum, namenOpDag);
-
-    // Shift-slot (afgerond op 15 min)
-    const key = `${roundTo15(d.start)}-${roundTo15(d.eind)}`;
-    entry.slots.set(key, (entry.slots.get(key) ?? 0) + 1);
-  }
-
-  return Array.from(perWd.entries())
-    .map(([wd, v]) => {
-      // Gem. unieke mensen per dag
-      const aantalDagen = v.namen.size;
-      const totaalMensen = Array.from(v.namen.values()).reduce((s, namen) => s + namen.size, 0);
-      const gemMensen = aantalDagen > 0 ? Math.round((totaalMensen / aantalDagen) * 10) / 10 : 0;
-
-      // Top-5 meest voorkomende shifts (drempelwaarde: minstens 3 keer gezien)
-      const shifts: TypischeShift[] = Array.from(v.slots.entries())
-        .filter(([, freq]) => freq >= 3)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 6)
-        .map(([slot, freq]) => {
-          const [start, eind] = slot.split("-");
-          return { start, eind, uren: parseUren(start, eind), freq };
-        })
-        .sort((a, b) => a.start.localeCompare(b.start)); // sorteer op starttijd
-
-      return { weekdag: wd, label: DAG_LABELS[wd], gemMensen, shifts };
-    })
-    .sort((a, b) => a.weekdag - b.weekdag);
-}
-
-// Diensten de komende 14 dagen
-export function komendeDiensten(dagVooruitMax = 14): { datum: string; label: string; mensen: string[]; aantalMensen: number }[] {
-  const diensten = parseDiensten();
-  const vandaag = new Date();
-  const grens = new Date(vandaag);
-  grens.setDate(grens.getDate() + dagVooruitMax);
-
-  const vandaagStr = vandaag.toISOString().slice(0, 10);
-  const grensStr   = grens.toISOString().slice(0, 10);
-
-  const perDag = new Map<string, { namen: Set<string>; dag: string }>();
-  for (const d of diensten) {
-    if (d.datum < vandaagStr || d.datum > grensStr) continue;
-    const entry = perDag.get(d.datum) ?? { namen: new Set(), dag: DAG_LABELS[d.weekdag] };
-    entry.namen.add(d.naam);
-    perDag.set(d.datum, entry);
-  }
-
-  return Array.from(perDag.entries())
-    .map(([datum, v]) => ({
-      datum,
-      label: `${v.dag} ${datum.slice(8)}-${datum.slice(5, 7)}`,
-      mensen: Array.from(v.namen).filter((n) => n !== "Anonymous User"),
-      aantalMensen: v.namen.size,
-    }))
-    .sort((a, b) => a.datum.localeCompare(b.datum));
 }

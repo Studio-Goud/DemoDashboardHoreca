@@ -3,11 +3,9 @@
 import { useEffect, useState } from "react";
 
 /**
- * Toont 1x per login een grote, in sierletters geschreven "Welkom {naam}".
- *
- * Verschijnt ALLEEN via het sg:welkom event dat PinGate dispatched op
- * het moment van succesvol inloggen. Niet bij refresh, niet bij tab-
- * wissel. Na 3.5s volledig zichtbaar → zacht fade-out over 1s.
+ * Korte sobere welkomstmelding na inloggen. Geen sierschrift meer —
+ * SF-stijl typografie met subtiele fade-in. Verschijnt 1x per sessie via
+ * PinGate (event `sg:welkom` of `sg_welkom_pending` flag).
  */
 export default function WelkomBanner() {
   const [naam, setNaam] = useState<string | null>(null);
@@ -22,18 +20,16 @@ export default function WelkomBanner() {
       setFase("in");
       if (fadeTimer) clearTimeout(fadeTimer);
       if (hideTimer) clearTimeout(hideTimer);
-      fadeTimer = setTimeout(() => setFase("uit"), 3500);
-      hideTimer = setTimeout(() => setNaam(null), 4500);
+      fadeTimer = setTimeout(() => setFase("uit"), 2200);
+      hideTimer = setTimeout(() => setNaam(null), 3200);
     }
 
-    // Check pending-flag die PinGate net heeft gezet (vangt de mount-race)
     const pending = sessionStorage.getItem("sg_welkom_pending");
     if (pending) {
       sessionStorage.removeItem("sg_welkom_pending");
       toon(pending);
     }
 
-    // Event-listener voor het geval PinGate na mount triggert
     const handler = (e: Event) => {
       const detail = (e as CustomEvent<{ naam: string }>).detail;
       if (!detail?.naam) return;
@@ -51,22 +47,22 @@ export default function WelkomBanner() {
 
   if (!naam) return null;
 
+  const uur = new Date().getHours();
+  const groet = uur < 6 ? "Goedenacht" : uur < 12 ? "Goedemorgen" : uur < 18 ? "Goedemiddag" : "Goedenavond";
+
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center pointer-events-none transition-opacity duration-1000 ${
+      className={`fixed inset-0 z-50 flex items-center justify-center pointer-events-none transition-opacity duration-700 ${
         fase === "in" ? "opacity-100" : "opacity-0"
       }`}
     >
-      <div className="absolute inset-0 bg-white/40 backdrop-blur-sm" />
-      <div className="relative text-center">
-        <p className="text-slate-500 text-sm uppercase tracking-[0.35em] mb-3">
-          Welkom
-        </p>
+      <div className="absolute inset-0 bg-[var(--bg)]/70 backdrop-blur-xl" />
+      <div className="relative text-center fade-up">
         <p
-          className="text-7xl sm:text-8xl text-slate-900"
-          style={{ fontFamily: "var(--font-script), cursive" }}
+          className="text-[28px] sm:text-[34px] font-semibold tracking-tight"
+          style={{ color: "var(--text)", letterSpacing: "-0.022em" }}
         >
-          {naam}
+          {groet}, {naam}
         </p>
       </div>
     </div>

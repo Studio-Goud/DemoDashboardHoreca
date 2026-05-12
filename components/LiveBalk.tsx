@@ -5,9 +5,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const BEDRIJVEN = [
-  { slug: "bb", naam: "Brunch & Brew",    emoji: "☕", kleur: "#00B8FF" },
-  { slug: "sl", naam: "Saté Lounge",      emoji: "🍢", kleur: "#00D27A" },
-  { slug: "kl", naam: "Het Kroket Loket", emoji: "🥟", kleur: "#FF8A00" },
+  { slug: "bb", naam: "Brunch & Brew",    emoji: "☕", kleur: "#0A84FF" },
+  { slug: "sl", naam: "Saté Lounge",      emoji: "🍢", kleur: "#30B26F" },
+  { slug: "kl", naam: "Het Kroket Loket", emoji: "🥟", kleur: "#E07A1F" },
 ] as const;
 
 type Slug = "bb" | "sl" | "kl";

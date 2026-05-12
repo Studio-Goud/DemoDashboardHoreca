@@ -2,6 +2,7 @@
 
 import type { DagOmzet, Prognose } from "@/lib/analytics";
 import type { Bedrijf } from "@/lib/sumup";
+import Icon from "./Icon";
 
 interface ShiftSlot {
   start: string;
@@ -141,7 +142,7 @@ const ZONDAG_TEMPLATES: Record<Bedrijf, DrukteTemplate> = {
 // Marathon Rotterdam: extreem — BB 4 man, SL 3 man, KL 3 man
 const MARATHON_TEMPLATES: Record<Bedrijf, DrukteTemplate> = {
   bb: {
-    label: "Marathon Rotterdam 🏃",
+    label: "Marathon Rotterdam",
     kleur: "#f87171",
     shifts: [
       { start: "09:30", eind: "20:00", rol: "opener" },
@@ -151,7 +152,7 @@ const MARATHON_TEMPLATES: Record<Bedrijf, DrukteTemplate> = {
     ],
   },
   sl: {
-    label: "Marathon Rotterdam 🏃",
+    label: "Marathon Rotterdam",
     kleur: "#f87171",
     shifts: [
       { start: "10:00", eind: "20:00", rol: "opener" },
@@ -160,7 +161,7 @@ const MARATHON_TEMPLATES: Record<Bedrijf, DrukteTemplate> = {
     ],
   },
   kl: {
-    label: "Marathon Rotterdam 🏃",
+    label: "Marathon Rotterdam",
     kleur: "#f87171",
     shifts: [
       { start: "10:00", eind: "15:00", rol: "opener" },
@@ -232,25 +233,28 @@ export default function BezettingAdvies({ hex, bedrijf, dagOmzet, prognose, gepl
   })();
 
   return (
-    <div className="card space-y-4" style={{ borderColor: hex + "33" }}>
+    <div className="card space-y-4">
       <div className="flex items-center gap-2">
-        <span className="text-lg">👥</span>
-        <h2 className="text-sm font-bold uppercase tracking-widest" style={{ color: hex }}>
+        <Icon name="users" size={16} className="opacity-70" />
+        <h2 className="text-[13px] font-semibold tracking-wide" style={{ color: "var(--text-2)" }}>
           Personeelsadvies vandaag
         </h2>
       </div>
 
       {/* Drukte-banner */}
       <div
-        className="rounded-lg px-4 py-3 flex items-center justify-between gap-4"
-        style={{ background: template.kleur + "18", borderLeft: `3px solid ${template.kleur}` }}
+        className="rounded-[10px] px-4 py-3 flex items-center justify-between gap-4"
+        style={{
+          background: template.kleur + "12",
+          borderLeft: `2px solid ${template.kleur}`,
+        }}
       >
         <div>
-          <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-0.5">Verwachte drukte</p>
-          <p className="text-base font-bold" style={{ color: template.kleur }}>
+          <p className="eyebrow mb-0.5">Verwachte drukte</p>
+          <p className="text-[15px] font-semibold" style={{ color: template.kleur }}>
             {template.label}
           </p>
-          <p className="text-[11px] text-slate-500 mt-0.5">
+          <p className="text-[12px] mt-0.5" style={{ color: "var(--muted)" }}>
             Verwacht {vandaagPrognose.verwacht > 0
               ? "€" + vandaagPrognose.verwacht.toLocaleString("nl-NL", { maximumFractionDigits: 0 })
               : "–"}{vandaagPrognose.feestdag ? ` · ${vandaagPrognose.feestdag}` : ""}
@@ -258,33 +262,38 @@ export default function BezettingAdvies({ hex, bedrijf, dagOmzet, prognose, gepl
         </div>
 
         {status && (
-          <div className="text-right shrink-0">
-            <p
-              className="text-xl font-bold font-mono"
-              style={{ color: status.ok ? "#4ade80" : "#f87171" }}
+          <div className="text-right shrink-0 flex items-center gap-2">
+            <span
+              className="inline-flex items-center justify-center w-7 h-7 rounded-full"
+              style={{
+                background: status.ok ? "#30B26F22" : "#E07A1F22",
+                color: status.ok ? "#30B26F" : "#E07A1F",
+              }}
             >
-              {status.ok ? "✓" : "⚠"}
-            </p>
-            <p className="text-[11px] text-slate-400">{status.tekst}</p>
+              <Icon name={status.ok ? "check" : "alert"} size={16} strokeWidth={2.2} />
+            </span>
+            <p className="text-[11px]" style={{ color: "var(--muted)" }}>{status.tekst}</p>
           </div>
         )}
       </div>
 
       {/* Shift-indeling */}
       <div>
-        <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-2">
+        <p className="eyebrow mb-2">
           Aanbevolen indeling — {aanbevolen} {aanbevolen === 1 ? "persoon" : "mensen"}
         </p>
         <div className="space-y-1.5">
           {template.shifts.map((s, i) => (
             <div key={i} className="flex items-center gap-3">
               <span
-                className="text-[11px] font-mono font-bold px-2.5 py-1 rounded-full"
-                style={{ background: ROL_KLEUR[s.rol] + "20", color: ROL_KLEUR[s.rol] }}
+                className="text-[11px] font-medium tabular-nums px-2 py-0.5 rounded-md"
+                style={{ background: ROL_KLEUR[s.rol] + "1A", color: ROL_KLEUR[s.rol] }}
               >
                 {s.start} – {s.eind}
               </span>
-              <span className="text-[11px] text-slate-500 capitalize">{s.rol}</span>
+              <span className="text-[12px] capitalize" style={{ color: "var(--muted)" }}>
+                {s.rol}
+              </span>
             </div>
           ))}
         </div>

@@ -60,7 +60,13 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
   if (checking) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-slate-200 border-t-slate-500 rounded-full animate-spin" />
+        <div
+          className="w-8 h-8 rounded-full animate-spin"
+          style={{
+            border: "2px solid var(--hairline)",
+            borderTopColor: "var(--text-2)",
+          }}
+        />
       </div>
     );
   }
@@ -68,26 +74,36 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-8">
-      <div className="mb-8 text-center">
-        <p className="text-slate-500 text-xs uppercase tracking-widest mb-1">
-          Omzetoverzicht
-        </p>
-        <h1 className="text-2xl font-bold text-slate-900">Voer PIN in</h1>
+      <div className="mb-10 text-center">
+        <p className="eyebrow mb-2">Studio Goud</p>
+        <h1
+          className="text-[22px] font-semibold tracking-tight"
+          style={{ color: "var(--text)", letterSpacing: "-0.019em" }}
+        >
+          Voer PIN in
+        </h1>
       </div>
 
-      <div className="flex gap-4 mb-8">
-        {[0, 1, 2, 3].map((i) => (
-          <div
-            key={i}
-            className={`w-4 h-4 rounded-full border-2 transition-all duration-150 ${
-              fout
-                ? "border-red-500 bg-red-500"
-                : i < input.length
-                ? "border-slate-900 bg-slate-900"
-                : "border-slate-300 bg-transparent"
-            }`}
-          />
-        ))}
+      <div className="flex gap-3.5 mb-10">
+        {[0, 1, 2, 3].map((i) => {
+          const filled = i < input.length;
+          return (
+            <div
+              key={i}
+              className="w-3 h-3 rounded-full transition-all duration-150"
+              style={{
+                background: fout
+                  ? "#E5484D"
+                  : filled
+                  ? "var(--text)"
+                  : "transparent",
+                border: `1.5px solid ${
+                  fout ? "#E5484D" : filled ? "var(--text)" : "var(--hairline)"
+                }`,
+              }}
+            />
+          );
+        })}
       </div>
 
       <div className="grid grid-cols-3 gap-3 w-64">
@@ -95,7 +111,12 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
           <button
             key={c}
             onClick={() => drukOp(c)}
-            className="h-16 rounded-2xl bg-white border border-slate-200 hover:bg-slate-50 active:bg-slate-100 text-slate-900 text-xl font-semibold transition-colors shadow-card"
+            className="h-16 rounded-full text-[22px] font-light transition-colors"
+            style={{
+              background: "var(--bg-elev)",
+              border: "1px solid var(--hairline)",
+              color: "var(--text)",
+            }}
           >
             {c}
           </button>
@@ -103,20 +124,29 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
         <div />
         <button
           onClick={() => drukOp("0")}
-          className="h-16 rounded-2xl bg-white border border-slate-200 hover:bg-slate-50 active:bg-slate-100 text-slate-900 text-xl font-semibold transition-colors shadow-card"
+          className="h-16 rounded-full text-[22px] font-light transition-colors"
+          style={{
+            background: "var(--bg-elev)",
+            border: "1px solid var(--hairline)",
+            color: "var(--text)",
+          }}
         >
           0
         </button>
         <button
           onClick={wis}
-          className="h-16 rounded-2xl bg-transparent hover:bg-slate-100 text-slate-500 text-lg transition-colors"
+          className="h-16 rounded-full text-[14px] transition-colors flex items-center justify-center"
+          style={{ color: "var(--muted)" }}
+          aria-label="Wissen"
         >
           ⌫
         </button>
       </div>
 
       {fout && (
-        <p className="mt-6 text-red-500 text-sm animate-pulse">Onjuiste PIN</p>
+        <p className="mt-6 text-[13px]" style={{ color: "#E5484D" }}>
+          Onjuiste PIN
+        </p>
       )}
     </div>
   );

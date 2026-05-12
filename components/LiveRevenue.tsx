@@ -157,25 +157,22 @@ export default function LiveRevenue({
     Math.max(0, verwachtVandaag - data.omzetVandaag);
 
   return (
-    <div
-      className="card relative overflow-hidden border"
-      style={{ borderColor: `${hex}30` }}
-    >
-      <div className="absolute top-3 right-3 flex items-center gap-1.5">
-        <div className="w-2 h-2 rounded-full bg-green-400 animate-ping absolute" />
-        <div className="w-2 h-2 rounded-full bg-green-400" />
-        <span className="text-xs text-slate-400 ml-3">live</span>
+    <div className="card relative overflow-hidden">
+      <div className="absolute top-4 right-4 flex items-center gap-1.5">
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 pulse-soft" />
+        <span className="eyebrow">Live</span>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Hoofdcijfer */}
         <div>
-          <p className="text-slate-500 text-sm mb-1">Omzet vandaag</p>
+          <p className="eyebrow mb-2">Omzet vandaag</p>
           <div
-            className={`stat-value transition-all duration-500 tabular-nums ${
-              pulse ? "scale-110" : "scale-100"
-            }`}
-            style={{ color: hex }}
+            className="stat-value transition-opacity duration-500 tabular-nums"
+            style={{
+              color: "var(--text)",
+              opacity: pulse ? 0.55 : 1,
+            }}
           >
             €
             {data.omzetVandaag.toLocaleString("nl-NL", {
@@ -183,52 +180,62 @@ export default function LiveRevenue({
               maximumFractionDigits: 2,
             })}
           </div>
-          <p className="text-slate-400 text-sm mt-1">
+          <p className="text-[13px] mt-1.5" style={{ color: "var(--muted)" }}>
             {data.aantalTransactiesVandaag} tx · gem. €
             {data.gemBonVandaag.toFixed(2)}
           </p>
 
           {verwachtVandaag > 0 && (
-            <div className="mt-3">
-              <div className="flex justify-between text-[11px] text-slate-500 mb-1">
+            <div className="mt-4">
+              <div
+                className="flex justify-between text-[11px] mb-1.5"
+                style={{ color: "var(--muted)" }}
+              >
                 <span>Voortgang vs verwacht nu</span>
                 <span
-                  className={
-                    opSchemaPos ? "text-emerald-600" : "text-orange-600"
-                  }
+                  className="tabular-nums font-medium"
+                  style={{ color: opSchemaPos ? "#30B26F" : "#E07A1F" }}
                 >
-                  {opSchema}% {opSchemaPos ? "✓" : ""}
+                  {opSchema}%
                 </span>
               </div>
-              <div className="h-2 bg-slate-100 rounded-full overflow-hidden relative">
+              <div
+                className="h-1.5 rounded-full overflow-hidden relative"
+                style={{ background: "var(--hairline)" }}
+              >
                 <div
-                  className="h-full transition-all duration-700"
+                  className="h-full transition-all duration-700 rounded-full"
                   style={{
                     width: `${Math.min(
                       (data.omzetVandaag / Math.max(verwachtVandaag, 1)) * 100,
                       150
                     )}%`,
-                    backgroundColor: opSchemaPos ? "#22c55e" : hex,
+                    backgroundColor: opSchemaPos ? "#30B26F" : hex,
                   }}
                 />
                 <div
-                  className="absolute top-0 bottom-0 w-[2px] bg-slate-900/70"
+                  className="absolute top-0 bottom-0 w-px"
                   style={{
                     left: `${Math.min(
                       (verwachtNu / Math.max(verwachtVandaag, 1)) * 100,
                       100
                     )}%`,
+                    background: "var(--text)",
+                    opacity: 0.4,
                   }}
                   title="Verwachte voortgang nu"
                 />
               </div>
-              <div className="flex justify-between text-[10px] text-slate-400 mt-1 tabular-nums">
+              <div
+                className="flex justify-between text-[11px] mt-1.5 tabular-nums"
+                style={{ color: "var(--muted)" }}
+              >
                 <span>€{verwachtNu.toFixed(0)} verwacht nu</span>
                 <span>€{verwachtVandaag.toFixed(0)} doel</span>
               </div>
               {resterend > 0 && (
-                <p className="text-[10px] text-slate-400 mt-1">
-                  Nog €{resterend.toFixed(0)} te gaan tot verwacht dagtotaal
+                <p className="text-[11px] mt-1" style={{ color: "var(--muted)" }}>
+                  Nog €{resterend.toFixed(0)} tot verwacht dagtotaal
                 </p>
               )}
             </div>
@@ -237,9 +244,7 @@ export default function LiveRevenue({
 
         {/* Uur verdeling */}
         <div>
-          <p className="text-slate-500 text-xs uppercase tracking-wide mb-2">
-            Omzet per uur vandaag
-          </p>
+          <p className="eyebrow mb-2">Omzet per uur vandaag</p>
           {data.uurVerdeling.some((u) => u.omzet > 0) ? (
             <ResponsiveContainer width="100%" height={120}>
               <AreaChart data={data.uurVerdeling}>
@@ -295,33 +300,34 @@ export default function LiveRevenue({
 
         {/* Betaalmethoden + laatste verkoop */}
         <div>
-          <p className="text-slate-500 text-xs uppercase tracking-wide mb-2">
-            Betaalmethoden vandaag
-          </p>
+          <p className="eyebrow mb-2">Betaalmethoden vandaag</p>
           {betaalLijst.length > 0 ? (
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               {betaalLijst.map(([naam, b]) => {
                 const pct =
                   data.omzetVandaag > 0
                     ? (b.omzet / data.omzetVandaag) * 100
                     : 0;
                 return (
-                  <div key={naam} className="transition-colors">
-                    <div className="flex justify-between text-[11px] mb-0.5">
-                      <span className="text-slate-700 font-medium">
+                  <div key={naam}>
+                    <div className="flex justify-between text-[12px] mb-1">
+                      <span style={{ color: "var(--text-2)" }}>
                         {labelBetaalmethode(naam)}
                       </span>
-                      <span className="text-slate-500 tabular-nums">
+                      <span className="tabular-nums" style={{ color: "var(--muted)" }}>
                         €{b.omzet.toFixed(0)} · {b.aantal}×
                       </span>
                     </div>
-                    <div className="h-1 bg-slate-50 rounded-full overflow-hidden">
+                    <div
+                      className="h-1 rounded-full overflow-hidden"
+                      style={{ background: "var(--hairline)" }}
+                    >
                       <div
                         className="h-full rounded-full"
                         style={{
                           width: `${pct}%`,
                           backgroundColor: hex,
-                          opacity: 0.7,
+                          opacity: 0.75,
                         }}
                       />
                     </div>
@@ -330,23 +336,23 @@ export default function LiveRevenue({
               })}
             </div>
           ) : (
-            <p className="text-slate-400 text-xs italic">Nog geen verkopen.</p>
+            <p className="text-[12px]" style={{ color: "var(--muted)" }}>
+              Nog geen verkopen.
+            </p>
           )}
 
           {data.laatsteSale && (
-            <div className="mt-4 pt-3 border-t border-slate-200">
-              <p className="text-slate-400 text-[10px] uppercase tracking-wide mb-1">
-                Laatste verkoop
-              </p>
+            <div className="mt-4 pt-3 hairline">
+              <p className="eyebrow mb-1">Laatste verkoop</p>
               <div className="flex items-center justify-between">
-                <span className="font-semibold tabular-nums">
+                <span className="font-semibold tabular-nums" style={{ color: "var(--text)" }}>
                   €{data.laatsteSale.amount.toFixed(2)}
                 </span>
-                <span className="text-slate-400 text-xs">
+                <span className="text-[11px]" style={{ color: "var(--muted)" }}>
                   {tijdGeleden(data.laatsteSale.timestamp)}
                 </span>
               </div>
-              <p className="text-slate-400 text-[11px]">
+              <p className="text-[11px]" style={{ color: "var(--muted)" }}>
                 {labelBetaalmethode(data.laatsteSale.payment_type)}
               </p>
             </div>
@@ -354,11 +360,9 @@ export default function LiveRevenue({
         </div>
       </div>
 
-      <p className="text-slate-300 text-[10px] mt-4">
+      <p className="text-[11px] mt-4" style={{ color: "var(--muted)", opacity: 0.7 }}>
         Ververst elke 20s · laatste update:{" "}
-        {laatstGeupdate
-          ? laatstGeupdate.toLocaleTimeString("nl-NL")
-          : "—"}
+        {laatstGeupdate ? laatstGeupdate.toLocaleTimeString("nl-NL") : "—"}
       </p>
     </div>
   );

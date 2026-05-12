@@ -1,25 +1,17 @@
 import type { Metadata, Viewport } from "next";
-import { Great_Vibes } from "next/font/google";
 import "./globals.css";
 import PinGate from "@/components/PinGate";
 import LiveBalk from "@/components/LiveBalk";
 
-const greatVibes = Great_Vibes({
-  weight: "400",
-  subsets: ["latin"],
-  variable: "--font-script",
-  display: "swap",
-});
-
 export const metadata: Metadata = {
-  title: "Omzetoverzicht Studio Goud",
+  title: "Studio Goud",
   description: "Business intelligence dashboard voor Studio Goud ondernemingen",
   manifest: "/manifest.json",
-  applicationName: "Omzet",
+  applicationName: "Studio Goud",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
-    title: "Omzet",
+    statusBarStyle: "black-translucent",
+    title: "Studio Goud",
   },
   formatDetection: {
     telephone: false,
@@ -27,7 +19,10 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0F172A",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#F5F5F7" },
+    { media: "(prefers-color-scheme: dark)",  color: "#000000" },
+  ],
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -36,8 +31,8 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="nl" className={greatVibes.variable}>
-      <body className="min-h-screen">
+    <html lang="nl">
+      <body className="min-h-screen antialiased">
         <PinGate>
           <LiveBalk />
           {children}
