@@ -7,6 +7,7 @@ import type { Bedrijf } from "@/lib/sumup";
 import Icon from "./Icon";
 import DienstModal from "./DienstModal";
 import MedewerkerBeheer from "./MedewerkerBeheer";
+import RoosterDagSamenvatting from "./RoosterDagSamenvatting";
 
 interface Props {
   bedrijf: Bedrijf;
@@ -189,6 +190,20 @@ export default function RoosterEditor({
         </div>
       )}
 
+      {/* Dag-samenvatting: in één oogopslag wie er per dag staat */}
+      <RoosterDagSamenvatting
+        weekDatums={weekDatums}
+        diensten={initieleDiensten}
+        medewerkers={medewerkers}
+        vandaag={vandaag}
+        hex={hex}
+        onKlikDag={(datum) => {
+          // Scroll naar de kolom in de grid
+          const el = document.querySelector(`[data-rooster-col="${datum}"]`);
+          el?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+        }}
+      />
+
       {/* Grid */}
       <div className="card overflow-x-auto p-0">
         <table
@@ -212,6 +227,7 @@ export default function RoosterEditor({
                 return (
                   <th
                     key={datum}
+                    data-rooster-col={datum}
                     className="p-3 text-center"
                     style={{
                       borderBottom: "1px solid var(--hairline)",
