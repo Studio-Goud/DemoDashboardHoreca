@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { Dienst, Medewerker, ShiftTemplate } from "@/lib/shiftbase";
+import type { Dienst, Medewerker, ShiftTemplate, Beschikbaarheid } from "@/lib/shiftbase";
 import type { Bedrijf } from "@/lib/sumup";
 import Icon from "./Icon";
 import DienstModal from "./DienstModal";
@@ -17,6 +17,7 @@ interface Props {
   initieleDiensten: Dienst[];
   medewerkers: Medewerker[];
   templates: ShiftTemplate[];
+  beschikbaarheid: Beschikbaarheid[];
 }
 
 const DAG_KORT = ["Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo"];
@@ -51,7 +52,13 @@ export default function RoosterEditor({
   bedrijf, naam, hex,
   weekStart, weekEind,
   initieleDiensten, medewerkers, templates,
+  beschikbaarheid,
 }: Props) {
+  // Lookup: key = `${userId}|${datum}` → eerste Beschikbaarheid entry
+  const beschikbaarMap = new Map<string, Beschikbaarheid>();
+  for (const b of beschikbaarheid) {
+    beschikbaarMap.set(`${b.userId}|${b.datum}`, b);
+  }
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [busy, setBusy] = useState(false);
@@ -281,17 +288,52 @@ export default function RoosterEditor({
 
                     {weekDatums.map((datum) => {
                       const cellen = dienstenVoor(m.id, datum);
+                      const besch = beschikbaarMap.get(`${m.id}|${datum}`);
+                      const celBg =
+                        besch?.status === "vrij"     ? "rgba(48,178,111,0.10)"
+                        : besch?.status === "beperkt" ? "rgba(48,178,111,0.06)"
+                        : besch?.status === "niet"    ? "rgba(229,72,77,0.10)"
+                        : "transparent";
+                      const titel =
+                        besch?.status === "vrij"    ? "Beschikbaar — hele dag"
+                        : besch?.status === "beperkt" ? `Beschikbaar ${besch.start ?? ""}–${besch.eind ?? ""}${besch.reden ? ` · ${besch.reden}` : ""}`
+                        : besch?.status === "niet"    ? `Niet beschikbaar${besch.reden ? ` · ${besch.reden}` : ""}`
+                        : "Geen beschikbaarheid opgegeven";
                       return (
                         <td
                           key={datum}
-                          className="p-1.5 align-top"
+                          className="p-1.5 align-top relative"
                           style={{
                             borderBottom: "1px solid var(--hairline-2)",
                             borderLeft: "1px solid var(--hairline-2)",
                             verticalAlign: "top",
+                            background: celBg,
                           }}
+                          title={titel}
                         >
-                          <div className="flex flex-col gap-1">
+                          {/* Indicator-stipje linksboven */}
+                          {besch && (
+                            <span
+                              className="absolute top-1 left-1 w-1.5 h-1.5 rounded-full pointer-events-none"
+                              style={{
+                                background:
+                                  besch.status === "vrij" ? "#30B26F"
+                                  : besch.status === "beperkt" ? "#30B26F"
+                                  : "#E5484D",
+                                opacity: besch.status === "beperkt" ? 0.55 : 1,
+                              }}
+                            />
+                          )}
+                          {/* Bij "beperkt": tijdsbereik subtiel rechtsboven */}
+                          {besch?.status === "beperkt" && besch.start && besch.eind && (
+                            <span
+                              className="absolute top-1 right-1 text-[9px] tabular-nums px-1 rounded"
+                              style={{ color: "#1F7A4E", background: "rgba(255,255,255,0.6)" }}
+                            >
+                              {besch.start}–{besch.eind}
+                            </span>
+                          )}
+                          <div className="flex flex-col gap-1 mt-3">
                             {cellen.map((d) => (
                               <button
                                 key={d.id}
@@ -323,10 +365,10 @@ export default function RoosterEditor({
                               className="rounded-[6px] py-1 text-[11px] transition-all opacity-40 hover:opacity-100"
                               style={{
                                 border: "1px dashed var(--hairline)",
-                                color: "var(--muted)",
+                                color: besch?.status === "niet" ? "#E5484D" : "var(--muted)",
                               }}
                             >
-                              + voeg toe
+                              {besch?.status === "niet" ? "+ toch inplannen" : "+ voeg toe"}
                             </button>
                           </div>
                         </td>
@@ -352,7 +394,7 @@ export default function RoosterEditor({
       </div>
 
       {/* Toelichting */}
-      <div className="flex items-center gap-4 text-[11px]" style={{ color: "var(--muted)" }}>
+      <div className="flex items-center flex-wrap gap-x-4 gap-y-1.5 text-[11px]" style={{ color: "var(--muted)" }}>
         <span className="inline-flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-sm" style={{ background: `${hex}33`, border: `1px solid ${hex}66` }} />
           Gepubliceerd
@@ -360,6 +402,18 @@ export default function RoosterEditor({
         <span className="inline-flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-sm" style={{ border: `1px dashed ${hex}66` }} />
           Concept
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-sm" style={{ background: "rgba(48,178,111,0.18)" }} />
+          Beschikbaar
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-sm" style={{ background: "rgba(48,178,111,0.10)" }} />
+          Beperkt beschikbaar
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-sm" style={{ background: "rgba(229,72,77,0.18)" }} />
+          Niet beschikbaar
         </span>
       </div>
 

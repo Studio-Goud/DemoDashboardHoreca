@@ -4,6 +4,7 @@ import {
   fetchDienstenInRange,
   medewerkersPerBedrijf,
   shiftTemplatesPerBedrijf,
+  fetchBeschikbaarheid,
 } from "@/lib/shiftbase";
 import RoosterEditor from "@/components/RoosterEditor";
 
@@ -46,10 +47,14 @@ export default async function RoosterEditorPage({ params, searchParams }: Props)
     : maandagVanWeek(new Date());
   const eindDatum = plusDagen(startDatum, 6);
 
-  const [alleDiensten, medewerkers, templates] = await Promise.all([
+  const [alleDiensten, medewerkers, templates, beschikbaarheid] = await Promise.all([
     fetchDienstenInRange(startDatum, eindDatum).catch(() => []),
     medewerkersPerBedrijf(config.slug).catch(() => []),
     shiftTemplatesPerBedrijf(config.slug).catch(() => []),
+    fetchBeschikbaarheid(startDatum, eindDatum).catch((e) => {
+      console.error("Shiftbase availability fout:", e);
+      return [] as Awaited<ReturnType<typeof fetchBeschikbaarheid>>;
+    }),
   ]);
 
   // Filter diensten op bedrijf én op publish+concept (we tonen beide voor editor)
@@ -68,6 +73,7 @@ export default async function RoosterEditorPage({ params, searchParams }: Props)
         initieleDiensten={diensten}
         medewerkers={medewerkers}
         templates={templates}
+        beschikbaarheid={beschikbaarheid}
       />
     </main>
   );

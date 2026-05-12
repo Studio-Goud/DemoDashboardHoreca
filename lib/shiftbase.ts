@@ -567,6 +567,80 @@ export async function deleteMedewerker(id: string): Promise<void> {
   }
 }
 
+// =============================================================================
+// BESCHIKBAARHEID — uit Shiftbase /availabilities (door medewerkers ingevuld)
+// =============================================================================
+
+export type BeschikbaarStatus = "vrij" | "beperkt" | "niet" | "onbekend";
+
+export interface Beschikbaarheid {
+  id: string;
+  userId: string;
+  datum: string;             // YYYY-MM-DD
+  status: BeschikbaarStatus;
+  start?: string;            // HH:MM (alleen bij status="beperkt")
+  eind?: string;             // HH:MM
+  reden?: string;
+}
+
+interface AvailabilityApiItem {
+  Availability: {
+    id: string;
+    user_id: string;
+    date: string;
+    all_day: boolean;
+    type: string;            // "Available from" | "Available all day" | "Unavailable all day"
+    starttime: string | null;
+    endtime: string | null;
+    reason: string;
+  };
+}
+
+interface AvailabilitiesApiResponse {
+  data: AvailabilityApiItem[];
+  meta: { status: string };
+}
+
+function mapAvailability(item: AvailabilityApiItem): Beschikbaarheid {
+  const a = item.Availability;
+  const typeLow = a.type.toLowerCase();
+  let status: BeschikbaarStatus;
+  if (typeLow.startsWith("unavailable")) status = "niet";
+  else if (typeLow === "available all day" || a.all_day) status = "vrij";
+  else if (typeLow.startsWith("available")) status = "beperkt";
+  else status = "onbekend";
+
+  return {
+    id: a.id,
+    userId: a.user_id,
+    datum: a.date,
+    status,
+    start: a.starttime ? tijdNaarHHMM(a.starttime) : undefined,
+    eind:  a.endtime   ? tijdNaarHHMM(a.endtime)   : undefined,
+    reden: a.reason || undefined,
+  };
+}
+
+async function _fetchBeschikbaarheid(minDate: string, maxDate: string): Promise<Beschikbaarheid[]> {
+  const json = await shiftbaseFetch<AvailabilitiesApiResponse>("/availabilities", {
+    min_date: minDate,
+    max_date: maxDate,
+    limit: "500",
+  });
+  return json.data.map(mapAvailability);
+}
+
+export const fetchBeschikbaarheid = unstable_cache(
+  _fetchBeschikbaarheid,
+  ["shiftbase-beschikbaarheid"],
+  { revalidate: 300, tags: ["shiftbase", "shiftbase-beschikbaarheid"] },
+);
+
 // --- Cache-invalidatie helper ----------------------------------------------
 
-export const SHIFTBASE_TAGS = ["shiftbase", "shiftbase-medewerkers", "shiftbase-templates"] as const;
+export const SHIFTBASE_TAGS = [
+  "shiftbase",
+  "shiftbase-medewerkers",
+  "shiftbase-templates",
+  "shiftbase-beschikbaarheid",
+] as const;
