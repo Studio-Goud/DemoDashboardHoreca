@@ -81,18 +81,34 @@ export async function verstuurUitnodiging(data: UitnodigingMail): Promise<{ id: 
     `Heb je deze mail onverwacht ontvangen? Negeer 'm dan.`;
 
   const resend = getResend();
-  const res = await resend.emails.send({
-    from: getMailFrom(),
-    to: data.email,
-    subject: `Welkom bij ${data.bedrijfNaam} — maak je inlogcode aan`,
-    html,
-    text,
-  });
+  const from = getMailFrom();
+  console.log("[mail] verstuurUitnodiging", { to: data.email, from });
+
+  let res: Awaited<ReturnType<typeof resend.emails.send>>;
+  try {
+    res = await resend.emails.send({
+      from,
+      to: data.email,
+      subject: `Welkom bij ${data.bedrijfNaam} — maak je inlogcode aan`,
+      html,
+      text,
+    });
+  } catch (e) {
+    console.error("[mail] Resend SDK threw", e);
+    throw new Error(`Resend SDK fout: ${e instanceof Error ? e.message : "onbekend"}`);
+  }
+
+  console.log("[mail] Resend response", JSON.stringify(res));
 
   if ("error" in res && res.error) {
-    throw new Error(`Resend fout: ${res.error.message}`);
+    const errMsg = (res.error as { message?: string; name?: string }).message
+      ?? (res.error as { name?: string }).name
+      ?? JSON.stringify(res.error);
+    console.error("[mail] Resend returned error", res.error);
+    throw new Error(`Resend fout: ${errMsg}`);
   }
   // SDK retourneert { data: { id }, error: null }
   const id = "data" in res && res.data?.id ? res.data.id : "onbekend";
+  console.log("[mail] verstuurUitnodiging klaar", { id });
   return { id };
 }

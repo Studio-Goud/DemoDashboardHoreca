@@ -46,26 +46,42 @@ export async function POST(
     const deptSlug = rows[0].deptSlug ?? "bb";
     const bedrijfInfo = BEDRIJF_NAAM[deptSlug] ?? BEDRIJF_NAAM.bb;
 
+    console.log("[uitnodigen] medewerker gevonden", { id: m.id, email: m.email });
+
     // Token aanmaken (overschrijft eventueel bestaande)
     const { token, verloopt } = await maakRegistratieToken(medewerkerId);
 
-    // Mail versturen
-    const result = await verstuurUitnodiging({
-      voornaam: m.voornaam,
-      email: m.email,
-      token,
-      bedrijfNaam: bedrijfInfo.naam,
-      bedrijfHex: bedrijfInfo.hex,
-      verlooptOp: verloopt,
-    });
+    // Check env vars vóór de mail-call zodat we directe feedback geven
+    if (!process.env.RESEND_API_KEY) {
+      return NextResponse.json({
+        error: "RESEND_API_KEY ontbreekt in productie environment variables",
+      }, { status: 500 });
+    }
 
-    return NextResponse.json({
-      ok: true,
-      mailId: result.id,
-      verlooptOp: verloopt.toISOString(),
-    });
+    // Mail versturen
+    try {
+      const result = await verstuurUitnodiging({
+        voornaam: m.voornaam,
+        email: m.email,
+        token,
+        bedrijfNaam: bedrijfInfo.naam,
+        bedrijfHex: bedrijfInfo.hex,
+        verlooptOp: verloopt,
+      });
+      console.log("[uitnodigen] mail verstuurd", { mailId: result.id });
+      return NextResponse.json({
+        ok: true,
+        mailId: result.id,
+        verlooptOp: verloopt.toISOString(),
+      });
+    } catch (mailErr) {
+      const msg = mailErr instanceof Error ? mailErr.message : "Mail mislukt";
+      console.error("[uitnodigen] mail-fout", msg);
+      return NextResponse.json({ error: `Mail mislukt: ${msg}` }, { status: 500 });
+    }
   } catch (e) {
     const msg = e instanceof Error ? e.message : "onbekend";
+    console.error("[uitnodigen] algemene fout", msg);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
