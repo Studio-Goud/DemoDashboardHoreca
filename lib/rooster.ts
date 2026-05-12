@@ -54,6 +54,10 @@ export interface Medewerker {
   avatar?: string;
   anoniem: boolean;
   bedrijven: Bedrijf[];
+  uurloon: number | null;
+  vakantiegeldPct: number;
+  vakantieUrenPct: number;
+  heeftPin: boolean;
 }
 
 export interface ShiftTemplate {
@@ -323,6 +327,10 @@ export async function fetchMedewerkers(): Promise<Medewerker[]> {
         avatar: m.avatarUrl ?? undefined,
         anoniem: false,
         bedrijven: [],
+        uurloon: m.uurloon === null ? null : Number(m.uurloon),
+        vakantiegeldPct: m.vakantiegeldPct === null ? 8.33 : Number(m.vakantiegeldPct),
+        vakantieUrenPct: m.vakantieUrenPct === null ? 8.00 : Number(m.vakantieUrenPct),
+        heeftPin: !!m.pinHash,
       });
     }
     if (row.deptSlug) {
@@ -497,6 +505,9 @@ export interface MedewerkerPatch {
   email?: string;
   startdatum?: string;
   einddatum?: string | null;
+  uurloon?: number | null;             // in euro
+  vakantiegeldPct?: number;            // bv. 8.33
+  vakantieUrenPct?: number;            // bv. 8.00
 }
 
 export async function updateMedewerker(id: string, patch: MedewerkerPatch): Promise<void> {
@@ -509,6 +520,11 @@ export async function updateMedewerker(id: string, patch: MedewerkerPatch): Prom
     updates.einddatum = patch.einddatum;
     if (patch.einddatum !== null) updates.actief = false;
   }
+  if (patch.uurloon !== undefined) {
+    updates.uurloon = patch.uurloon === null ? null : String(patch.uurloon);
+  }
+  if (patch.vakantiegeldPct !== undefined) updates.vakantiegeldPct = String(patch.vakantiegeldPct);
+  if (patch.vakantieUrenPct !== undefined) updates.vakantieUrenPct = String(patch.vakantieUrenPct);
   await db.update(schema.medewerkers).set(updates).where(eq(schema.medewerkers.id, Number(id)));
 }
 

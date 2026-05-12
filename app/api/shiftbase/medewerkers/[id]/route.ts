@@ -15,6 +15,9 @@ export async function PUT(
       email?: string;
       startdatum?: string;
       einddatum?: string | null;
+      uurloon?: number | null;
+      vakantiegeldPct?: number;
+      vakantieUrenPct?: number;
     };
     await updateMedewerker(params.id, body);
     revalidateTag("shiftbase-medewerkers");

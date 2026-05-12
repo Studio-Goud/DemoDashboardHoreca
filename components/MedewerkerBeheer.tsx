@@ -21,15 +21,19 @@ export default function MedewerkerBeheer({
   const [modus, setModus] = useState<Modus>("lijst");
   const [edit, setEdit] = useState<Medewerker | null>(null);
 
-  const [voornaam,   setVoornaam]   = useState("");
-  const [achternaam, setAchternaam] = useState("");
-  const [email,      setEmail]      = useState("");
-  const [startdatum, setStartdatum] = useState("");
-  const [busy,       setBusy]       = useState(false);
-  const [fout,       setFout]       = useState<string | null>(null);
+  const [voornaam,        setVoornaam]        = useState("");
+  const [achternaam,      setAchternaam]      = useState("");
+  const [email,           setEmail]           = useState("");
+  const [startdatum,      setStartdatum]      = useState("");
+  const [uurloon,         setUurloon]         = useState("");
+  const [vakantiegeldPct, setVakantiegeldPct] = useState("8.33");
+  const [vakantieUrenPct, setVakantieUrenPct] = useState("8.00");
+  const [busy,            setBusy]            = useState(false);
+  const [fout,            setFout]            = useState<string | null>(null);
 
   function reset() {
     setVoornaam(""); setAchternaam(""); setEmail(""); setStartdatum("");
+    setUurloon(""); setVakantiegeldPct("8.33"); setVakantieUrenPct("8.00");
     setFout(null); setEdit(null);
   }
 
@@ -39,6 +43,9 @@ export default function MedewerkerBeheer({
     setAchternaam(m.achternaam);
     setEmail(m.email);
     setStartdatum(m.startdatum ?? "");
+    setUurloon(m.uurloon !== null && m.uurloon !== undefined ? String(m.uurloon) : "");
+    setVakantiegeldPct(String(m.vakantiegeldPct ?? 8.33));
+    setVakantieUrenPct(String(m.vakantieUrenPct ?? 8.00));
     setModus("bewerken");
   }
 
@@ -46,6 +53,10 @@ export default function MedewerkerBeheer({
     setBusy(true);
     setFout(null);
     try {
+      const uurloonNum = uurloon.trim() ? Number(uurloon.replace(",", ".")) : null;
+      const vgPct = Number(vakantiegeldPct.replace(",", ".")) || 8.33;
+      const vuPct = Number(vakantieUrenPct.replace(",", ".")) || 8.00;
+
       if (modus === "nieuw") {
         const res = await fetch("/api/shiftbase/medewerkers", {
           method: "POST",
@@ -58,11 +69,26 @@ export default function MedewerkerBeheer({
           const j = await res.json().catch(() => ({ error: "fout" }));
           throw new Error(j.error || "toevoegen mislukt");
         }
+        // Net aangemaakt: nog uurloon/% updaten met PUT
+        if (uurloonNum !== null) {
+          const j = await res.json();
+          await fetch(`/api/shiftbase/medewerkers/${j.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ uurloon: uurloonNum, vakantiegeldPct: vgPct, vakantieUrenPct: vuPct }),
+          });
+        }
       } else if (modus === "bewerken" && edit) {
         const res = await fetch(`/api/shiftbase/medewerkers/${edit.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ voornaam, achternaam, email, startdatum: startdatum || undefined }),
+          body: JSON.stringify({
+            voornaam, achternaam, email,
+            startdatum: startdatum || undefined,
+            uurloon: uurloonNum,
+            vakantiegeldPct: vgPct,
+            vakantieUrenPct: vuPct,
+          }),
         });
         if (!res.ok) {
           const j = await res.json().catch(() => ({ error: "fout" }));
@@ -240,6 +266,43 @@ export default function MedewerkerBeheer({
                 className="inputveld"
               />
             </Veld>
+
+            <Veld label="Uurloon (€) — leeg = nog niet ingesteld">
+              <input
+                type="text"
+                inputMode="decimal"
+                value={uurloon}
+                onChange={(e) => setUurloon(e.target.value)}
+                className="inputveld"
+                placeholder="bv. 14,50"
+              />
+            </Veld>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Veld label="Vakantiegeld %">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={vakantiegeldPct}
+                  onChange={(e) => setVakantiegeldPct(e.target.value)}
+                  className="inputveld"
+                />
+              </Veld>
+              <Veld label="Vakantie-uren %">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={vakantieUrenPct}
+                  onChange={(e) => setVakantieUrenPct(e.target.value)}
+                  className="inputveld"
+                />
+              </Veld>
+            </div>
+
+            <p className="text-[11px]" style={{ color: "var(--muted)" }}>
+              Vakantiegeld + vakantie-uren worden direct met het uurloon uitbetaald.
+              Defaults: 8,33% / 8,00%.
+            </p>
 
             {fout && (
               <p className="text-[12px]" style={{ color: "#E5484D" }}>{fout}</p>

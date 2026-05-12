@@ -205,6 +205,12 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
       icon: "calendar-clock" as const,
       href: `/${config.slug}/rooster`,
     },
+    {
+      id: "rapporten",
+      label: "Uren",
+      icon: "wallet" as const,
+      href: `/${config.slug}/rapporten`,
+    },
     { id: "producten", label: "Producten",     icon: "shopping-bag" as const },
     { id: "inzichten", label: "Inzichten",     icon: "lightbulb"   as const },
     {
