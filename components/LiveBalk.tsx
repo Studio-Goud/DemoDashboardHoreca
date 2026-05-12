@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useRol } from "@/lib/useRol";
 
 const BEDRIJVEN = [
   { slug: "bb", naam: "Brunch & Brew",    emoji: "☕", kleur: "#0A84FF" },
@@ -698,6 +699,7 @@ function BedrijfKolom({
 
 export default function LiveBalk() {
   const pathname   = usePathname();
+  const { rol }    = useRol();
   const LEEG_STAAT: BedrijfStaat = { omzet: 0, klanten: 0, verwachtNu: 0 };
   const [staten, setStaten] = useState<Record<Slug, BedrijfStaat>>({
     bb: LEEG_STAAT, sl: LEEG_STAAT, kl: LEEG_STAAT,
@@ -907,7 +909,10 @@ export default function LiveBalk() {
           })}
         </div>
 
-        {/* Papegaaienrij — onderaan de balk */}
+        {/* Spreker-bubbles — verberg voor managers (geen humor, alleen data) */}
+        {rol !== "manager" && (
+        <>
+        {/* Spreker-orbs — onderaan de balk */}
         <div className="flex">
           {BEDRIJVEN.map((b, i) => {
             const welkomActief = welkomOverride?.idx === i;
@@ -928,6 +933,8 @@ export default function LiveBalk() {
             );
           })}
         </div>
+        </>
+        )}
       </div>
     </>
   );

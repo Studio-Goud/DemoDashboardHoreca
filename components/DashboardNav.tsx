@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Icon from "./Icon";
+import { useRol, type Rol } from "@/lib/useRol";
 
 type IconName = React.ComponentProps<typeof Icon>["name"];
 
@@ -10,6 +11,8 @@ export interface TabDef {
   label: string;
   icon: IconName;
   href?: string;
+  /** Indien gezet: alleen zichtbaar voor deze rollen */
+  roles?: Rol[];
 }
 
 interface Props {
@@ -19,8 +22,18 @@ interface Props {
 }
 
 export default function DashboardNav({ tabs, hex, children }: Props) {
+  const { rol } = useRol();
+
+  // Tabs filteren op rol — owners zien alles, anders alleen tabs zonder roles-restrictie
+  // of waar de huidige rol in de lijst staat
+  const zichtbareTabs = tabs.filter((t) => {
+    if (!t.roles) return true;
+    if (!rol) return true; // tijdens hydratie nog niet geladen — toon optimistisch
+    return t.roles.includes(rol);
+  });
+
   const [actief, setActief] = useState(
-    tabs.find((t) => !t.href)?.id ?? tabs[0]?.id ?? "",
+    zichtbareTabs.find((t) => !t.href)?.id ?? zichtbareTabs[0]?.id ?? "",
   );
   const navRef = useRef<HTMLDivElement>(null);
 
@@ -29,6 +42,8 @@ export default function DashboardNav({ tabs, hex, children }: Props) {
     el?.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
   }, [actief]);
 
+  // Content (non-href) volgt de oorspronkelijke tabs-volgorde — niet zichtbareTabs —
+  // omdat `children` op index gemapt is naar de oorspronkelijke tabs-array.
   const contentTabs = tabs.filter((t) => !t.href);
 
   return (
@@ -46,7 +61,7 @@ export default function DashboardNav({ tabs, hex, children }: Props) {
           className="segmented overflow-x-auto scrollbar-hide max-w-full"
           role="tablist"
         >
-          {tabs.map((tab) => {
+          {zichtbareTabs.map((tab) => {
             const isActief = tab.id === actief;
             const activeStyle = isActief ? { color: hex } : undefined;
 
