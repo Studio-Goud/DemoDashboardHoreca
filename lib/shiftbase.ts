@@ -130,7 +130,7 @@ function mapRoster(item: RosterApiItem): Dienst | null {
 }
 
 // Ruwe diensten ophalen voor een datumrange (gecached 5 min)
-async function _fetchDienstenInRange(minDate: string, maxDate: string): Promise<Dienst[]> {
+export async function _fetchDienstenInRange(minDate: string, maxDate: string): Promise<Dienst[]> {
   // Shiftbase paginated: we kunnen niet zomaar 1 grote call doen voor lange periodes.
   // Voor periodes ≤ 90 dagen werkt limit=500 prima.
   const json = await shiftbaseFetch<RosterApiResponse>("/rosters", {
@@ -351,7 +351,7 @@ function mapUser(item: UserApiItem): Medewerker {
   };
 }
 
-async function _fetchMedewerkers(): Promise<Medewerker[]> {
+export async function _fetchMedewerkers(): Promise<Medewerker[]> {
   // Shiftbase paginate-veilig: 500 is genoeg voor alle medewerkers in 1 account
   const json = await shiftbaseFetch<UsersApiResponse>("/users", { limit: "500" });
   return json.data.map(mapUser).filter((m) => !m.anoniem && m.einddatum === null);
@@ -370,7 +370,7 @@ export async function medewerkersPerBedrijf(bedrijf: Bedrijf): Promise<Medewerke
     .sort((a, b) => a.voornaam.localeCompare(b.voornaam));
 }
 
-async function _fetchShiftTemplates(): Promise<ShiftTemplate[]> {
+export async function _fetchShiftTemplates(): Promise<ShiftTemplate[]> {
   const json = await shiftbaseFetch<ShiftTemplatesApiResponse>("/shifts", { limit: "500" });
   return json.data
     .filter((s) => !s.Shift.deleted && !s.Shift.is_task)
@@ -621,7 +621,7 @@ function mapAvailability(item: AvailabilityApiItem): Beschikbaarheid {
   };
 }
 
-async function _fetchBeschikbaarheid(minDate: string, maxDate: string): Promise<Beschikbaarheid[]> {
+export async function _fetchBeschikbaarheid(minDate: string, maxDate: string): Promise<Beschikbaarheid[]> {
   const json = await shiftbaseFetch<AvailabilitiesApiResponse>("/availabilities", {
     min_date: minDate,
     max_date: maxDate,

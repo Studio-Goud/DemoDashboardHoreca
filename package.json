@@ -8,10 +8,10 @@
     "start": "next start",
     "lint": "next lint",
     "snapshot:zettle": "tsx scripts/maak-zettle-snapshot.ts",
-    "db:push": "drizzle-kit push",
+    "db:push": "drizzle-kit push --force",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
-    "migrate:shiftbase": "tsx scripts/migrate-shiftbase-naar-db.ts"
+    "migrate:shiftbase": "tsx --env-file=.env.local scripts/migrate-shiftbase-naar-db.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.90.0",

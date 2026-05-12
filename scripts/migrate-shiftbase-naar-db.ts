@@ -13,10 +13,10 @@ dotenv.config({ path: ".env.local" });
 
 import { db, schema } from "../lib/db/client";
 import {
-  fetchMedewerkers,
-  fetchShiftTemplates,
-  fetchDienstenInRange,
-  fetchBeschikbaarheid,
+  _fetchMedewerkers     as fetchMedewerkers,
+  _fetchShiftTemplates  as fetchShiftTemplates,
+  _fetchDienstenInRange as fetchDienstenInRange,
+  _fetchBeschikbaarheid as fetchBeschikbaarheid,
 } from "../lib/shiftbase";
 import { eq } from "drizzle-orm";
 
