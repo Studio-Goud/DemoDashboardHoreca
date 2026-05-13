@@ -248,39 +248,40 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
         </div>
       )}
 
-      {/* Manager-only: leaderboard + doel-tracker als hero */}
-      <ManagerWidgets bedrijf={config.slug} hex={config.hex} />
-
-      {/* Voorraad-alerts (zichtbaar voor iedereen, urgent als kritieke producten op zijn) */}
-      <VoorraadAlerts bedrijf={config.slug} hex={config.hex} />
-
-      {/* Altijd bovenaan: live omzet + kerncijfers */}
-      {heeftData && (
-        <LiveRevenue
-          bedrijf={config.slug}
-          kleur={kleurNaam}
-          hex={config.hex}
-          verwachtVandaag={kerncijfers?.verwachtVandaag ?? 0}
-          weekdagCurve={weekdagCurve}
-        />
-      )}
-
-      <BezettingAdvies
-        hex={config.hex}
-        bedrijf={config.slug}
-        dagOmzet={dagOmzet}
-        prognose={prognose}
-        geplandVandaag={bezVandaag}
-      />
-
-      {kerncijfers && (
-        <KerncijfersGrid kerncijfers={kerncijfers} hex={config.hex} />
-      )}
-
-      {/* Tab-navigatie voor de rest */}
+      {/* Tab-navigatie staat direct onder de LiveBalk; alle hero-widgets
+          zitten binnen de Omzet-tab (de default tab) */}
       <DashboardNav tabs={TABS} hex={config.hex}>
-        {/* Tab 1 — Omzet */}
+        {/* Tab 1 — Omzet (incl. hero-widgets die altijd direct zichtbaar zijn als default tab) */}
         <>
+          {/* Manager-only: leaderboard + doel-tracker als hero */}
+          <ManagerWidgets bedrijf={config.slug} hex={config.hex} />
+
+          {/* Voorraad-alerts (zichtbaar voor iedereen, urgent als kritieke producten op zijn) */}
+          <VoorraadAlerts bedrijf={config.slug} hex={config.hex} />
+
+          {/* Live omzet + kerncijfers */}
+          {heeftData && (
+            <LiveRevenue
+              bedrijf={config.slug}
+              kleur={kleurNaam}
+              hex={config.hex}
+              verwachtVandaag={kerncijfers?.verwachtVandaag ?? 0}
+              weekdagCurve={weekdagCurve}
+            />
+          )}
+
+          <BezettingAdvies
+            hex={config.hex}
+            bedrijf={config.slug}
+            dagOmzet={dagOmzet}
+            prognose={prognose}
+            geplandVandaag={bezVandaag}
+          />
+
+          {kerncijfers && (
+            <KerncijfersGrid kerncijfers={kerncijfers} hex={config.hex} />
+          )}
+
           {dagOmzet.length > 0 && (
             <RevenueChart data={dagOmzet} kleur={kleurNaam} hex={config.hex} />
           )}
