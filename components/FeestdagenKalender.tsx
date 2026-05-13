@@ -6,6 +6,7 @@ import type { VerrijktEvent } from "@/lib/analytics";
 import type { DrukLevel } from "@/lib/drukte";
 import { drukteLabel, DRUKTE_GRENS } from "@/lib/drukte";
 import type { Bedrijf } from "@/lib/sumup";
+import { useT } from "@/lib/i18n/useT";
 
 interface Props {
   events: VerrijktEvent[];
@@ -25,6 +26,7 @@ function fmtEur(n: number): string {
 }
 
 export default function FeestdagenKalender({ events, bedrijf }: Props) {
+  const { t } = useT();
   if (events.length === 0) return null;
 
   const lijst = events.slice(0, 10);
@@ -34,16 +36,17 @@ export default function FeestdagenKalender({ events, bedrijf }: Props) {
     <div className="card">
       <div className="flex items-baseline justify-between mb-1">
         <h3 className="font-semibold text-slate-700">
-          Feestdagen &amp; vakanties (komende 90 dagen)
+          {t("holidays.title")}
         </h3>
         <span className="text-[11px] text-slate-400">
-          NL · regio midden
+          {t("holidays.region")}
         </span>
       </div>
       <p className="text-[11px] text-slate-400 mb-3">
-        Drukte op basis van verwachte omzet: normaal vanaf {fmtEur(g.normaal)},
-        druk vanaf {fmtEur(g.druk)}, zeer druk vanaf {fmtEur(g.zeerDruk)}.
-        Prognose uit historie (vorig jaar of gem. weekdag).
+        {t("holidays.busy_legend")
+          .replace("{normaal}", fmtEur(g.normaal))
+          .replace("{druk}", fmtEur(g.druk))
+          .replace("{zeerDruk}", fmtEur(g.zeerDruk))}
       </p>
 
       <div className="space-y-1.5">
@@ -73,10 +76,10 @@ export default function FeestdagenKalender({ events, bedrijf }: Props) {
                     : format(e.datum, "EEEE dd-MM-yyyy", { locale: nl })}
                   {" · "}
                   {e.dagenVanNu <= 0
-                    ? "nu"
+                    ? t("holidays.now")
                     : e.dagenVanNu === 1
-                    ? "morgen"
-                    : `over ${e.dagenVanNu} dagen`}
+                    ? t("holidays.tomorrow")
+                    : t("holidays.in_x_days").replace("{n}", String(e.dagenVanNu))}
                 </p>
                 <p className="text-[11px] text-slate-400 mt-0.5">
                   {e.bron === "dicht" ? (

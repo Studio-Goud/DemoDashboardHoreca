@@ -6,6 +6,10 @@ import {
   shiftTemplatesPerBedrijf,
   fetchBeschikbaarheid,
 } from "@/lib/rooster";
+import { dashboardAggregaten } from "@/lib/dashboard-cache";
+import { getWeer, weerInfo } from "@/lib/weer";
+import { cruisesOpDatum } from "@/lib/cruises";
+import { feestdagOpDatum, vakantieOpDatum } from "@/lib/feestdagen";
 import RoosterEditor from "@/components/RoosterEditor";
 import BedrijfTabBar from "@/components/BedrijfTabBar";
 
@@ -38,6 +42,31 @@ interface Props {
   searchParams: { week?: string };
 }
 
+export interface DagContext {
+  datum: string;            // YYYY-MM-DD
+  weekdag: number;          // 0=zo .. 6=za
+  weer: {
+    tempMax: number;
+    tempMin: number;
+    neerslag: number;
+    emoji: string;
+    categorie: string;
+  } | null;
+  prognose: {
+    verwacht: number;       // EUR
+    druk: "laag" | "normaal" | "druk" | "zeer druk" | "gesloten";
+  } | null;
+  cruises: Array<{
+    schip: string;
+    passagiers: number;
+    aankomst: string | null;
+    vertrek: string | null;
+  }>;
+  totaalPassagiers: number;
+  feestdag: string | null;
+  vakantie: string | null;
+}
+
 export default async function RoosterEditorPage({ params, searchParams }: Props) {
   const config = BEDRIJVEN[params.bedrijf];
   if (!config) notFound();
@@ -48,7 +77,7 @@ export default async function RoosterEditorPage({ params, searchParams }: Props)
     : maandagVanWeek(new Date());
   const eindDatum = plusDagen(startDatum, 6);
 
-  const [alleDiensten, medewerkers, templates, beschikbaarheid] = await Promise.all([
+  const [alleDiensten, medewerkers, templates, beschikbaarheid, agg, weerData] = await Promise.all([
     fetchDienstenInRange(startDatum, eindDatum).catch(() => []),
     medewerkersPerBedrijf(config.slug).catch(() => []),
     shiftTemplatesPerBedrijf(config.slug).catch(() => []),
@@ -56,12 +85,65 @@ export default async function RoosterEditorPage({ params, searchParams }: Props)
       console.error("Shiftbase availability fout:", e);
       return [] as Awaited<ReturnType<typeof fetchBeschikbaarheid>>;
     }),
+    dashboardAggregaten(config.slug).catch((e) => {
+      console.error("Dashboard agg fout:", e);
+      return null;
+    }),
+    getWeer().catch(() => []),
   ]);
 
-  // Filter diensten op bedrijf én op publish+concept (we tonen beide voor editor)
-  // Maar fetchDienstenInRange filtert al op gepubliceerd=true; voor editor willen
-  // we ook concepten zien.
   const diensten = alleDiensten.filter((d) => d.bedrijf === config.slug);
+
+  // Bouw lookups: prognose per datum, weer per datum
+  const prognoseMap = new Map<string, NonNullable<DagContext["prognose"]>>();
+  if (agg) {
+    for (const p of agg.prognose) {
+      prognoseMap.set(p.datum, { verwacht: p.verwacht, druk: p.druk });
+    }
+  }
+  const weerMap = new Map<string, NonNullable<DagContext["weer"]>>();
+  for (const w of weerData) {
+    const info = weerInfo(w.weerCode);
+    weerMap.set(w.datum, {
+      tempMax: w.tempMax,
+      tempMin: w.tempMin,
+      neerslag: w.neerslag,
+      emoji: info.emoji,
+      categorie: info.categorie,
+    });
+  }
+
+  // Bouw context per dag voor week
+  const dagContexten: DagContext[] = [];
+  for (let i = 0; i < 7; i++) {
+    const datum = plusDagen(startDatum, i);
+    const [y, m, d] = datum.split("-").map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    const weekdag = dt.getUTCDay();
+
+    const cruiseCalls = cruisesOpDatum(datum);
+    const cruises = cruiseCalls.map((c) => ({
+      schip: c.ship,
+      passagiers: c.passagiers,
+      aankomst: c.arrival ?? null,
+      vertrek: c.departure ?? null,
+    }));
+    const totaalPassagiers = cruises.reduce((s, c) => s + c.passagiers, 0);
+
+    const feest = feestdagOpDatum(dt);
+    const vak = vakantieOpDatum(dt);
+
+    dagContexten.push({
+      datum,
+      weekdag,
+      weer: weerMap.get(datum) ?? null,
+      prognose: prognoseMap.get(datum) ?? null,
+      cruises,
+      totaalPassagiers,
+      feestdag: feest?.naam ?? null,
+      vakantie: vak?.naam ?? null,
+    });
+  }
 
   return (
     <main className="min-h-screen p-4 sm:p-6 max-w-7xl mx-auto">
@@ -77,6 +159,7 @@ export default async function RoosterEditorPage({ params, searchParams }: Props)
         medewerkers={medewerkers}
         templates={templates}
         beschikbaarheid={beschikbaarheid}
+        dagContexten={dagContexten}
       />
       </div>
     </main>

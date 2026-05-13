@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Dienst } from "@/lib/rooster";
 import Icon from "./Icon";
+import { useT } from "@/lib/i18n/useT";
 
 interface Props {
   diensten: Dienst[];
@@ -81,15 +82,16 @@ function DienstChip({
   hex: string;
   nuHhmm: string;
 }) {
+  const { t } = useT();
   const dempkleur = status === "klaar";
   const accent = status === "actief" ? hex : status === "komt" ? "var(--muted)" : "var(--muted)";
 
   const extra =
     status === "actief"
-      ? `nog ${Math.max(0, minutenTot(dienst.eind, nuHhmm))} min`
+      ? t("schedule.shift_remaining_min").replace("{min}", String(Math.max(0, minutenTot(dienst.eind, nuHhmm))))
       : status === "komt"
-      ? `start ${dienst.start}`
-      : `klaar ${dienst.eind}`;
+      ? `${t("schedule.starts_at")} ${dienst.start}`
+      : `${t("schedule.done_at")} ${dienst.eind}`;
 
   return (
     <div
@@ -120,12 +122,13 @@ function DienstChip({
 }
 
 export default function RoosterVandaag({ diensten, hex }: Props) {
+  const { t } = useT();
   const [now, setNow] = useState(() => new Date());
 
   // Tikt elke minuut voor live "nog X min"
   useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 60_000);
-    return () => clearInterval(t);
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
   }, []);
 
   const nuHhmm = hhmm(now);
@@ -145,11 +148,11 @@ export default function RoosterVandaag({ diensten, hex }: Props) {
         <div className="flex items-center gap-2 mb-2">
           <Icon name="calendar-clock" size={16} className="opacity-70" />
           <h2 className="text-[13px] font-semibold" style={{ color: "var(--text-2)" }}>
-            Rooster vandaag
+            {t("schedule.today")}
           </h2>
         </div>
         <p className="text-[13px]" style={{ color: "var(--muted)" }}>
-          Geen diensten gepland voor {datumLabel.toLowerCase()}.
+          {t("schedule.no_shifts_for")} {datumLabel.toLowerCase()}.
         </p>
       </div>
     );
@@ -161,11 +164,11 @@ export default function RoosterVandaag({ diensten, hex }: Props) {
         <div className="flex items-center gap-2">
           <Icon name="calendar-clock" size={16} className="opacity-70" />
           <h2 className="text-[13px] font-semibold" style={{ color: "var(--text-2)" }}>
-            Rooster vandaag
+            {t("schedule.today")}
           </h2>
         </div>
         <span className="text-[11px] tabular-nums" style={{ color: "var(--muted)" }}>
-          {uniekeMensen} {uniekeMensen === 1 ? "persoon" : "mensen"} · {totaalUren.toFixed(1)}u totaal
+          {uniekeMensen} {uniekeMensen === 1 ? t("schedule.person_singular") : t("schedule.person_plural")} · {totaalUren.toFixed(1)}{t("schedule.total_hours_suffix")}
         </span>
       </div>
 
@@ -179,7 +182,7 @@ export default function RoosterVandaag({ diensten, hex }: Props) {
               className="w-1.5 h-1.5 rounded-full pulse-soft"
               style={{ background: hex, boxShadow: `0 0 6px ${hex}` }}
             />
-            <p className="eyebrow">Nu aan het werk · {actief.length}</p>
+            <p className="eyebrow">{t("schedule.now_working")} · {actief.length}</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {actief.map((d) => (
@@ -191,7 +194,7 @@ export default function RoosterVandaag({ diensten, hex }: Props) {
 
       {komt.length > 0 && (
         <div>
-          <p className="eyebrow mb-2">Komen nog · {komt.length}</p>
+          <p className="eyebrow mb-2">{t("schedule.coming")} · {komt.length}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {komt.map((d) => (
               <DienstChip key={d.id} dienst={d} status="komt" hex={hex} nuHhmm={nuHhmm} />
@@ -206,7 +209,7 @@ export default function RoosterVandaag({ diensten, hex }: Props) {
             className="eyebrow cursor-pointer list-none flex items-center gap-1"
             style={{ color: "var(--muted)" }}
           >
-            Klaar voor vandaag · {klaar.length}
+            {t("schedule.done")} · {klaar.length}
             <Icon
               name="chevron-down"
               size={12}

@@ -3,13 +3,22 @@
 import { useState } from "react";
 import type { DagBezetting } from "@/lib/rooster";
 import Icon from "./Icon";
+import { useT } from "@/lib/i18n/useT";
 
 interface Props {
   dagen: DagBezetting[];
   hex: string;
 }
 
-const DAG_KORT = ["zo", "ma", "di", "wo", "do", "vr", "za"];
+const DAG_KORT_KEYS = [
+  "weekday.sun_short",
+  "weekday.mon_short",
+  "weekday.tue_short",
+  "weekday.wed_short",
+  "weekday.thu_short",
+  "weekday.fri_short",
+  "weekday.sat_short",
+];
 
 function isVandaag(iso: string): boolean {
   const vandaag = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Amsterdam" }).format(new Date());
@@ -17,6 +26,7 @@ function isVandaag(iso: string): boolean {
 }
 
 export default function RoosterWeek({ dagen, hex }: Props) {
+  const { t } = useT();
   const eerste7 = dagen.slice(0, 7);
   const [open, setOpen] = useState<string | null>(null);
 
@@ -26,11 +36,11 @@ export default function RoosterWeek({ dagen, hex }: Props) {
         <div className="flex items-center gap-2 mb-2">
           <Icon name="calendar" size={16} className="opacity-70" />
           <h2 className="text-[13px] font-semibold" style={{ color: "var(--text-2)" }}>
-            Komende week
+            {t("schedule.this_week")}
           </h2>
         </div>
         <p className="text-[13px]" style={{ color: "var(--muted)" }}>
-          Geen rooster gepubliceerd voor komende dagen.
+          {t("schedule.week_no_publish")}
         </p>
       </div>
     );
@@ -45,11 +55,11 @@ export default function RoosterWeek({ dagen, hex }: Props) {
         <div className="flex items-center gap-2">
           <Icon name="calendar" size={16} className="opacity-70" />
           <h2 className="text-[13px] font-semibold" style={{ color: "var(--text-2)" }}>
-            Komende week
+            {t("schedule.this_week")}
           </h2>
         </div>
         <span className="text-[11px]" style={{ color: "var(--muted)" }}>
-          Tik op een dag voor details
+          {t("schedule.tap_day_for_details")}
         </span>
       </div>
 
@@ -79,7 +89,7 @@ export default function RoosterWeek({ dagen, hex }: Props) {
                   fontWeight: isToday ? 600 : 500,
                 }}
               >
-                {DAG_KORT[d.weekdag]}
+                {t(DAG_KORT_KEYS[d.weekdag])}
               </span>
               <span
                 className="text-[15px] font-semibold tabular-nums leading-tight"
@@ -127,7 +137,7 @@ export default function RoosterWeek({ dagen, hex }: Props) {
               {openDag.label}
             </p>
             <p className="text-[11px]" style={{ color: "var(--muted)" }}>
-              {openDag.aantalMensen} {openDag.aantalMensen === 1 ? "persoon" : "mensen"} · {openDag.totaalUren.toFixed(1)}u
+              {openDag.aantalMensen} {openDag.aantalMensen === 1 ? t("schedule.person_singular") : t("schedule.person_plural")} · {openDag.totaalUren.toFixed(1)}u
             </p>
           </div>
 
