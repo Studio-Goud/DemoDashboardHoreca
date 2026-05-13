@@ -158,3 +158,113 @@ html.dark .segmented { background: rgba(120, 120, 128, 0.24); }
   100% { opacity: 1; transform: translateY(0); }
 }
 .fade-up { animation: fadeUp 600ms ease-out both; }
+
+/* =========================================================================
+   FUTURISTIC LAYER — subtiele "spaceship 3899" effecten zonder kitsch.
+   Premium tech-feel: ademen, gloeien, iridescent rand bij interactie.
+   ========================================================================= */
+
+/* Glow-pulse voor kritieke / live elementen
+   Bewust subtiel — alleen via box-shadow, geen scale. */
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
+  50%      { box-shadow: 0 0 18px 2px currentColor; opacity: 0.85; }
+}
+.glow-pulse { animation: glowPulse 2.6s ease-in-out infinite; }
+
+/* Ademend hartritme voor "urgent" badges en kritieke voorraad */
+@keyframes breathe {
+  0%, 100% {
+    box-shadow:
+      0 0 0 0 rgba(229, 72, 77, 0.0),
+      0 0 12px 0 rgba(229, 72, 77, 0.0);
+  }
+  50% {
+    box-shadow:
+      0 0 0 4px rgba(229, 72, 77, 0.12),
+      0 0 24px 4px rgba(229, 72, 77, 0.35);
+  }
+}
+.breathe-critical { animation: breathe 2.4s ease-in-out infinite; }
+
+/* Iridescent ring — conic gradient die heel langzaam draait
+   Gebruik via wrapper: <div class="iris-border">...</div> */
+@keyframes irisRotate {
+  to { --iris-angle: 360deg; }
+}
+@property --iris-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+.iris-border {
+  position: relative;
+  background-clip: padding-box;
+}
+.iris-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(
+    from var(--iris-angle, 0deg),
+    rgba(10, 132, 255, 0.45),
+    rgba(48, 178, 111, 0.45),
+    rgba(224, 122, 31, 0.45),
+    rgba(10, 132, 255, 0.45)
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  pointer-events: none;
+  animation: irisRotate 14s linear infinite;
+}
+
+/* Live data "flash" — korte sweep wanneer een cijfer update */
+@keyframes liveFlash {
+  0%   { background-position: -100% 0; }
+  100% { background-position: 200% 0; }
+}
+.live-flash {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.08) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: liveFlash 1.4s ease-out;
+}
+
+/* Holografisch cijfer — subtiele kleur-shift in tekst-shadow */
+.hologram {
+  text-shadow:
+    0 0 1px currentColor,
+    0 0 8px rgba(10, 132, 255, 0.18),
+    0 0 14px rgba(48, 178, 111, 0.08);
+}
+
+/* Body krijgt een hele zachte mesh-achtergrond die langzaam ademt.
+   Onder light mode bijna onzichtbaar; in dark mode iets sterker. */
+body {
+  background-image:
+    radial-gradient(60rem 60rem at 100% -10%, rgba(10, 132, 255, 0.05), transparent 60%),
+    radial-gradient(50rem 50rem at -10% 110%, rgba(48, 178, 111, 0.04), transparent 60%);
+  background-attachment: fixed;
+  background-size: 100% 100%, 100% 100%;
+  animation: meshBreath 22s ease-in-out infinite;
+}
+@media (prefers-color-scheme: dark) {
+  body {
+    background-image:
+      radial-gradient(70rem 70rem at 100% -10%, rgba(10, 132, 255, 0.10), transparent 60%),
+      radial-gradient(60rem 60rem at -10% 110%, rgba(48, 178, 111, 0.08), transparent 60%);
+  }
+}
+@keyframes meshBreath {
+  0%, 100% { background-position: 0% 0%, 0% 0%; }
+  50%      { background-position: 4% 2%, -3% -2%; }
+}

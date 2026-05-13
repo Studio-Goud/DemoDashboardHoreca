@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import PinGate from "@/components/PinGate";
 import LiveBalk from "@/components/LiveBalk";
+import TaalSwitcher from "@/components/TaalSwitcher";
 
 export const metadata: Metadata = {
   title: "Studio Goud",
@@ -35,6 +36,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen antialiased">
         <PinGate>
           <LiveBalk />
+          {/* Floating taalswitcher: rechtsboven op elke pagina */}
+          <div className="fixed top-1.5 right-2 z-40">
+            <TaalSwitcher />
+          </div>
           {children}
         </PinGate>
       </body>

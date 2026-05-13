@@ -181,6 +181,40 @@ export const medewerkerDepartmentsRelations = relations(medewerkerDepartments, (
   department: one(departments, { fields: [medewerkerDepartments.departmentId], references: [departments.id] }),
 }));
 
+// ─── Voorraad ────────────────────────────────────────────────────────────────
+// Producten per vestiging (eenmalig setup) + live status (aantal + niveau)
+
+export const voorraadProducten = pgTable("voorraad_producten", {
+  id: serial("id").primaryKey(),
+  departmentId: integer("department_id").notNull().references(() => departments.id, { onDelete: "cascade" }),
+  naam: varchar("naam", { length: 100 }).notNull(),
+  eenheid: varchar("eenheid", { length: 30 }).default("stuk"),       // doos, fles, kg, pak
+  categorie: varchar("categorie", { length: 60 }),                    // bv. "Koffie", "Bekers", "Schoonmaak"
+  // Drempels (in absolute aantallen, lager = meer urgent)
+  drempelKritiek: integer("drempel_kritiek").default(1),              // bv. "1 doos → bestel NU"
+  drempelLaag:    integer("drempel_laag").default(3),                 // bv. "≤3 → bestel binnenkort"
+  kritiekProduct: boolean("kritiek_product").notNull().default(false), // bv. "zonder bekers geen koffie"
+  notitie:        text("notitie"),                                    // bv. leverancier, bestelinfo
+  volgorde:       integer("volgorde").notNull().default(0),
+  verwijderd:     boolean("verwijderd").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  deptIdx: index("voorraad_producten_dept_idx").on(t.departmentId, t.volgorde),
+}));
+
+export const voorraadStatus = pgTable("voorraad_status", {
+  productId: integer("product_id").primaryKey().references(() => voorraadProducten.id, { onDelete: "cascade" }),
+  aantal:    decimal("aantal", { precision: 8, scale: 2 }).notNull().default("0"),
+  laatsteUpdate:    timestamp("laatste_update",     { withTimezone: true }).notNull().defaultNow(),
+  laatsteUpdateDoor: integer("laatste_update_door").references(() => medewerkers.id, { onDelete: "set null" }),
+});
+
+export const voorraadProductenRelations = relations(voorraadProducten, ({ one }) => ({
+  department: one(departments, { fields: [voorraadProducten.departmentId], references: [departments.id] }),
+  status: one(voorraadStatus, { fields: [voorraadProducten.id], references: [voorraadStatus.productId] }),
+}));
+
 // Type-helpers voor consumers
 export type Department      = typeof departments.$inferSelect;
 export type Medewerker      = typeof medewerkers.$inferSelect;
@@ -191,3 +225,5 @@ export type ShiftTemplate   = typeof shiftTemplates.$inferSelect;
 export type Beschikbaarheid = typeof beschikbaarheid.$inferSelect;
 export type KlokEvent       = typeof klokEvents.$inferSelect;
 export type Sessie          = typeof sessies.$inferSelect;
+export type VoorraadProduct = typeof voorraadProducten.$inferSelect;
+export type VoorraadStatus  = typeof voorraadStatus.$inferSelect;

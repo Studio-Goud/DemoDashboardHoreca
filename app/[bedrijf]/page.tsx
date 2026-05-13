@@ -31,6 +31,7 @@ import { dienstenVandaag, bezettingKomendePeriode } from "@/lib/rooster";
 import RoosterVandaag from "@/components/RoosterVandaag";
 import RoosterWeek from "@/components/RoosterWeek";
 import ManagerWidgets from "@/components/ManagerWidgets";
+import VoorraadAlerts from "@/components/VoorraadAlerts";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -211,6 +212,12 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
       icon: "wallet" as const,
       href: `/${config.slug}/rapporten`,
     },
+    {
+      id: "voorraad",
+      label: "Voorraad",
+      icon: "shopping-bag" as const,
+      href: `/${config.slug}/voorraad`,
+    },
     { id: "producten", label: "Producten",     icon: "shopping-bag" as const },
     { id: "inzichten", label: "Inzichten",     icon: "lightbulb"   as const },
     {
@@ -238,6 +245,9 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
 
       {/* Manager-only: leaderboard + doel-tracker als hero */}
       <ManagerWidgets bedrijf={config.slug} hex={config.hex} />
+
+      {/* Voorraad-alerts (zichtbaar voor iedereen, urgent als kritieke producten op zijn) */}
+      <VoorraadAlerts bedrijf={config.slug} hex={config.hex} />
 
       {/* Altijd bovenaan: live omzet + kerncijfers */}
       {heeftData && (
