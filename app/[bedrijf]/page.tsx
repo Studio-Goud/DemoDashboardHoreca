@@ -32,7 +32,6 @@ import RoosterVandaag from "@/components/RoosterVandaag";
 import RoosterWeek from "@/components/RoosterWeek";
 import ManagerWidgets from "@/components/ManagerWidgets";
 import VoorraadAlerts from "@/components/VoorraadAlerts";
-import TaalSwitcher from "@/components/TaalSwitcher";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -72,10 +71,6 @@ export default function DashboardPage({ params }: { params: Params }) {
   return (
     <PullToRefresh>
       <main className="min-h-screen p-4 sm:p-6 max-w-7xl mx-auto">
-        {/* Taalswitcher bovenaan, rechts uitgelijnd — onder de LiveBalk */}
-        <div className="flex justify-end mb-3">
-          <TaalSwitcher />
-        </div>
         <Suspense fallback={<DashboardSkeleton hex={config.hex} />}>
           <DashboardData config={config} />
         </Suspense>

@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/facturen-sync",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/sumup-sync",
+      "schedule": "*/10 * * * *"
     }
   ]
 }

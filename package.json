@@ -11,7 +11,8 @@
     "db:push": "drizzle-kit push --force",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
-    "migrate:shiftbase": "tsx --env-file=.env.local scripts/migrate-shiftbase-naar-db.ts"
+    "migrate:shiftbase": "tsx --env-file=.env.local scripts/migrate-shiftbase-naar-db.ts",
+    "import:sumup": "tsx --env-file=.env.local scripts/import-sumup-history.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.90.0",

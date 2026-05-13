@@ -181,6 +181,44 @@ export const medewerkerDepartmentsRelations = relations(medewerkerDepartments, (
   department: one(departments, { fields: [medewerkerDepartments.departmentId], references: [departments.id] }),
 }));
 
+// ─── SumUp transacties (gesynchroniseerde cache) ─────────────────────────────
+// Elke 5 min wordt deze tabel bijgewerkt met nieuwe transacties uit SumUp,
+// zodat het dashboard niet meer live de paginated API hoeft aan te roepen.
+
+export const sumupTransacties = pgTable("sumup_transacties", {
+  // sumup transaction_code is uniek per bedrijf, dus we gebruiken (bedrijf, code) als primary
+  id: serial("id").primaryKey(),
+  bedrijf: varchar("bedrijf", { length: 4 }).notNull(),     // 'bb' | 'sl' | 'kl'
+  transactionCode: varchar("transaction_code", { length: 64 }).notNull(),
+  sumupId: varchar("sumup_id", { length: 64 }),
+  bedrag: decimal("bedrag", { precision: 10, scale: 2 }).notNull(),
+  valuta: varchar("valuta", { length: 8 }).default("EUR"),
+  status: varchar("status", { length: 24 }).notNull(),       // SUCCESSFUL, FAILED, etc.
+  paymentType: varchar("payment_type", { length: 32 }),
+  cardType: varchar("card_type", { length: 32 }),
+  timestamp: timestamp("timestamp", { withTimezone: true }).notNull(),
+  ruwJson: text("ruw_json"),                                  // hele response bewaren voor later
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  uniekPerBedrijf: uniqueIndex("sumup_tx_bedrijf_code_uq").on(t.bedrijf, t.transactionCode),
+  bedrijfTimeIdx: index("sumup_tx_bedrijf_ts_idx").on(t.bedrijf, t.timestamp),
+  timeIdx: index("sumup_tx_ts_idx").on(t.timestamp),
+}));
+
+// Per bedrijf bijhouden tot wanneer we gesynchroniseerd zijn — dan
+// hoeven we niet keer-op-keer alles te doorzoeken bij de cron.
+export const sumupSyncState = pgTable("sumup_sync_state", {
+  bedrijf: varchar("bedrijf", { length: 4 }).primaryKey(),
+  laatsteSync: timestamp("laatste_sync", { withTimezone: true }).notNull(),
+  laatsteTxTime: timestamp("laatste_tx_time", { withTimezone: true }),
+  totaalGesynct: integer("totaal_gesynct").notNull().default(0),
+  laatsteFout: text("laatste_fout"),
+});
+
+export type SumUpTx        = typeof sumupTransacties.$inferSelect;
+export type NieuweSumUpTx  = typeof sumupTransacties.$inferInsert;
+export type SumUpSyncState = typeof sumupSyncState.$inferSelect;
+
 // ─── Voorraad ────────────────────────────────────────────────────────────────
 // Producten per vestiging (eenmalig setup) + live status (aantal + niveau)
 

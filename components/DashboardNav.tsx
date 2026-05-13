@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Icon from "./Icon";
 import { useRol, type Rol } from "@/lib/useRol";
 import { useT } from "@/lib/i18n/useT";
+import TaalSwitcher from "./TaalSwitcher";
 
 type IconName = React.ComponentProps<typeof Icon>["name"];
 
@@ -112,9 +113,10 @@ export default function DashboardNav({ tabs, hex, children }: Props) {
           }}
         />
 
+        <div className="flex items-center gap-2 max-w-full">
         <div
           ref={navRef}
-          className="flex gap-1.5 overflow-x-auto scrollbar-hide max-w-full"
+          className="flex gap-1.5 overflow-x-auto scrollbar-hide flex-1 min-w-0"
           role="tablist"
         >
           {zichtbareTabs.map((tab) => {
@@ -169,6 +171,10 @@ export default function DashboardNav({ tabs, hex, children }: Props) {
               </button>
             );
           })}
+        </div>
+        <div className="shrink-0 pl-1">
+          <TaalSwitcher />
+        </div>
         </div>
       </div>
 
