@@ -163,6 +163,80 @@ export default function RoosterEditor({
     }
   }
 
+  /**
+   * Genereer een concept-rooster voor deze week. mode = "heuristiek"
+   * gebruikt vaste templates + kosten/baten-sorting (gratis, snel).
+   * mode = "ai" stuurt context naar Claude die ook historische patronen
+   * en samenwerkings-voorkeuren meeweegt (kost API-credits, betere kwaliteit).
+   */
+  async function autoRooster(mode: "heuristiek" | "ai") {
+    const naam = mode === "ai" ? "AI-rooster (Claude)" : "Snel-rooster (heuristiek)";
+    const opmerking = mode === "ai"
+      ? "Dit gebruikt Claude AI en kost API-credits. Bedoeld voor lege of nauwelijks-ingeplande weken."
+      : "Snel concept-rooster op basis van vaste templates + kosten/baten-balans.";
+    if (!confirm(`${naam} maken voor deze week?\n\n${opmerking}\n\nBestaande gepubliceerde diensten blijven onaangetast — alleen lege dagen worden ingevuld als concept.`)) return;
+
+    setBusy(true);
+    setFoutmelding(null);
+    try {
+      const res = await fetch(`/api/rooster/auto/${bedrijf}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ weekStart, mode }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({ error: "fout" }));
+        throw new Error(j.error || "auto-rooster mislukt");
+      }
+      const j = (await res.json()) as {
+        mode: string;
+        ingepland: Array<{ datum: string; medewerker: string }>;
+        overgeslagen?: Array<{ datum?: string; reden?: string }>;
+        samenvatting?: {
+          aantalIngepland?: number;
+          totaalUren?: number;
+          totaalLoonkosten?: number;
+          totaalVerwachteOmzet?: number;
+          loonkostPctWeek?: number;
+        };
+        weekSamenvatting?: string;
+        waarschuwingen?: string[];
+      };
+
+      startTransition(() => router.refresh());
+
+      const aantal = j.samenvatting?.aantalIngepland ?? j.ingepland?.length ?? 0;
+      const totUren = j.samenvatting?.totaalUren ?? 0;
+      const totKost = j.samenvatting?.totaalLoonkosten ?? 0;
+      const pct = j.samenvatting?.loonkostPctWeek ?? 0;
+      const overgeslagen = j.overgeslagen?.length ?? 0;
+
+      const regels = [
+        `✓ ${aantal} concept-dienst(en) gemaakt voor deze week.`,
+        `Uren: ${totUren.toFixed(1)}u · Loonkost: €${totKost.toFixed(0)}`,
+      ];
+      if (j.samenvatting?.totaalVerwachteOmzet) {
+        regels.push(`Verwachte omzet: €${j.samenvatting.totaalVerwachteOmzet.toFixed(0)} (loonkost ${(pct * 100).toFixed(0)}% v.d. omzet)`);
+      }
+      if (overgeslagen > 0) {
+        regels.push(`\n⚠ ${overgeslagen} shift(s) niet kunnen invullen — bekijk de details per dag.`);
+      }
+      if (j.weekSamenvatting) {
+        regels.push(`\nAI: ${j.weekSamenvatting}`);
+      }
+      if (j.waarschuwingen && j.waarschuwingen.length > 0) {
+        regels.push(`\n${j.waarschuwingen.join("\n")}`);
+      }
+      regels.push("\nDe diensten staan als CONCEPT in de week. Bekijk per dag, pas aan waar nodig, en klik daarna op 'Publiceer'.");
+
+      alert(regels.join("\n"));
+    } catch (e) {
+      setFoutmelding(e instanceof Error ? e.message : "fout");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const conceptenDezeWeek = initieleDiensten.filter((d) => !d.gepubliceerd).length;
   const totaalUren = initieleDiensten.reduce((s, d) => s + d.uren, 0);
 
@@ -217,6 +291,30 @@ export default function RoosterEditor({
           >
             <Icon name="users" size={14} />
             Medewerkers
+          </button>
+
+          {/* Auto-rooster knoppen — vullen concepten in voor de hele week */}
+          <button
+            onClick={() => autoRooster("heuristiek")}
+            disabled={busy || pending}
+            className="px-3 py-1.5 rounded-[8px] text-[12px] font-medium transition-opacity disabled:opacity-50"
+            style={{ background: "var(--bg-elev)", border: "1px solid var(--hairline)", color: "var(--text)" }}
+            title="Snel concept-rooster op basis van templates + uurloon-volgorde"
+          >
+            ⚡ Snel-rooster
+          </button>
+
+          <button
+            onClick={() => autoRooster("ai")}
+            disabled={busy || pending}
+            className="px-3 py-1.5 rounded-[8px] text-[12px] font-medium transition-opacity disabled:opacity-50 text-white"
+            style={{
+              background: "linear-gradient(135deg, #BF5AF2 0%, #7B2DAA 100%)",
+              boxShadow: "0 2px 10px -2px rgba(191,90,242,0.4)",
+            }}
+            title="Claude AI maakt het rooster — gebruikt historische patronen + verwachte drukte + uurloon"
+          >
+            ✨ AI-rooster
           </button>
 
           {conceptenDezeWeek > 0 && (
