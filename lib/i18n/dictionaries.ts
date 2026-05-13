@@ -35,7 +35,7 @@ const nl: Dictionary = {
 
   // Login
   "login.title": "Voer PIN in",
-  "login.subtitle": "Studio Goud",
+  "login.subtitle": "Markthal HQ",
   "login.wrong": "Onjuiste PIN",
   "login.welcome": "Welkom",
   "login.choose_pin": "Kies een 4-cijferige PIN",
@@ -226,7 +226,7 @@ const en: Dictionary = {
   "common.logout": "Sign out",
 
   "login.title": "Enter PIN",
-  "login.subtitle": "Studio Goud",
+  "login.subtitle": "Markthal HQ",
   "login.wrong": "Wrong PIN",
   "login.welcome": "Welcome",
   "login.choose_pin": "Choose a 4-digit PIN",
@@ -405,7 +405,7 @@ const pt: Dictionary = {
   "common.logout": "Terminar sessão",
 
   "login.title": "Inserir PIN",
-  "login.subtitle": "Studio Goud",
+  "login.subtitle": "Markthal HQ",
   "login.wrong": "PIN incorreto",
   "login.welcome": "Bem-vindo",
   "login.choose_pin": "Escolhe um PIN de 4 dígitos",

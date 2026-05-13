@@ -45,11 +45,11 @@ export async function verstuurUitnodiging(data: UitnodigingMail): Promise<{ id: 
   const html = `
 <!doctype html>
 <html lang="nl">
-<head><meta charset="utf-8" /><title>Welkom bij Studio Goud</title></head>
+<head><meta charset="utf-8" /><title>Welkom bij Markthal HQ</title></head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif; background: #F5F5F7; margin: 0; padding: 40px 20px; color: #1D1D1F;">
   <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="max-width: 480px; margin: 0 auto; background: #FFFFFF; border-radius: 14px; padding: 32px; border: 1px solid rgba(0,0,0,0.08);">
     <tr><td>
-      <p style="font-size: 11px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; color: #6E6E73; margin: 0 0 12px;">Studio Goud · ${data.bedrijfNaam}</p>
+      <p style="font-size: 11px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; color: #6E6E73; margin: 0 0 12px;">Markthal HQ · ${data.bedrijfNaam}</p>
       <h1 style="font-size: 24px; font-weight: 600; letter-spacing: -0.019em; margin: 0 0 16px;">Welkom ${data.voornaam} 👋</h1>
       <p style="font-size: 15px; line-height: 1.55; margin: 0 0 16px;">
         Je bent toegevoegd aan het Studio&nbsp;Goud rooster-systeem. Klik op onderstaande knop om je
@@ -75,7 +75,7 @@ export async function verstuurUitnodiging(data: UitnodigingMail): Promise<{ id: 
 
   const text =
     `Welkom ${data.voornaam}\n\n` +
-    `Je bent toegevoegd aan het Studio Goud rooster-systeem voor ${data.bedrijfNaam}.\n` +
+    `Je bent toegevoegd aan het Markthal HQ rooster-systeem voor ${data.bedrijfNaam}.\n` +
     `Open de volgende link om je inlogcode aan te maken (geldig tot ${verlooptStr}):\n\n` +
     `${link}\n\n` +
     `Heb je deze mail onverwacht ontvangen? Negeer 'm dan.`;

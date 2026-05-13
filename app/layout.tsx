@@ -4,14 +4,14 @@ import PinGate from "@/components/PinGate";
 import LiveBalk from "@/components/LiveBalk";
 
 export const metadata: Metadata = {
-  title: "Studio Goud",
-  description: "Business intelligence dashboard voor Studio Goud ondernemingen",
+  title: "Markthal HQ",
+  description: "Business intelligence dashboard voor Markthal HQ ondernemingen",
   manifest: "/manifest.json",
-  applicationName: "Studio Goud",
+  applicationName: "Markthal HQ",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Studio Goud",
+    title: "Markthal HQ",
   },
   formatDetection: {
     telephone: false,

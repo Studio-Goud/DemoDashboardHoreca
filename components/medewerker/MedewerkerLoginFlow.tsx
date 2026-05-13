@@ -61,7 +61,7 @@ export default function MedewerkerLoginFlow({ ingevuldEmail }: Props) {
     return (
       <div className="max-w-sm w-full">
         <div className="text-center mb-8">
-          <p className="eyebrow mb-2">Studio Goud</p>
+          <p className="eyebrow mb-2">Markthal HQ</p>
           <h1
             className="text-[22px] font-semibold tracking-tight"
             style={{ color: "var(--text)", letterSpacing: "-0.019em" }}

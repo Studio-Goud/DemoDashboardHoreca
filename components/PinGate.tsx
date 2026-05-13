@@ -115,7 +115,7 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-8">
         <div className="mb-10 text-center">
-          <p className="eyebrow mb-2">Studio Goud</p>
+          <p className="eyebrow mb-2">Markthal HQ</p>
           <h1
             className="text-[22px] font-semibold tracking-tight"
             style={{ color: "var(--text)", letterSpacing: "-0.019em" }}

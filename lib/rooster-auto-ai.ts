@@ -130,7 +130,7 @@ interface AutoRoosterAiResultaat {
 
 const WEEKDAG_NAMEN = ["Zondag", "Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag"];
 
-const SYSTEEM_PROMPT = `Je bent een ervaren horeca-rooster-planner voor Studio Goud (Brunch & Brew, Saté Lounge, Het Kroket Loket in Rotterdam).
+const SYSTEEM_PROMPT = `Je bent een ervaren horeca-rooster-planner voor Markthal HQ (Brunch & Brew, Saté Lounge, Het Kroket Loket in Rotterdam).
 
 Je krijgt context over een week (verwachte drukte, cruise-passagiers, feestdagen, weer, openingsuren) plus een lijst medewerkers met hun beschikbaarheid en uurloon. Jij maakt het optimale rooster.
 

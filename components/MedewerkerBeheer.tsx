@@ -387,7 +387,7 @@ function CodeDialog({
     }
   }
 
-  const deelTekst = `Hoi ${code.voornaam}! Je kunt je aanmelden bij het Studio Goud rooster met:\n\n• Email: ${code.email}\n• Code: ${code.code}\n\nGa naar: ${typeof window !== "undefined" ? window.location.origin : ""}/welkom\n\nKies daar een eigen 4-cijferige PIN om voortaan in te loggen. Code geldig t/m ${verlooptDatum}.`;
+  const deelTekst = `Hoi ${code.voornaam}! Je kunt je aanmelden bij het Markthal HQ rooster met:\n\n• Email: ${code.email}\n• Code: ${code.code}\n\nGa naar: ${typeof window !== "undefined" ? window.location.origin : ""}/welkom\n\nKies daar een eigen 4-cijferige PIN om voortaan in te loggen. Code geldig t/m ${verlooptDatum}.`;
 
   async function deelViaWhatsapp() {
     const url = `https://wa.me/?text=${encodeURIComponent(deelTekst)}`;
