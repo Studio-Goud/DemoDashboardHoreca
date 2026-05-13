@@ -36,8 +36,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen antialiased">
         <PinGate>
           <LiveBalk />
-          {/* Floating taalswitcher: rechtsboven op elke pagina */}
-          <div className="fixed top-1.5 right-2 z-40">
+          {/* Floating taalswitcher: rechtsboven op elke pagina, respecteert iPhone notch */}
+          <div
+            className="fixed right-2 z-40"
+            style={{
+              top: "max(8px, env(safe-area-inset-top))",
+            }}
+          >
             <TaalSwitcher />
           </div>
           {children}
