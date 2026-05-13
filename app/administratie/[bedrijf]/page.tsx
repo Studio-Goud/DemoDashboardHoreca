@@ -9,6 +9,7 @@ import MaandPnL from "@/components/administratie/MaandPnL";
 import KwartaalRapport from "@/components/administratie/KwartaalRapport";
 import ReviewPanel from "@/components/administratie/ReviewPanel";
 import SalarisPanel from "@/components/administratie/SalarisPanel";
+import SetupPanel from "@/components/administratie/SetupPanel";
 
 type BedrijfSlug = "bb" | "sl" | "kl";
 
@@ -64,6 +65,9 @@ export default function AdministratiePage({ params }: { params: { bedrijf: strin
 
         {/* Kwartaalrapport download */}
         <KwartaalRapport bedrijf={bedrijf} hex={config.hex} />
+
+        {/* Setup — DB-init + Shiftbase-migratie (owner-only) */}
+        <SetupPanel hex={config.hex} />
 
       </div>
     </main>
