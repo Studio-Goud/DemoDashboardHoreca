@@ -7,6 +7,8 @@ import type { Bedrijf } from "@/lib/sumup";
 import Icon from "./Icon";
 import DienstModal from "./DienstModal";
 import MedewerkerBeheer from "./MedewerkerBeheer";
+import { useT } from "@/lib/i18n/useT";
+import type { Taal } from "@/lib/i18n/dictionaries";
 
 interface DagContext {
   datum: string;
@@ -46,8 +48,16 @@ interface Props {
   dagContexten: DagContext[];
 }
 
-const DAG_LANG = ["Zondag", "Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag"];
-const MAAND_KORT = ["jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
+const DAG_LANG_PER_TAAL: Record<Taal, string[]> = {
+  nl: ["Zondag", "Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag"],
+  en: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+  pt: ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"],
+};
+const MAAND_KORT_PER_TAAL: Record<Taal, string[]> = {
+  nl: ["jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"],
+  en: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+  pt: ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"],
+};
 
 function plusDagen(iso: string, n: number): string {
   const [y, m, d] = iso.split("-").map(Number);
@@ -63,9 +73,9 @@ function fmtKortDatum(iso: string): string {
   return `${parseInt(d)}/${parseInt(m)}`;
 }
 
-function fmtLangDatum(iso: string): string {
+function fmtLangDatum(iso: string, taal: Taal): string {
   const [, m, d] = iso.split("-");
-  return `${parseInt(d)} ${MAAND_KORT[parseInt(m) - 1]}`;
+  return `${parseInt(d)} ${MAAND_KORT_PER_TAAL[taal][parseInt(m) - 1]}`;
 }
 
 function getWeekNr(iso: string): number {
@@ -86,12 +96,12 @@ const DRUKTE_KLEUR: Record<NonNullable<DagContext["prognose"]>["druk"], string> 
   druk:       "#E07A1F",
   "zeer druk":"#E5484D",
 };
-const DRUKTE_LABEL: Record<NonNullable<DagContext["prognose"]>["druk"], string> = {
-  gesloten:   "Gesloten",
-  laag:       "Rustig",
-  normaal:    "Normaal",
-  druk:       "Druk",
-  "zeer druk":"Extreem druk",
+const DRUKTE_LABEL_KEY: Record<NonNullable<DagContext["prognose"]>["druk"], string> = {
+  gesloten:   "drukte.closed",
+  laag:       "drukte.quiet",
+  normaal:    "drukte.normal",
+  druk:       "drukte.busy",
+  "zeer druk":"drukte.very_busy",
 };
 
 export default function RoosterEditor({
@@ -102,6 +112,7 @@ export default function RoosterEditor({
   dagContexten,
 }: Props) {
   const router = useRouter();
+  const { t, taal } = useT();
   const [pending, startTransition] = useTransition();
   const [busy, setBusy] = useState(false);
   const [foutmelding, setFoutmelding] = useState<string | null>(null);
@@ -257,29 +268,29 @@ export default function RoosterEditor({
             style={{ color: "var(--muted)" }}
           >
             <Icon name="chevron-right" size={14} className="rotate-180" />
-            Terug
+            {t("rooster.terug")}
           </a>
           <div className="min-w-0">
-            <p className="eyebrow">Rooster · {naam}</p>
+            <p className="eyebrow">{t("rooster.label_naam")} · {naam}</p>
             <h1 className="text-[18px] font-semibold" style={{ color: "var(--text)" }}>
-              Week {weekNr} · {fmtKortDatum(weekStart)} – {fmtKortDatum(weekEind)}
+              {t("rooster.week_prefix")} {weekNr} · {fmtKortDatum(weekStart)} – {fmtKortDatum(weekEind)}
             </h1>
             <p className="text-[11px] tabular-nums" style={{ color: "var(--muted)" }}>
-              {initieleDiensten.length} diensten · {totaalUren.toFixed(1)}u totaal
-              {conceptenDezeWeek > 0 && ` · ${conceptenDezeWeek} concept`}
+              {initieleDiensten.length} {initieleDiensten.length === 1 ? t("rooster.diensten_singular") : t("rooster.diensten_plural")} · {totaalUren.toFixed(1)}{t("rooster.uren_totaal_suffix")}
+              {conceptenDezeWeek > 0 && ` · ${conceptenDezeWeek} ${t("rooster.concept_suffix")}`}
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
           <div className="segmented">
-            <button onClick={vorigeWeek} className="segmented-item" aria-label="Vorige week">
+            <button onClick={vorigeWeek} className="segmented-item" aria-label={t("rooster.terug")}>
               <Icon name="chevron-right" size={14} className="rotate-180" />
             </button>
             <button onClick={naarDezeWeek} className="segmented-item">
-              Deze week
+              {t("rooster.this_week_btn")}
             </button>
-            <button onClick={volgendeWeek} className="segmented-item" aria-label="Volgende week">
+            <button onClick={volgendeWeek} className="segmented-item" aria-label={t("common.next")}>
               <Icon name="chevron-right" size={14} />
             </button>
           </div>
@@ -290,7 +301,7 @@ export default function RoosterEditor({
             style={{ background: "var(--bg-elev)", border: "1px solid var(--hairline)" }}
           >
             <Icon name="users" size={14} />
-            Medewerkers
+            {t("rooster.employees_btn")}
           </button>
 
           {/* Auto-rooster knoppen — vullen concepten in voor de hele week */}
@@ -299,9 +310,8 @@ export default function RoosterEditor({
             disabled={busy || pending}
             className="px-3 py-1.5 rounded-[8px] text-[12px] font-medium transition-opacity disabled:opacity-50"
             style={{ background: "var(--bg-elev)", border: "1px solid var(--hairline)", color: "var(--text)" }}
-            title="Snel concept-rooster op basis van templates + uurloon-volgorde"
           >
-            ⚡ Snel-rooster
+            {t("rooster.quick_btn")}
           </button>
 
           <button
@@ -312,9 +322,8 @@ export default function RoosterEditor({
               background: "linear-gradient(135deg, #BF5AF2 0%, #7B2DAA 100%)",
               boxShadow: "0 2px 10px -2px rgba(191,90,242,0.4)",
             }}
-            title="Claude AI maakt het rooster — gebruikt historische patronen + verwachte drukte + uurloon"
           >
-            ✨ AI-rooster
+            {t("rooster.ai_btn")}
           </button>
 
           {conceptenDezeWeek > 0 && (
@@ -324,7 +333,7 @@ export default function RoosterEditor({
               className="px-3.5 py-1.5 rounded-[8px] text-[13px] font-medium transition-opacity disabled:opacity-50"
               style={{ background: hex, color: "white" }}
             >
-              Publiceer ({conceptenDezeWeek})
+              {t("rooster.publiceer_btn")} ({conceptenDezeWeek})
             </button>
           )}
         </div>
@@ -344,7 +353,7 @@ export default function RoosterEditor({
           const diensten = dienstenOpDag(dag.datum);
           const dagUren = diensten.reduce((s, d) => s + d.uren, 0);
           const drukKleur = dag.prognose ? DRUKTE_KLEUR[dag.prognose.druk] : "var(--muted)";
-          const drukLabel = dag.prognose ? DRUKTE_LABEL[dag.prognose.druk] : null;
+          const drukLabel = dag.prognose ? t(DRUKTE_LABEL_KEY[dag.prognose.druk]) : null;
 
           return (
             <div
@@ -377,23 +386,23 @@ export default function RoosterEditor({
                       className="text-[15px] font-semibold tracking-tight"
                       style={{ color: isToday ? hex : "var(--text)", letterSpacing: "-0.014em" }}
                     >
-                      {DAG_LANG[dag.weekdag]} {fmtLangDatum(dag.datum)}
+                      {DAG_LANG_PER_TAAL[taal][dag.weekdag]} {fmtLangDatum(dag.datum, taal)}
                     </p>
                     {isToday && (
                       <span
                         className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
                         style={{ background: `${hex}1A`, color: hex }}
                       >
-                        vandaag
+                        {t("rooster.today_chip")}
                       </span>
                     )}
                   </div>
                   <p className="text-[12px] mt-0.5 tabular-nums" style={{ color: "var(--muted)" }}>
                     {diensten.length === 0 ? (
-                      <span style={{ color: "#E5484D" }}>geen diensten gepland</span>
+                      <span style={{ color: "#E5484D" }}>{t("rooster.geen_diensten_dag")}</span>
                     ) : (
                       <>
-                        {diensten.length} {diensten.length === 1 ? "dienst" : "diensten"} · {dagUren.toFixed(1)}u
+                        {diensten.length} {diensten.length === 1 ? t("rooster.diensten_singular") : t("rooster.diensten_plural")} · {dagUren.toFixed(1)}{t("rooster.urenSuffix")}
                       </>
                     )}
                   </p>
@@ -418,7 +427,7 @@ export default function RoosterEditor({
                         background: `${drukKleur}1A`,
                         color: drukKleur,
                       }}
-                      title={`Verwacht €${dag.prognose.verwacht.toFixed(0)}`}
+                      title={`${t("rooster.expected_revenue")} €${dag.prognose.verwacht.toFixed(0)}`}
                     >
                       {drukLabel}
                     </span>
@@ -430,7 +439,7 @@ export default function RoosterEditor({
                         background: "rgba(94, 92, 230, 0.12)",
                         color: "#5E5CE6",
                       }}
-                      title={`${dag.cruises.length} schip(en)`}
+                      title={`${dag.cruises.length} ${dag.cruises.length === 1 ? t("rooster.shipSingular") : t("rooster.shipPlural")}`}
                     >
                       ⚓ {dag.totaalPassagiers.toLocaleString("nl-NL")}
                     </span>
@@ -444,7 +453,7 @@ export default function RoosterEditor({
                       }}
                       title={dag.feestdag || dag.vakantie || ""}
                     >
-                      🎉 {dag.feestdag ? "Feestdag" : "Vakantie"}
+                      🎉 {dag.feestdag ? t("rooster.holiday_emoji_label") : t("rooster.vacation_emoji_label")}
                     </span>
                   )}
                 </div>
@@ -461,19 +470,19 @@ export default function RoosterEditor({
                     <div className="space-y-1.5 mb-3">
                       {dag.prognose && (
                         <p className="text-[12px]" style={{ color: "var(--text-2)" }}>
-                          📈 Verwachte omzet: <span className="tabular-nums font-medium">€{dag.prognose.verwacht.toLocaleString("nl-NL", { maximumFractionDigits: 0 })}</span>
+                          📈 {t("rooster.expected_revenue")}: <span className="tabular-nums font-medium">€{dag.prognose.verwacht.toLocaleString("nl-NL", { maximumFractionDigits: 0 })}</span>
                           {drukLabel && <span style={{ color: drukKleur }}> · {drukLabel}</span>}
                         </p>
                       )}
                       {dag.cruises.length > 0 && (
                         <p className="text-[12px]" style={{ color: "var(--text-2)" }}>
-                          ⚓ Cruises:{" "}
+                          ⚓ {t("rooster.cruises_label")}:{" "}
                           {dag.cruises.map((c, i) => (
                             <span key={i} className="tabular-nums">
                               <span className="font-medium">{c.schip}</span>
-                              {" "}({c.passagiers.toLocaleString("nl-NL")} pax
-                              {c.aankomst && `, aank. ${c.aankomst}`}
-                              {c.vertrek && `, vertr. ${c.vertrek}`}
+                              {" "}({c.passagiers.toLocaleString("nl-NL")} {t("cruises.pax_suffix")}
+                              {c.aankomst && `, ${t("rooster.aank_prefix")} ${c.aankomst}`}
+                              {c.vertrek && `, ${t("rooster.vertr_prefix")} ${c.vertrek}`}
                               )
                               {i < dag.cruises.length - 1 && " · "}
                             </span>
@@ -487,7 +496,7 @@ export default function RoosterEditor({
                       )}
                       {dag.vakantie && (
                         <p className="text-[12px]" style={{ color: "#E07A1F" }}>
-                          🏖 Schoolvakantie: {dag.vakantie}
+                          🏖 {t("rooster.school_holiday_label")}: {dag.vakantie}
                         </p>
                       )}
                     </div>
@@ -515,7 +524,7 @@ export default function RoosterEditor({
                               <p className="text-[11px] tabular-nums" style={{ color: hex }}>
                                 {d.start} – {d.eind}
                                 {d.shiftType && <span style={{ color: "var(--muted)" }}> · {d.shiftType}</span>}
-                                {!d.gepubliceerd && <span style={{ color: "var(--muted)" }}> · concept</span>}
+                                {!d.gepubliceerd && <span style={{ color: "var(--muted)" }}> · {t("rooster.draft_chip")}</span>}
                               </p>
                             </div>
                           </div>
@@ -532,16 +541,16 @@ export default function RoosterEditor({
 
                   {/* Medewerkers nog niet ingepland — beschikbaarheid badge */}
                   <div className="space-y-2">
-                    <p className="eyebrow">Medewerker toevoegen</p>
+                    <p className="eyebrow">{t("rooster.add_employee_label")}</p>
                     {medewerkers.length === 0 ? (
                       <p className="text-[12px]" style={{ color: "var(--muted)" }}>
-                        Nog geen medewerkers in {naam}.{" "}
+                        {t("rooster.no_employees_msg")} {naam}.{" "}
                         <button
                           onClick={() => setToonBeheer(true)}
                           className="underline"
                           style={{ color: hex }}
                         >
-                          Toevoegen
+                          {t("rooster.add_employee_link")}
                         </button>
                       </p>
                     ) : (
@@ -555,10 +564,10 @@ export default function RoosterEditor({
                             : besch?.status === "niet"    ? "#E5484D"
                             : null;
                           const beschTitle =
-                            besch?.status === "vrij"    ? "Hele dag beschikbaar"
-                            : besch?.status === "beperkt" ? `Beschikbaar ${besch.start ?? ""}–${besch.eind ?? ""}`
-                            : besch?.status === "niet"    ? `Niet beschikbaar${besch.reden ? ` · ${besch.reden}` : ""}`
-                            : "Geen beschikbaarheid opgegeven";
+                            besch?.status === "vrij"    ? t("availability.all_day")
+                            : besch?.status === "beperkt" ? `${t("m.available_range")} ${besch.start ?? ""}–${besch.eind ?? ""}`
+                            : besch?.status === "niet"    ? `${t("m.not_available")}${besch.reden ? ` · ${besch.reden}` : ""}`
+                            : t("rooster.no_availability");
 
                           return (
                             <button
@@ -571,7 +580,7 @@ export default function RoosterEditor({
                                 opacity: alIngepland ? 0.45 : 1,
                                 color: "var(--text)",
                               }}
-                              title={`${m.voornaam} ${m.achternaam} — ${beschTitle}${alIngepland ? " (al ingepland)" : ""}`}
+                              title={`${m.voornaam} ${m.achternaam} — ${beschTitle}${alIngepland ? ` (${t("rooster.already_planned")})` : ""}`}
                             >
                               {beschKleur && (
                                 <span
@@ -596,7 +605,7 @@ export default function RoosterEditor({
                             color: "white",
                           }}
                         >
-                          + Andere
+                          + {t("rooster.other_employee")}
                         </button>
                       </div>
                     )}
@@ -612,19 +621,19 @@ export default function RoosterEditor({
       <div className="flex items-center flex-wrap gap-x-4 gap-y-1.5 text-[11px]" style={{ color: "var(--muted)" }}>
         <span className="inline-flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-sm" style={{ background: `${hex}33`, border: `1px solid ${hex}66` }} />
-          Gepubliceerd
+          {t("rooster.legend_published")}
         </span>
         <span className="inline-flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-sm" style={{ border: `1px dashed var(--hairline)` }} />
-          Concept
+          {t("rooster.legend_draft")}
         </span>
         <span className="inline-flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#30B26F" }} />
-          Beschikbaar
+          {t("rooster.legend_available")}
         </span>
         <span className="inline-flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#E5484D" }} />
-          Niet beschikbaar
+          {t("rooster.legend_unavailable")}
         </span>
       </div>
 

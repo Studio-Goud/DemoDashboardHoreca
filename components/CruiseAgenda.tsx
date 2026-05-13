@@ -1,9 +1,10 @@
 "use client";
 
 import { format, parseISO } from "date-fns";
-import { nl } from "date-fns/locale";
+import { nl, enUS, pt } from "date-fns/locale";
 import type { CruiseDag, CruiseImpact } from "@/lib/cruises";
-import { impactLabel } from "@/lib/cruises";
+import { useT } from "@/lib/i18n/useT";
+import type { Taal } from "@/lib/i18n/dictionaries";
 
 interface Props {
   dagen: CruiseDag[];
@@ -16,30 +17,42 @@ const impactStijl: Record<CruiseImpact, { bg: string; border: string; tekst: str
   minimaal: { bg: "bg-slate-50",   border: "border-slate-200",   tekst: "text-slate-500",   dot: "bg-slate-400" },
 };
 
+const IMPACT_KEY: Record<CruiseImpact, string> = {
+  hoog:     "cruises.impact_hoog",
+  middel:   "cruises.impact_middel",
+  laag:     "cruises.impact_laag",
+  minimaal: "cruises.impact_minimaal",
+};
+
+const LOCALE_PER_TAAL: Record<Taal, typeof nl> = {
+  nl, en: enUS, pt,
+};
+
 function fmtPax(n: number): string {
   return n.toLocaleString("nl-NL");
 }
 
 export default function CruiseAgenda({ dagen }: Props) {
+  const { t, taal } = useT();
+  const dateLocale = LOCALE_PER_TAAL[taal] ?? nl;
+
   return (
     <div className="card">
       <div className="flex items-baseline justify-between mb-1">
         <h3 className="font-semibold text-slate-700">
-          Cruises in Rotterdam (komende 14 dagen)
+          {t("cruises.title")}
         </h3>
         <span className="text-[11px] text-slate-400">
-          Bron: Cruise Port Rotterdam
+          {t("cruises.source")}
         </span>
       </div>
       <p className="text-[11px] text-slate-400 mb-3">
-        Grotere cruises brengen toeristen richting Markthal. Hoog impact vanaf
-        3.000 passagiers, middel vanaf 1.500. Check bezetting bij overlap met
-        drukke weekdagen.
+        {t("cruises.intro")}
       </p>
 
       {dagen.length === 0 ? (
         <p className="text-slate-400 text-sm">
-          Geen cruises aangekondigd in de komende 14 dagen.
+          {t("cruises.none")}
         </p>
       ) : (
         <div className="space-y-1.5">
@@ -53,27 +66,28 @@ export default function CruiseAgenda({ dagen }: Props) {
                 <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3">
                   <div className="w-14 text-center">
                     <p className="text-[10px] uppercase tracking-wide text-slate-500">
-                      {format(parseISO(dag.datum), "EEE", { locale: nl })}
+                      {format(parseISO(dag.datum), "EEE", { locale: dateLocale })}
                     </p>
                     <p className="text-xl font-bold text-slate-900 leading-none tabular-nums">
-                      {format(parseISO(dag.datum), "dd", { locale: nl })}
+                      {format(parseISO(dag.datum), "dd", { locale: dateLocale })}
                     </p>
                     <p className="text-[10px] text-slate-400 tabular-nums">
-                      {format(parseISO(dag.datum), "MM", { locale: nl })}
+                      {format(parseISO(dag.datum), "MM", { locale: dateLocale })}
                     </p>
                   </div>
 
                   <div className="min-w-0">
                     <p className={`text-sm font-semibold ${stijl.tekst}`}>
-                      {dag.cruises.length}× cruise ·{" "}
-                      <span className="tabular-nums">{fmtPax(dag.totaalPassagiers)} passagiers</span>
+                      {t("cruises.line")
+                        .replace("{n}", String(dag.cruises.length))
+                        .replace("{pax}", fmtPax(dag.totaalPassagiers))}
                     </p>
                     <p className="text-[11px] text-slate-500">
                       {dag.dagenVanNu <= 0
-                        ? "vandaag"
+                        ? t("cruises.today")
                         : dag.dagenVanNu === 1
-                        ? "morgen"
-                        : `over ${dag.dagenVanNu} dagen`}
+                        ? t("cruises.tomorrow")
+                        : t("cruises.in_days").replace("{n}", String(dag.dagenVanNu))}
                     </p>
                   </div>
 
@@ -85,7 +99,7 @@ export default function CruiseAgenda({ dagen }: Props) {
                       <span
                         className={`text-[10px] uppercase tracking-wide font-semibold ${stijl.tekst}`}
                       >
-                        {impactLabel(dag.piekImpact)}
+                        {t(IMPACT_KEY[dag.piekImpact])}
                       </span>
                     </div>
                   </div>
@@ -114,7 +128,7 @@ export default function CruiseAgenda({ dagen }: Props) {
                         {c.arrival ?? "—"}
                         {c.departure ? ` → ${c.departure}` : ""}
                         <span className="ml-2 text-slate-700 font-medium">
-                          {fmtPax(c.passagiers)} pax
+                          {fmtPax(c.passagiers)} {t("cruises.pax_suffix")}
                         </span>
                       </div>
                     </div>
