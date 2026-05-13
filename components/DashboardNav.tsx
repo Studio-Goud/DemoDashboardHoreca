@@ -3,18 +3,19 @@
 import { useState, useEffect, useRef } from "react";
 import Icon from "./Icon";
 import { useRol, type Rol } from "@/lib/useRol";
+import { useT } from "@/lib/i18n/useT";
 
 type IconName = React.ComponentProps<typeof Icon>["name"];
 
 export interface TabDef {
   id: string;
-  label: string;
+  label: string;          // fallback wanneer tKey niet bestaat
   icon: IconName;
   href?: string;
-  /** Indien gezet: alleen zichtbaar voor deze rollen */
   roles?: Rol[];
-  /** Optionele eigen tab-accent (anders bedrijfs-hex). */
   accent?: string;
+  /** Optionele i18n key (bv. "tab.revenue"). */
+  tKey?: string;
 }
 
 interface Props {
@@ -41,6 +42,9 @@ function hashKey(bedrijfHex: string): string {
 
 export default function DashboardNav({ tabs, hex, children }: Props) {
   const { rol } = useRol();
+  const { t } = useT();
+
+  const labelVan = (tab: TabDef) => tab.tKey ? t(tab.tKey) : tab.label;
 
   // Tabs filteren op rol
   const zichtbareTabs = tabs.filter((t) => {
@@ -120,7 +124,7 @@ export default function DashboardNav({ tabs, hex, children }: Props) {
             const inner = (
               <>
                 <Icon name={tab.icon} size={15} strokeWidth={isActief ? 2.2 : 1.7} />
-                <span>{tab.label}</span>
+                <span>{labelVan(tab)}</span>
               </>
             );
 
@@ -206,7 +210,7 @@ export default function DashboardNav({ tabs, hex, children }: Props) {
                 className="text-[18px] font-semibold tracking-tight leading-tight"
                 style={{ color: "var(--text)", letterSpacing: "-0.019em" }}
               >
-                {huidigeContentTab.label}
+                {labelVan(huidigeContentTab)}
               </h2>
             </div>
           </div>

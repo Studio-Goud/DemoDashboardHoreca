@@ -7,6 +7,7 @@ import {
   fetchBeschikbaarheid,
 } from "@/lib/rooster";
 import RoosterEditor from "@/components/RoosterEditor";
+import BedrijfTabBar from "@/components/BedrijfTabBar";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -64,6 +65,8 @@ export default async function RoosterEditorPage({ params, searchParams }: Props)
 
   return (
     <main className="min-h-screen p-4 sm:p-6 max-w-7xl mx-auto">
+      <BedrijfTabBar bedrijf={config.slug} actiefId="rooster" />
+      <div className="mt-4">
       <RoosterEditor
         bedrijf={config.slug}
         naam={config.naam}
@@ -75,6 +78,7 @@ export default async function RoosterEditorPage({ params, searchParams }: Props)
         templates={templates}
         beschikbaarheid={beschikbaarheid}
       />
+      </div>
     </main>
   );
 }

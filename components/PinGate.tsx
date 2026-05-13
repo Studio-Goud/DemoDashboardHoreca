@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Icon from "./Icon";
+import { useT } from "@/lib/i18n/useT";
 
 // 4-cijferige PIN → identiteit + rol
 // - owners hebben een vaste vestiging
@@ -30,6 +31,7 @@ const VESTIGING_OPTIES = [
 export default function PinGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname() ?? "";
+  const { t } = useT();
   const [unlocked, setUnlocked] = useState(false);
   const [input, setInput] = useState("");
   const [fout, setFout] = useState(false);
@@ -118,10 +120,10 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
             className="text-[22px] font-semibold tracking-tight"
             style={{ color: "var(--text)", letterSpacing: "-0.019em" }}
           >
-            Wie ben jij?
+            {t("login.who_are_you")}
           </h1>
           <p className="text-[13px] mt-2" style={{ color: "var(--muted)" }}>
-            Kies je rol om in te loggen.
+            {t("login.role_intro")}
           </p>
         </div>
 
@@ -148,10 +150,10 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
               </span>
               <div>
                 <p className="text-[16px] font-semibold" style={{ color: "var(--text)" }}>
-                  Medewerker
+                  {t("login.role_employee")}
                 </p>
                 <p className="text-[12px]" style={{ color: "var(--muted)" }}>
-                  Eigen rooster, klokken, beschikbaarheid
+                  {t("login.role_employee_sub")}
                 </p>
               </div>
             </div>
@@ -179,10 +181,10 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
               </span>
               <div>
                 <p className="text-[16px] font-semibold" style={{ color: "var(--text)" }}>
-                  Management
+                  {t("login.role_management")}
                 </p>
                 <p className="text-[12px]" style={{ color: "var(--muted)" }}>
-                  Dashboard, omzet, rooster bewerken
+                  {t("login.role_management_sub")}
                 </p>
               </div>
             </div>
@@ -248,14 +250,14 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
           className="mb-3 text-[12px] inline-flex items-center gap-1"
           style={{ color: "var(--muted)" }}
         >
-          ← terug
+          {t("login.back")}
         </button>
-        <p className="eyebrow mb-2">Management</p>
+        <p className="eyebrow mb-2">{t("login.management_label")}</p>
         <h1
           className="text-[22px] font-semibold tracking-tight"
           style={{ color: "var(--text)", letterSpacing: "-0.019em" }}
         >
-          Voer PIN in
+          {t("login.title")}
         </h1>
       </div>
 

@@ -202,35 +202,40 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
     );
   }
 
+  // labels worden vertaald in DashboardNav via t(`tab.${id}`)
   const TABS = [
-    { id: "omzet",     label: "Omzet",         icon: "trending-up" as const },
-    { id: "planning",  label: "Planning",      icon: "calendar"    as const },
+    { id: "omzet",     label: "Omzet",         icon: "trending-up" as const, tKey: "tab.revenue"  },
+    { id: "planning",  label: "Planning",      icon: "calendar"    as const, tKey: "tab.planning" },
     {
       id: "rooster",
       label: "Rooster",
       icon: "calendar-clock" as const,
       href: `/${config.slug}/rooster`,
+      tKey: "tab.schedule",
     },
     {
       id: "rapporten",
       label: "Uren",
       icon: "wallet" as const,
       href: `/${config.slug}/rapporten`,
+      tKey: "tab.hours",
     },
     {
       id: "voorraad",
       label: "Voorraad",
       icon: "shopping-bag" as const,
       href: `/${config.slug}/voorraad`,
+      tKey: "tab.inventory",
     },
-    { id: "producten", label: "Producten",     icon: "shopping-bag" as const },
-    { id: "inzichten", label: "Inzichten",     icon: "lightbulb"   as const },
+    { id: "producten", label: "Producten",     icon: "shopping-bag" as const, tKey: "tab.products" },
+    { id: "inzichten", label: "Inzichten",     icon: "lightbulb"   as const, tKey: "tab.insights" },
     {
       id: "admin",
       label: "Administratie",
       icon: "clipboard" as const,
       href: `/administratie/${config.slug}`,
       roles: ["owner"] as ("owner" | "manager")[],
+      tKey: "tab.admin",
     },
   ];
 

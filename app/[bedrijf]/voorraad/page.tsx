@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import type { Bedrijf } from "@/lib/sumup";
 import { listProducten } from "@/lib/voorraad";
 import VoorraadBeheer from "@/components/VoorraadBeheer";
+import BedrijfTabBar from "@/components/BedrijfTabBar";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -22,12 +23,15 @@ export default async function VoorraadPage({ params }: Props) {
 
   return (
     <main className="min-h-screen p-4 sm:p-6 max-w-5xl mx-auto">
+      <BedrijfTabBar bedrijf={config.slug} actiefId="voorraad" />
+      <div className="mt-4">
       <VoorraadBeheer
         bedrijf={config.slug}
         naam={config.naam}
         hex={config.hex}
         initieleProducten={producten}
       />
+      </div>
     </main>
   );
 }

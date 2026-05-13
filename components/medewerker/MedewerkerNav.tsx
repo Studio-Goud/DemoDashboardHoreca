@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import Icon from "../Icon";
 import TaalSwitcher from "../TaalSwitcher";
+import { useT } from "@/lib/i18n/useT";
 
 interface Props {
   naam: string;
@@ -11,10 +12,10 @@ interface Props {
 }
 
 const TABS = [
-  { href: "/m",                 label: "Rooster",        icon: "calendar-clock" as const },
-  { href: "/m/klok",            label: "Klokken",        icon: "clock" as const },
-  { href: "/m/beschikbaarheid", label: "Beschikbaar",    icon: "calendar" as const },
-  { href: "/m/uren",            label: "Uren",           icon: "wallet" as const },
+  { href: "/m",                 tKey: "tab.schedule",   icon: "calendar-clock" as const },
+  { href: "/m/klok",            tKey: "clock.in",       icon: "clock"          as const },
+  { href: "/m/beschikbaarheid", tKey: "availability.free", icon: "calendar"    as const },
+  { href: "/m/uren",            tKey: "tab.hours",      icon: "wallet"         as const },
 ];
 
 const VESTIGING_NAAM: Record<string, string> = {
@@ -30,6 +31,7 @@ const VESTIGING_HEX: Record<string, string> = {
 export default function MedewerkerNav({ naam, vestiging }: Props) {
   const pad = usePathname();
   const router = useRouter();
+  const { t } = useT();
   const hex = VESTIGING_HEX[vestiging] ?? "#0A84FF";
 
   async function uitloggen() {
@@ -51,7 +53,7 @@ export default function MedewerkerNav({ naam, vestiging }: Props) {
           <div className="min-w-0">
             <p className="eyebrow" style={{ color: hex }}>{VESTIGING_NAAM[vestiging] ?? vestiging}</p>
             <p className="text-[15px] font-semibold truncate" style={{ color: "var(--text)" }}>
-              Hoi, {naam.split(" ")[0]}
+              {t("m.hello")}, {naam.split(" ")[0]}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -77,18 +79,18 @@ export default function MedewerkerNav({ naam, vestiging }: Props) {
         }}
       >
         <div className="max-w-md mx-auto grid grid-cols-4">
-          {TABS.map((t) => {
-            const actief = pad === t.href || (t.href !== "/m" && pad.startsWith(t.href));
+          {TABS.map((tab) => {
+            const actief = pad === tab.href || (tab.href !== "/m" && pad.startsWith(tab.href));
             return (
               <Link
-                key={t.href}
-                href={t.href}
+                key={tab.href}
+                href={tab.href}
                 className="flex flex-col items-center gap-0.5 py-2.5 transition-colors"
                 style={{ color: actief ? hex : "var(--muted)" }}
               >
-                <Icon name={t.icon} size={20} strokeWidth={actief ? 2 : 1.6} />
+                <Icon name={tab.icon} size={20} strokeWidth={actief ? 2 : 1.6} />
                 <span className="text-[10px] font-medium" style={{ letterSpacing: "-0.005em" }}>
-                  {t.label}
+                  {t(tab.tKey)}
                 </span>
               </Link>
             );
