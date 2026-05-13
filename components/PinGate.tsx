@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
+import Icon from "./Icon";
 
 // 4-cijferige PIN → identiteit + rol
 // - owners hebben een vaste vestiging
@@ -28,12 +29,17 @@ const VESTIGING_OPTIES = [
 
 export default function PinGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname() ?? "";
   const [unlocked, setUnlocked] = useState(false);
   const [input, setInput] = useState("");
   const [fout, setFout] = useState(false);
   const [checking, setChecking] = useState(true);
-  // Fase 2: manager moet vestiging kiezen
-  const [vestigingKiezen, setVestigingKiezen] = useState(false);
+  // Fase: "rolKiezen" (default) → "pin" → eventueel "vestigingKiezen" (manager)
+  const [fase, setFase] = useState<"rolKiezen" | "pin" | "vestigingKiezen">("rolKiezen");
+
+  // /m/* en /welkom* hebben eigen authenticatie (medewerker-sessie via cookie),
+  // dus PinGate moet die routes ongemoeid doorlaten.
+  const isMedewerkerRoute = pathname.startsWith("/m") || pathname.startsWith("/welkom");
 
   useEffect(() => {
     if (sessionStorage.getItem(STORAGE_KEY) === "1") setUnlocked(true);
@@ -66,7 +72,7 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
       }
       if (profiel.rol === "manager") {
         // Manager moet nog vestiging kiezen
-        setVestigingKiezen(true);
+        setFase("vestigingKiezen");
         return;
       }
       // Owner: meteen door
@@ -99,8 +105,94 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
     );
   }
   if (unlocked) return <>{children}</>;
+  // Medewerker-routes: PinGate niet tonen — die hebben eigen sessie via cookie
+  if (isMedewerkerRoute) return <>{children}</>;
 
-  if (vestigingKiezen) {
+  // Fase 0: rol-keuze (Medewerker / Management)
+  if (fase === "rolKiezen") {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-8">
+        <div className="mb-10 text-center">
+          <p className="eyebrow mb-2">Studio Goud</p>
+          <h1
+            className="text-[22px] font-semibold tracking-tight"
+            style={{ color: "var(--text)", letterSpacing: "-0.019em" }}
+          >
+            Wie ben jij?
+          </h1>
+          <p className="text-[13px] mt-2" style={{ color: "var(--muted)" }}>
+            Kies je rol om in te loggen.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-3 w-72">
+          <button
+            onClick={() => router.push("/m/login")}
+            className="group px-5 py-5 rounded-[16px] text-left transition-all relative overflow-hidden"
+            style={{
+              background: "linear-gradient(135deg, rgba(48, 178, 111, 0.12) 0%, rgba(48, 178, 111, 0.04) 100%)",
+              border: "1px solid rgba(48, 178, 111, 0.35)",
+              boxShadow: "inset 0 0 0 1px rgba(48, 178, 111, 0.10), 0 4px 20px -8px rgba(48, 178, 111, 0.30)",
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <span
+                className="inline-flex items-center justify-center w-12 h-12 rounded-[12px] shrink-0"
+                style={{
+                  background: "linear-gradient(135deg, #30B26F 0%, #1F7A4E 100%)",
+                  color: "#fff",
+                  boxShadow: "0 0 18px -4px rgba(48,178,111,0.6)",
+                }}
+              >
+                <Icon name="user" size={22} strokeWidth={2.2} />
+              </span>
+              <div>
+                <p className="text-[16px] font-semibold" style={{ color: "var(--text)" }}>
+                  Medewerker
+                </p>
+                <p className="text-[12px]" style={{ color: "var(--muted)" }}>
+                  Eigen rooster, klokken, beschikbaarheid
+                </p>
+              </div>
+            </div>
+          </button>
+
+          <button
+            onClick={() => setFase("pin")}
+            className="group px-5 py-5 rounded-[16px] text-left transition-all relative overflow-hidden"
+            style={{
+              background: "linear-gradient(135deg, rgba(10, 132, 255, 0.12) 0%, rgba(10, 132, 255, 0.04) 100%)",
+              border: "1px solid rgba(10, 132, 255, 0.35)",
+              boxShadow: "inset 0 0 0 1px rgba(10, 132, 255, 0.10), 0 4px 20px -8px rgba(10, 132, 255, 0.30)",
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <span
+                className="inline-flex items-center justify-center w-12 h-12 rounded-[12px] shrink-0"
+                style={{
+                  background: "linear-gradient(135deg, #0A84FF 0%, #0B5FBF 100%)",
+                  color: "#fff",
+                  boxShadow: "0 0 18px -4px rgba(10,132,255,0.6)",
+                }}
+              >
+                <Icon name="trending-up" size={22} strokeWidth={2.2} />
+              </span>
+              <div>
+                <p className="text-[16px] font-semibold" style={{ color: "var(--text)" }}>
+                  Management
+                </p>
+                <p className="text-[12px]" style={{ color: "var(--muted)" }}>
+                  Dashboard, omzet, rooster bewerken
+                </p>
+              </div>
+            </div>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (fase === "vestigingKiezen") {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-8">
         <div className="mb-10 text-center">
@@ -136,7 +228,7 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
 
         <button
           onClick={() => {
-            setVestigingKiezen(false);
+            setFase("pin");
             setInput("");
           }}
           className="mt-8 text-[13px]"
@@ -151,7 +243,14 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-8">
       <div className="mb-10 text-center">
-        <p className="eyebrow mb-2">Studio Goud</p>
+        <button
+          onClick={() => { setFase("rolKiezen"); setInput(""); setFout(false); }}
+          className="mb-3 text-[12px] inline-flex items-center gap-1"
+          style={{ color: "var(--muted)" }}
+        >
+          ← terug
+        </button>
+        <p className="eyebrow mb-2">Management</p>
         <h1
           className="text-[22px] font-semibold tracking-tight"
           style={{ color: "var(--text)", letterSpacing: "-0.019em" }}

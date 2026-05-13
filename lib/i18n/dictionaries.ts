@@ -96,6 +96,41 @@ const nl: Dictionary = {
   "clock.in_status": "Ingeklokt",
   "clock.out_status": "Niet ingeklokt",
   "clock.recent": "Recente klokken",
+
+  // Kerncijfers / Live revenue / Manager widgets
+  "kerncijfers.title": "Kerncijfers",
+  "kerncijfers.incl_btw": "bedragen incl. BTW · live",
+  "kerncijfers.today_so_far": "Vandaag tot nu",
+  "kerncijfers.same_weekday_last_week": "Zelfde weekdag vorige week",
+  "kerncijfers.this_week_so_far": "Deze week t/m nu",
+  "kerncijfers.average_day": "Gemiddelde dag",
+  "live.today_revenue": "Omzet vandaag",
+  "live.progress_vs_expected": "Voortgang vs verwacht nu",
+  "live.hours_today": "Omzet per uur vandaag",
+  "live.payment_methods": "Betaalmethoden vandaag",
+  "live.last_sale": "Laatste verkoop",
+  "live.refresh_note": "Ververst elke 20s · laatste update:",
+  "live.label": "Live",
+  "manager.leaderboard": "Leaderboard · deze week",
+  "manager.your_branch": "jouw vestiging",
+  "manager.last_week_label": "vorige week",
+  "manager.goals": "Doelen",
+  "manager.goal_day": "Dag",
+  "manager.goal_week": "Week",
+  "manager.target_today": "vandaag",
+  "manager.target_this_week": "deze week",
+  "manager.goal_reached": "doel gehaald ✓",
+  "manager.remaining": "nog te gaan",
+
+  // Voorraad widget op dashboard
+  "voorraad.order_alert": "Direct bestellen",
+  "voorraad.order_list_alt": "Voorraad — bestellijst",
+  "voorraad.order_count": "producten moeten besteld worden",
+
+  // Medewerker app
+  "m.hello": "Hoi",
+  "m.next_2_weeks": "Komende 2 weken",
+  "m.no_shifts_2_weeks": "Geen diensten gepland voor de komende 2 weken",
 };
 
 const en: Dictionary = {
@@ -172,6 +207,38 @@ const en: Dictionary = {
   "clock.in_status": "Clocked in",
   "clock.out_status": "Not clocked in",
   "clock.recent": "Recent clocks",
+
+  "kerncijfers.title": "Key figures",
+  "kerncijfers.incl_btw": "amounts incl. VAT · live",
+  "kerncijfers.today_so_far": "Today so far",
+  "kerncijfers.same_weekday_last_week": "Same weekday last week",
+  "kerncijfers.this_week_so_far": "This week so far",
+  "kerncijfers.average_day": "Average day",
+  "live.today_revenue": "Revenue today",
+  "live.progress_vs_expected": "Progress vs expected now",
+  "live.hours_today": "Revenue per hour today",
+  "live.payment_methods": "Payment methods today",
+  "live.last_sale": "Last sale",
+  "live.refresh_note": "Refreshes every 20s · last update:",
+  "live.label": "Live",
+  "manager.leaderboard": "Leaderboard · this week",
+  "manager.your_branch": "your location",
+  "manager.last_week_label": "last week",
+  "manager.goals": "Goals",
+  "manager.goal_day": "Day",
+  "manager.goal_week": "Week",
+  "manager.target_today": "today",
+  "manager.target_this_week": "this week",
+  "manager.goal_reached": "goal reached ✓",
+  "manager.remaining": "remaining",
+
+  "voorraad.order_alert": "Order now",
+  "voorraad.order_list_alt": "Inventory — order list",
+  "voorraad.order_count": "products need to be ordered",
+
+  "m.hello": "Hi",
+  "m.next_2_weeks": "Next 2 weeks",
+  "m.no_shifts_2_weeks": "No shifts scheduled for the next 2 weeks",
 };
 
 const pt: Dictionary = {

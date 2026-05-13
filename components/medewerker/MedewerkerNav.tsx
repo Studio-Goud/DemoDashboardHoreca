@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import Icon from "../Icon";
+import TaalSwitcher from "../TaalSwitcher";
 
 interface Props {
   naam: string;
@@ -53,15 +54,17 @@ export default function MedewerkerNav({ naam, vestiging }: Props) {
               Hoi, {naam.split(" ")[0]}
             </p>
           </div>
-          <button
-            onClick={uitloggen}
-            className="text-[12px] flex items-center gap-1 px-2 py-1 rounded-md"
-            style={{ color: "var(--muted)" }}
-            aria-label="Uitloggen"
-          >
-            <Icon name="log-out" size={14} />
-            <span className="hidden xs:inline">Uitloggen</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <TaalSwitcher compact />
+            <button
+              onClick={uitloggen}
+              className="text-[12px] flex items-center gap-1 px-2 py-1 rounded-md"
+              style={{ color: "var(--muted)" }}
+              aria-label="Uitloggen"
+            >
+              <Icon name="log-out" size={14} />
+            </button>
+          </div>
         </div>
       </header>
 

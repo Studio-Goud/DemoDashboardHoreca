@@ -31,17 +31,15 @@ export default function TaalSwitcher({ compact }: Props) {
         onClick={() => setOpen(!open)}
         className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-semibold transition-all"
         style={{
-          background: "rgba(28, 28, 30, 0.85)",
-          backdropFilter: "blur(20px)",
-          WebkitBackdropFilter: "blur(20px)",
-          border: "1px solid rgba(255, 255, 255, 0.12)",
-          color: "#f5f5f7",
-          boxShadow: "0 4px 14px rgba(0,0,0,0.18)",
+          background: "var(--bg-elev)",
+          border: "1px solid var(--hairline)",
+          color: "var(--text)",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
         }}
         aria-label="Taal kiezen"
       >
         <span className="text-[14px] leading-none">{huidige.vlag}</span>
-        {!compact && <span className="tracking-wide">{huidige.code.toUpperCase()}</span>}
+        {!compact && <span className="tracking-wide" style={{ color: "var(--text-2)" }}>{huidige.code.toUpperCase()}</span>}
       </button>
 
       {open && (
