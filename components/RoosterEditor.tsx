@@ -7,6 +7,7 @@ import type { Bedrijf } from "@/lib/sumup";
 import Icon from "./Icon";
 import DienstModal from "./DienstModal";
 import MedewerkerBeheer from "./MedewerkerBeheer";
+import LoadingOverlay from "./LoadingOverlay";
 import { useT } from "@/lib/i18n/useT";
 import type { Taal } from "@/lib/i18n/dictionaries";
 
@@ -115,6 +116,8 @@ export default function RoosterEditor({
   const { t, taal } = useT();
   const [pending, startTransition] = useTransition();
   const [busy, setBusy] = useState(false);
+  // Welke lange actie loopt op dit moment? Bepaalt de overlay-titel/subtitel.
+  const [actieveActie, setActieveActie] = useState<"publiceer" | "snel-rooster" | "ai-rooster" | null>(null);
   const [foutmelding, setFoutmelding] = useState<string | null>(null);
   const [toonBeheer, setToonBeheer] = useState(false);
   const [openDag, setOpenDag] = useState<string | null>(null);
@@ -151,8 +154,9 @@ export default function RoosterEditor({
   }
 
   async function publiceer() {
-    if (!confirm("Alle concepten in deze week publiceren?")) return;
+    if (!confirm(t("rooster.confirm_publish"))) return;
     setBusy(true);
+    setActieveActie("publiceer");
     setFoutmelding(null);
     try {
       const res = await fetch("/api/shiftbase/publiceer", {
@@ -171,6 +175,7 @@ export default function RoosterEditor({
       setFoutmelding(e instanceof Error ? e.message : "fout");
     } finally {
       setBusy(false);
+      setActieveActie(null);
     }
   }
 
@@ -188,6 +193,7 @@ export default function RoosterEditor({
     if (!confirm(`${naam} maken voor deze week?\n\n${opmerking}\n\nBestaande gepubliceerde diensten blijven onaangetast — alleen lege dagen worden ingevuld als concept.`)) return;
 
     setBusy(true);
+    setActieveActie(mode === "ai" ? "ai-rooster" : "snel-rooster");
     setFoutmelding(null);
     try {
       const res = await fetch(`/api/rooster/auto/${bedrijf}`, {
@@ -245,6 +251,7 @@ export default function RoosterEditor({
       setFoutmelding(e instanceof Error ? e.message : "fout");
     } finally {
       setBusy(false);
+      setActieveActie(null);
     }
   }
 
@@ -259,6 +266,25 @@ export default function RoosterEditor({
 
   return (
     <div className="space-y-4">
+      <LoadingOverlay
+        zichtbaar={actieveActie === "publiceer"}
+        titel={t("rooster.publiceer_btn")}
+        accent={hex}
+      />
+      <LoadingOverlay
+        zichtbaar={actieveActie === "snel-rooster"}
+        titel={t("rooster.quick_btn")}
+        accent={hex}
+        toonTimer
+      />
+      <LoadingOverlay
+        zichtbaar={actieveActie === "ai-rooster"}
+        titel={t("rooster.ai_btn")}
+        subtitel="Claude analyseert beschikbaarheid, drukte, historische patronen en uurloon"
+        accent="#BF5AF2"
+        toonTimer
+      />
+
       {/* Header */}
       <div className="card flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">

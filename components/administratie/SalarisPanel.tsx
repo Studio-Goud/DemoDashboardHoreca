@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import LoadingOverlay from "@/components/LoadingOverlay";
 
 interface MedewerkerRegel {
   medewerkerId: number;
@@ -173,6 +174,14 @@ export default function SalarisPanel({ bedrijf, hex }: Props) {
   }
 
   return (
+    <>
+      <LoadingOverlay
+        zichtbaar={busy}
+        titel="Salaris bijwerken"
+        subtitel="Bezig met berekenen en opslaan van de salaris-periode"
+        accent={hex}
+        toonTimer
+      />
     <div className="card">
       {/* Header + maand-navigatie */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
@@ -384,5 +393,6 @@ export default function SalarisPanel({ bedrijf, hex }: Props) {
         </>
       )}
     </div>
+    </>
   );
 }

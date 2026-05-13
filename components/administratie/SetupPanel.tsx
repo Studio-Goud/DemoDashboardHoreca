@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import LoadingOverlay from "@/components/LoadingOverlay";
 
 interface Props {
   hex: string;
@@ -74,6 +75,21 @@ export default function SetupPanel({ hex }: Props) {
   }
 
   return (
+    <>
+      <LoadingOverlay
+        zichtbaar={busy === "db"}
+        titel="Tabellen aanmaken"
+        subtitel="Bezig met aanmaken van audit_log en salaris_perioden in Neon"
+        accent={hex}
+        toonTimer
+      />
+      <LoadingOverlay
+        zichtbaar={busy === "migratie"}
+        titel="Shiftbase-historie importeren"
+        subtitel="12 maanden aan diensten + medewerkers + beschikbaarheid wordt opgehaald. Dit kan 1-5 min duren."
+        accent={hex}
+        toonTimer
+      />
     <div className="card">
       <p className="eyebrow mb-1">Setup</p>
       <h2 className="text-[16px] font-semibold mb-3" style={{ color: "var(--text)" }}>
@@ -155,5 +171,6 @@ export default function SetupPanel({ hex }: Props) {
         )}
       </div>
     </div>
+    </>
   );
 }
