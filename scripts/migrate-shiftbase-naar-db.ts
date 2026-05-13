@@ -151,46 +151,70 @@ async function main() {
   }
   console.log(`   ✓ ${sbTemplates.length} templates gesynct`);
 
-  // ─── Rosters: laatste 6 maanden + komende 3 maanden ────────────────────
-  const start = isoMinusDays(180);
-  const eind  = isoPlusDays(90);
-  console.log(`→ Rosters ophalen ${start} → ${eind}…`);
-  const sbRosters = await fetchDienstenInRange(start, eind);
-  console.log(`   Gevonden: ${sbRosters.length}`);
+  // ─── Rosters: laatste 12 maanden + komende 3 maanden ───────────────────
+  // 365 dagen historie geeft de AI-roosteragent voldoende patronen om uit te
+  // leren (vaste werkdagen, gemiddelde shift-tijden, samenwerkingen).
+  //
+  // We chunken in periodes van 90 dagen omdat Shiftbase API per call max 500
+  // records teruggeeft — voor 3 vestigingen + 1 jaar zou 1 call kunnen
+  // truncaten en records missen.
+  const totaalStart = isoMinusDays(365);
+  const totaalEind  = isoPlusDays(90);
+  console.log(`→ Rosters ophalen ${totaalStart} → ${totaalEind} (in blokken van 90 dagen)…`);
+
+  // Bouw chunk-grenzen
+  const chunkDagen = 90;
+  const chunks: Array<{ start: string; eind: string }> = [];
+  let chunkStart = totaalStart;
+  while (chunkStart <= totaalEind) {
+    const [y, m, d] = chunkStart.split("-").map(Number);
+    const eindDate = new Date(Date.UTC(y, m - 1, d + chunkDagen - 1));
+    const eindIso = new Intl.DateTimeFormat("sv-SE", { timeZone: "UTC" }).format(eindDate);
+    const chunkEind = eindIso > totaalEind ? totaalEind : eindIso;
+    chunks.push({ start: chunkStart, eind: chunkEind });
+    const volgende = new Date(Date.UTC(y, m - 1, d + chunkDagen));
+    chunkStart = new Intl.DateTimeFormat("sv-SE", { timeZone: "UTC" }).format(volgende);
+  }
+  console.log(`   ${chunks.length} blokken van max ${chunkDagen} dagen`);
 
   let nieuwRosters = 0;
   let bijgewerktRosters = 0;
-  for (const r of sbRosters) {
-    const medewerkerDbId = medewerkerIds[r.medewerker.id];
-    const deptDbId       = deptIds[r.bedrijf];
-    if (!medewerkerDbId || !deptDbId) continue;
+  for (let idx = 0; idx < chunks.length; idx++) {
+    const c = chunks[idx];
+    console.log(`   blok ${idx + 1}/${chunks.length}: ${c.start} → ${c.eind}`);
+    const sbRosters = await fetchDienstenInRange(c.start, c.eind);
+    for (const r of sbRosters) {
+      const medewerkerDbId = medewerkerIds[r.medewerker.id];
+      const deptDbId       = deptIds[r.bedrijf];
+      if (!medewerkerDbId || !deptDbId) continue;
 
-    const bestaand = await db
-      .select({ id: schema.rosters.id })
-      .from(schema.rosters)
-      .where(eq(schema.rosters.shiftbaseRosterId, r.id));
+      const bestaand = await db
+        .select({ id: schema.rosters.id })
+        .from(schema.rosters)
+        .where(eq(schema.rosters.shiftbaseRosterId, r.id));
 
-    if (bestaand.length > 0) {
-      await db.update(schema.rosters).set({
-        medewerkerId: medewerkerDbId,
-        departmentId: deptDbId,
-        datum: r.datum,
-        start: `${r.start}:00`,
-        eind:  `${r.eind}:00`,
-        gepubliceerd: r.gepubliceerd,
-      }).where(eq(schema.rosters.id, bestaand[0].id));
-      bijgewerktRosters++;
-    } else {
-      await db.insert(schema.rosters).values({
-        medewerkerId: medewerkerDbId,
-        departmentId: deptDbId,
-        datum: r.datum,
-        start: `${r.start}:00`,
-        eind:  `${r.eind}:00`,
-        gepubliceerd: r.gepubliceerd,
-        shiftbaseRosterId: r.id,
-      });
-      nieuwRosters++;
+      if (bestaand.length > 0) {
+        await db.update(schema.rosters).set({
+          medewerkerId: medewerkerDbId,
+          departmentId: deptDbId,
+          datum: r.datum,
+          start: `${r.start}:00`,
+          eind:  `${r.eind}:00`,
+          gepubliceerd: r.gepubliceerd,
+        }).where(eq(schema.rosters.id, bestaand[0].id));
+        bijgewerktRosters++;
+      } else {
+        await db.insert(schema.rosters).values({
+          medewerkerId: medewerkerDbId,
+          departmentId: deptDbId,
+          datum: r.datum,
+          start: `${r.start}:00`,
+          eind:  `${r.eind}:00`,
+          gepubliceerd: r.gepubliceerd,
+          shiftbaseRosterId: r.id,
+        });
+        nieuwRosters++;
+      }
     }
   }
   console.log(`   ✓ ${nieuwRosters} nieuw, ${bijgewerktRosters} bijgewerkt`);

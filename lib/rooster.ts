@@ -11,6 +11,7 @@
 import { eq, and, gte, lte, inArray } from "drizzle-orm";
 import { db, schema } from "./db/client";
 import type { Bedrijf } from "./sumup";
+import { logAudit, snapshotRoster } from "./audit";
 
 // =============================================================================
 // Re-export types die de UI gebruikt (compat met oude lib/shiftbase.ts)
@@ -414,9 +415,19 @@ function tijdNaarFull(hhmm: string): string {
   return /^\d{2}:\d{2}$/.test(hhmm) ? `${hhmm}:00` : hhmm;
 }
 
-export async function createRoster(data: NieuweDienst): Promise<{ id: string }> {
+// Audit-context die we doorgeven aan create/update/delete operaties. Bewust
+// optioneel — als geen context wordt meegegeven loggen we als 'systeem'.
+export interface AuditMeta {
+  doorMedewerkerId?: number | null;
+  doorRol?: "owner" | "manager" | "medewerker" | "systeem";
+  reden?: string;
+  ipAdres?: string;
+  userAgent?: string;
+}
+
+export async function createRoster(data: NieuweDienst, meta?: AuditMeta): Promise<{ id: string }> {
   const deptId = await getDeptId(data.bedrijf);
-  const ingevoegd = await db.insert(schema.rosters).values({
+  const values = {
     medewerkerId: Number(data.userId),
     departmentId: deptId,
     shiftTemplateId: data.shiftTemplateId ? Number(data.shiftTemplateId) : null,
@@ -426,13 +437,18 @@ export async function createRoster(data: NieuweDienst): Promise<{ id: string }> 
     pauzeMin: data.pauzeMin ?? 0,
     notitie: data.notitie,
     gepubliceerd: data.gepubliceerd ?? false,
-  }).returning({ id: schema.rosters.id });
-  return { id: String(ingevoegd[0].id) };
+  };
+  const ingevoegd = await db.insert(schema.rosters).values(values).returning();
+  const row = ingevoegd[0];
+
+  await logAudit("roster", row.id, "create", null, snapshotRoster(row), meta);
+  return { id: String(row.id) };
 }
 
 export async function updateRoster(
   id: string,
   patch: Partial<NieuweDienst> & { bedrijf: Bedrijf },
+  meta?: AuditMeta,
 ): Promise<void> {
   const updates: Partial<typeof schema.rosters.$inferInsert> = {};
   if (patch.userId)          updates.medewerkerId = Number(patch.userId);
@@ -447,17 +463,42 @@ export async function updateRoster(
     updates.departmentId = await getDeptId(patch.bedrijf);
   }
   if (Object.keys(updates).length === 0) return;
+
+  // Snapshot vóór update voor audit
+  const voor = await db.select().from(schema.rosters).where(eq(schema.rosters.id, Number(id)));
   await db.update(schema.rosters).set(updates).where(eq(schema.rosters.id, Number(id)));
+  const na = await db.select().from(schema.rosters).where(eq(schema.rosters.id, Number(id)));
+
+  if (voor[0] && na[0]) {
+    await logAudit(
+      "roster",
+      Number(id),
+      "update",
+      snapshotRoster(voor[0]),
+      snapshotRoster(na[0]),
+      meta,
+    );
+  }
 }
 
-export async function deleteRoster(id: string): Promise<void> {
+export async function deleteRoster(id: string, meta?: AuditMeta): Promise<void> {
+  // Snapshot vóór delete — anders weten we niet meer wat er stond
+  const voor = await db.select().from(schema.rosters).where(eq(schema.rosters.id, Number(id)));
   await db.delete(schema.rosters).where(eq(schema.rosters.id, Number(id)));
+  if (voor[0]) {
+    await logAudit("roster", Number(id), "delete", snapshotRoster(voor[0]), null, meta);
+  }
 }
 
-export async function publiceerWeek(bedrijf: Bedrijf, startDatum: string, eindDatum: string): Promise<number> {
+export async function publiceerWeek(
+  bedrijf: Bedrijf,
+  startDatum: string,
+  eindDatum: string,
+  meta?: AuditMeta,
+): Promise<number> {
   const deptId = await getDeptId(bedrijf);
-  // Eerst tellen hoeveel concepten
-  const concepten = await db.select({ id: schema.rosters.id })
+  // Eerst de concepten ophalen — we hebben hun snapshot nodig voor audit
+  const concepten = await db.select()
     .from(schema.rosters)
     .where(and(
       eq(schema.rosters.departmentId, deptId),
@@ -469,6 +510,18 @@ export async function publiceerWeek(bedrijf: Bedrijf, startDatum: string, eindDa
   await db.update(schema.rosters)
     .set({ gepubliceerd: true })
     .where(inArray(schema.rosters.id, concepten.map((c) => c.id)));
+
+  // Log elke gepubliceerde concept als audit-event
+  for (const c of concepten) {
+    await logAudit(
+      "roster",
+      c.id,
+      "update",
+      snapshotRoster(c),
+      snapshotRoster({ ...c, gepubliceerd: true }),
+      { ...meta, reden: meta?.reden ?? "Week-publicatie" },
+    );
+  }
   return concepten.length;
 }
 

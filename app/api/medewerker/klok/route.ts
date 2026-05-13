@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { eq, and, desc } from "drizzle-orm";
 import { db, schema } from "@/lib/db/client";
 import { huidigeSessie } from "@/lib/auth";
+import { logAudit, snapshotKlokEvent } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -83,9 +84,30 @@ export async function POST(req: Request) {
       latitude:  body.latitude !== undefined  ? String(body.latitude)  : null,
       longitude: body.longitude !== undefined ? String(body.longitude) : null,
       handmatig: false,
-    }).returning({ id: schema.klokEvents.id, tijdstempel: schema.klokEvents.tijdstempel });
+    }).returning();
 
-    return NextResponse.json({ ok: true, ...ingevoegd[0] });
+    // Audit-log: elke klok-actie is een onomkeerbare gewerkte-uren-melding.
+    // We loggen wie het deed via de sessie zodat we altijd weten welke
+    // medewerker zelf heeft geklokt vs handmatige correctie door manager.
+    await logAudit(
+      "klok_event",
+      ingevoegd[0].id,
+      "create",
+      null,
+      snapshotKlokEvent(ingevoegd[0]),
+      {
+        doorMedewerkerId: sessie.medewerkerId,
+        doorRol: sessie.rol,
+        ipAdres: req.headers.get("x-forwarded-for") ?? undefined,
+        userAgent: req.headers.get("user-agent") ?? undefined,
+      },
+    );
+
+    return NextResponse.json({
+      ok: true,
+      id: ingevoegd[0].id,
+      tijdstempel: ingevoegd[0].tijdstempel,
+    });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "onbekend";
     return NextResponse.json({ error: msg }, { status: 500 });

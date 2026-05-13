@@ -140,6 +140,38 @@ export const klokEvents = pgTable("klok_events", {
   rosterIdx:     index("klok_events_roster_idx").on(t.rosterId),
 }));
 
+// ─── Audit-log ───────────────────────────────────────────────────────────────
+// Onveranderlijke log van elke wijziging aan kritieke entiteiten (rosters,
+// klok_events). Doel: nooit uren-data verliezen — bij elke create/update/delete
+// schrijven we een record met oude + nieuwe waarde. Daarmee kan een manager
+// ALTIJD reconstrueren wat er is gebeurd en wie ervoor verantwoordelijk is.
+//
+// Deze tabel wordt NOOIT bewerkt of verwijderd door application code.
+// Alleen append-only inserts via de audit-helpers in lib/audit.ts.
+export const auditLog = pgTable("audit_log", {
+  id: serial("id").primaryKey(),
+  // Welke tabel/entiteit
+  entiteit: varchar("entiteit", { length: 32 }).notNull(), // 'roster' | 'klok_event' | 'medewerker' | ...
+  entiteitId: integer("entiteit_id").notNull(),
+  // Welke actie
+  actie: varchar("actie", { length: 16 }).notNull(),        // 'create' | 'update' | 'delete'
+  // Wie deed het (kan null zijn voor systeem/cron)
+  doorMedewerkerId: integer("door_medewerker_id").references(() => medewerkers.id, { onDelete: "set null" }),
+  doorRol: varchar("door_rol", { length: 12 }),             // 'owner' | 'manager' | 'medewerker' | 'systeem'
+  // De data — JSON snapshot van velden vóór + ná de wijziging
+  oudeWaarde: text("oude_waarde"),   // JSON string of null (bij create)
+  nieuweWaarde: text("nieuwe_waarde"), // JSON string of null (bij delete)
+  reden: text("reden"),               // optionele toelichting (manager kan invullen)
+  // Audit-context
+  ipAdres: varchar("ip_adres", { length: 64 }),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  entiteitIdx: index("audit_log_entiteit_idx").on(t.entiteit, t.entiteitId),
+  doorIdx:     index("audit_log_door_idx").on(t.doorMedewerkerId, t.createdAt),
+  tijdIdx:     index("audit_log_tijd_idx").on(t.createdAt),
+}));
+
 // ─── Sessies (cookie-tokens voor login) ──────────────────────────────────────
 export const sessies = pgTable("sessies", {
   token:        varchar("token", { length: 64 }).primaryKey(),
@@ -263,5 +295,7 @@ export type ShiftTemplate   = typeof shiftTemplates.$inferSelect;
 export type Beschikbaarheid = typeof beschikbaarheid.$inferSelect;
 export type KlokEvent       = typeof klokEvents.$inferSelect;
 export type Sessie          = typeof sessies.$inferSelect;
+export type AuditLog       = typeof auditLog.$inferSelect;
+export type NieuweAuditLog = typeof auditLog.$inferInsert;
 export type VoorraadProduct = typeof voorraadProducten.$inferSelect;
 export type VoorraadStatus  = typeof voorraadStatus.$inferSelect;
