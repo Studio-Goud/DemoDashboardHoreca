@@ -38,6 +38,9 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
   const [checking, setChecking] = useState(true);
   // Fase: "rolKiezen" (default) → "pin" → eventueel "vestigingKiezen" (manager)
   const [fase, setFase] = useState<"rolKiezen" | "pin" | "vestigingKiezen">("rolKiezen");
+  // Welke rol verwachten we voor de PIN-invoer? Eigenaar mag NIET binnenkomen
+  // met manager-PIN en omgekeerd — security door scheiding.
+  const [verwachteRol, setVerwachteRol] = useState<"owner" | "manager" | null>(null);
 
   // /m/* en /welkom* hebben eigen authenticatie (medewerker-sessie via cookie),
   // dus PinGate moet die routes ongemoeid doorlaten.
@@ -67,7 +70,9 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
 
     if (nieuw.length === 4) {
       const profiel = PIN_PROFIEL[nieuw];
-      if (!profiel) {
+      // PIN moet bestaan EN moet matchen met de gekozen rol-knop op het
+      // vorige scherm. Eigenaar-knop accepteert dus geen manager-PIN.
+      if (!profiel || (verwachteRol && profiel.rol !== verwachteRol)) {
         setFout(true);
         setTimeout(() => setInput(""), 600);
         return;
@@ -77,7 +82,7 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
         setFase("vestigingKiezen");
         return;
       }
-      // Owner: meteen door
+      // Owner: meteen door (vaste vestiging gekoppeld aan PIN)
       voltooidInloggen(profiel, profiel.vestiging ?? "bb");
     }
   }
@@ -160,7 +165,7 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
           </button>
 
           <button
-            onClick={() => setFase("pin")}
+            onClick={() => { setVerwachteRol("manager"); setFase("pin"); }}
             className="group px-5 py-5 rounded-[16px] text-left transition-all relative overflow-hidden"
             style={{
               background: "linear-gradient(135deg, rgba(10, 132, 255, 0.12) 0%, rgba(10, 132, 255, 0.04) 100%)",
@@ -181,10 +186,42 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
               </span>
               <div>
                 <p className="text-[16px] font-semibold" style={{ color: "var(--text)" }}>
-                  {t("login.role_management")}
+                  Management
                 </p>
                 <p className="text-[12px]" style={{ color: "var(--muted)" }}>
-                  {t("login.role_management_sub")}
+                  Dagelijkse aansturing van de vestiging
+                </p>
+              </div>
+            </div>
+          </button>
+
+          {/* Eigenaar — purper-goud accent, scheidt zich visueel van management */}
+          <button
+            onClick={() => { setVerwachteRol("owner"); setFase("pin"); }}
+            className="group px-5 py-5 rounded-[16px] text-left transition-all relative overflow-hidden"
+            style={{
+              background: "linear-gradient(135deg, rgba(191, 90, 242, 0.12) 0%, rgba(191, 90, 242, 0.04) 100%)",
+              border: "1px solid rgba(191, 90, 242, 0.35)",
+              boxShadow: "inset 0 0 0 1px rgba(191, 90, 242, 0.10), 0 4px 20px -8px rgba(191, 90, 242, 0.30)",
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <span
+                className="inline-flex items-center justify-center w-12 h-12 rounded-[12px] shrink-0"
+                style={{
+                  background: "linear-gradient(135deg, #BF5AF2 0%, #7B2DAA 100%)",
+                  color: "#fff",
+                  boxShadow: "0 0 18px -4px rgba(191,90,242,0.6)",
+                }}
+              >
+                <Icon name="lock" size={22} strokeWidth={2.2} />
+              </span>
+              <div>
+                <p className="text-[16px] font-semibold" style={{ color: "var(--text)" }}>
+                  Eigenaar
+                </p>
+                <p className="text-[12px]" style={{ color: "var(--muted)" }}>
+                  Volledige toegang incl. administratie + salaris
                 </p>
               </div>
             </div>
@@ -242,17 +279,25 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
     );
   }
 
+  // PIN-scherm: voor zowel manager als eigenaar. Eyebrow toont welke rol
+  // verwacht wordt zodat de gebruiker weet dat hij/zij de juiste PIN moet
+  // intoetsen.
+  const pinEyebrow = verwachteRol === "owner" ? "Eigenaar" : t("login.management_label");
+  const pinAccent  = verwachteRol === "owner" ? "#BF5AF2" : undefined;
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-8">
       <div className="mb-10 text-center">
         <button
-          onClick={() => { setFase("rolKiezen"); setInput(""); setFout(false); }}
+          onClick={() => { setFase("rolKiezen"); setInput(""); setFout(false); setVerwachteRol(null); }}
           className="mb-3 text-[12px] inline-flex items-center gap-1"
           style={{ color: "var(--muted)" }}
         >
           {t("login.back")}
         </button>
-        <p className="eyebrow mb-2">{t("login.management_label")}</p>
+        <p className="eyebrow mb-2" style={pinAccent ? { color: pinAccent } : undefined}>
+          {pinEyebrow}
+        </p>
         <h1
           className="text-[22px] font-semibold tracking-tight"
           style={{ color: "var(--text)", letterSpacing: "-0.019em" }}
