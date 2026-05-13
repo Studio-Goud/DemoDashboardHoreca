@@ -8,6 +8,7 @@ import ContantInvoer from "@/components/administratie/ContantInvoer";
 import MaandPnL from "@/components/administratie/MaandPnL";
 import KwartaalRapport from "@/components/administratie/KwartaalRapport";
 import ReviewPanel from "@/components/administratie/ReviewPanel";
+import SalarisPanel from "@/components/administratie/SalarisPanel";
 
 type BedrijfSlug = "bb" | "sl" | "kl";
 
@@ -45,6 +46,9 @@ export default function AdministratiePage({ params }: { params: { bedrijf: strin
       <div className="space-y-5">
         {/* Maandoverzicht met winst/verlies */}
         <MaandPnL bedrijf={bedrijf} hex={config.hex} key={`pnl-${refreshTrigger}`} />
+
+        {/* Salaris-administratie (owner: detail, manager: aggregaat) */}
+        <SalarisPanel bedrijf={bedrijf} hex={config.hex} />
 
         {/* ING bankafschrift upload */}
         <IngUpload bedrijf={bedrijf} hex={config.hex} onSuccess={refresh} />

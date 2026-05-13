@@ -2,18 +2,22 @@
  * Salaris-maandrapport endpoint.
  *
  * GET /api/salaris/[bedrijf]/[jaar]/[maand]
- *   ?format=json (default) → JSON met volledig rapport
- *   ?format=csv            → CSV-download met hash-per-regel
+ *   ?format=json (default) → JSON met rapport
+ *   ?format=csv            → CSV-download (owner-only)
  *
- * Auth: owner of manager. Medewerker mag dit niet zien (privacy).
+ * Privacy-model:
+ *   - owner  → volledig rapport (per medewerker uurloon + bedragen)
+ *   - manager→ ALLEEN aggregaat (totaal loonkosten, totaal uren, aantal mensen)
+ *              — geen per-persoon detail om privacy te beschermen
+ *   - medewerker → 403
  *
- * Side-effect: bij elke call wordt de periode opnieuw berekend en
- * geüpdatet in `salaris_perioden` (tenzij status = 'afgerekend'/'uitbetaald',
- * dan blijft de oorspronkelijke waarde gefrozen).
+ * Side-effect (owner alleen): bij elke call wordt de periode opnieuw berekend
+ * en geüpdatet in `salaris_perioden`. Manager-calls zijn read-only en
+ * gebruiken de huidige opgeslagen waardes.
  */
 import { NextResponse } from "next/server";
 import { huidigeSessie } from "@/lib/auth";
-import { genereerMaandrapport, maandrapportNaarCsv } from "@/lib/salaris";
+import { genereerMaandrapport, maandrapportNaarCsv, berekenSalarisVoorBedrijf } from "@/lib/salaris";
 import type { Bedrijf } from "@/lib/sumup";
 
 export const dynamic = "force-dynamic";
@@ -44,16 +48,49 @@ export async function GET(
     return NextResponse.json({ error: "ongeldige maand" }, { status: 400 });
   }
 
+  const url = new URL(req.url);
+  const format = url.searchParams.get("format") ?? "json";
+
+  // ─── MANAGER: alleen aggregaat ───────────────────────────────────────────
+  if (sessie.rol === "manager") {
+    if (format === "csv") {
+      // Geen CSV-export voor managers (privacy)
+      return NextResponse.json({ error: "CSV-export alleen voor owner" }, { status: 403 });
+    }
+
+    // Read-only berekening zonder DB-side-effects (geen slaSalarisPeriodeOp)
+    try {
+      const berekeningen = await berekenSalarisVoorBedrijf(params.bedrijf as Bedrijf, jaar, maand);
+      const totaalLoonkosten = berekeningen.reduce((s, b) => s + b.totaalEur, 0);
+      const totaalUren = berekeningen.reduce((s, b) => s + b.brutoUren, 0);
+      const aantalMedewerkers = berekeningen.length;
+
+      return NextResponse.json({
+        rol: "manager",
+        bedrijf: params.bedrijf,
+        jaar,
+        maand,
+        // GEEN per-persoon detail — alleen aggregaten
+        aantalMedewerkers,
+        totaalUren: Math.round(totaalUren * 10) / 10,
+        totaalLoonkosten: Math.round(totaalLoonkosten * 100) / 100,
+        gemKostPerMedewerker: aantalMedewerkers > 0
+          ? Math.round((totaalLoonkosten / aantalMedewerkers) * 100) / 100
+          : 0,
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "onbekend";
+      return NextResponse.json({ error: msg }, { status: 500 });
+    }
+  }
+
+  // ─── OWNER: volledig rapport + side-effect (upsert salaris_perioden) ─────
   try {
     const rapport = await genereerMaandrapport(params.bedrijf as Bedrijf, jaar, maand);
-
-    const url = new URL(req.url);
-    const format = url.searchParams.get("format") ?? "json";
 
     if (format === "csv") {
       const csv = maandrapportNaarCsv(rapport);
       const bestandsnaam = `salaris-${params.bedrijf}-${jaar}-${String(maand).padStart(2, "0")}.csv`;
-      // BOM voor Excel zodat ë/€/etc. correct worden weergegeven
       return new NextResponse("﻿" + csv, {
         headers: {
           "Content-Type": "text/csv; charset=utf-8",
@@ -62,7 +99,7 @@ export async function GET(
       });
     }
 
-    return NextResponse.json(rapport);
+    return NextResponse.json({ rol: "owner", ...rapport });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "onbekend";
     return NextResponse.json({ error: msg }, { status: 500 });
