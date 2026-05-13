@@ -912,8 +912,12 @@ export default function LiveBalk() {
         {/* Spreker-bubbles — verberg voor managers (geen humor, alleen data) */}
         {rol !== "manager" && (
         <>
-        {/* Spreker-orbs — onderaan de balk */}
-        <div className="flex">
+        {/* Spreker-orbs — onderaan de balk.
+            De rij + bubbles zijn puur decoratief (geen klik-actie); we
+            zetten pointer-events: none zodat touches doorgaan naar de
+            DashboardNav-balk eronder. Anders 'bevriezen' tab-swipes
+            terwijl een bubble zichtbaar is. */}
+        <div className="flex" style={{ pointerEvents: "none" }}>
           {BEDRIJVEN.map((b, i) => {
             const welkomActief = welkomOverride?.idx === i;
             const isActief = welkomOverride ? welkomActief : spreker === i;
