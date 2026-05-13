@@ -18,6 +18,7 @@ import { fetchBeschikbaarheid, fetchDienstenInRange, medewerkersPerBedrijf, crea
 import { dashboardAggregaten } from "./dashboard-cache";
 import { cruisesOpDatum } from "./cruises";
 import { feestdagOpDatum } from "./feestdagen";
+import { patronenVoorBedrijf, patroonSamenvatting } from "./rooster-patronen";
 
 const client = new Anthropic();
 const MODEL = "claude-sonnet-4-6";
@@ -55,6 +56,8 @@ interface AiContext {
     uurloon: number;
     startdatum: string | null;
     urenAlIngepland: number;
+    /** Patroon uit historie (laatste 12 mnd) — null als te weinig data */
+    historischPatroon: string | null;
   }>;
   dagen: Array<{
     datum: string;
@@ -164,6 +167,13 @@ DRUKTE-RICHTLIJNEN per vestiging:
 
 Op zaterdag: minstens 'druk' niveau. Bij cruise ≥3000 pax: minstens 'druk'. Bij ≥5000 pax: 'zeer druk'. Op zondag: kleinere bezetting (2 mensen ongeacht drukte).
 
+HISTORISCHE PATRONEN: bij elke medewerker zie je een veld 'historischPatroon' met een korte samenvatting van hun gedrag in de afgelopen 12 maanden (bv. "180 diensten — werkt vaak op ma/di; typisch 09:30–16:00 (6.2u gem.); vaak samen met Sophie"). Gebruik dit als een SOFT HINT:
+- Als een medewerker historisch op dinsdag werkt en deze week dinsdag beschikbaar is → plan hem/haar daar
+- Probeer vaste samenwerkings-paren te respecteren
+- Houd typische shift-tijden aan tenzij dat conflicteert met beschikbaarheid
+- Patronen zijn LEIDEND maar niet ABSOLUUT: beschikbaarheid en kosten-target overrulen altijd.
+- Voor medewerkers zonder patroon ('historischPatroon: null'): vertrouw op uurloon-volgorde en eerlijke verdeling.
+
 OUTPUT FORMAAT (alleen JSON, geen extra tekst):
 {
   "diensten": [
@@ -185,12 +195,20 @@ Gebruik medewerker-IDs uit de context, niet namen. Datums in YYYY-MM-DD. Tijden 
 async function bouwContext(bedrijf: Bedrijf, weekStart: string): Promise<AiContext> {
   const weekEind = plusDagen(weekStart, 6);
 
-  const [medewerkers, beschikbaarheid, bestaandeDiensten, agg] = await Promise.all([
+  const [medewerkers, beschikbaarheid, bestaandeDiensten, agg, patronen] = await Promise.all([
     medewerkersPerBedrijf(bedrijf),
     fetchBeschikbaarheid(weekStart, weekEind),
     fetchDienstenInRange(weekStart, weekEind),
     dashboardAggregaten(bedrijf),
+    // Historische patronen — soft hint voor de AI, faalt netjes met lege lijst
+    patronenVoorBedrijf(bedrijf).catch(() => []),
   ]);
+
+  // Patroon-lookup per medewerker
+  const patroonMap = new Map<string, string>();
+  for (const p of patronen) {
+    patroonMap.set(p.medewerkerId, patroonSamenvatting(p));
+  }
 
   const dienstenDitBedrijf = bestaandeDiensten.filter((d) => d.bedrijf === bedrijf);
 
@@ -260,6 +278,7 @@ async function bouwContext(bedrijf: Bedrijf, weekStart: string): Promise<AiConte
         uurloon: m.uurloon ?? FALLBACK_UURLOON,
         startdatum: m.startdatum,
         urenAlIngepland: urenIngepland.get(m.id) ?? 0,
+        historischPatroon: patroonMap.get(m.id) ?? null,
       })),
     dagen,
   };

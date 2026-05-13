@@ -1,3 +1,18 @@
+/**
+ * @deprecated Shiftbase API-koppeling — wordt UITGEFASEERD.
+ *
+ * De app leest live rooster-data nu uit eigen Postgres (zie lib/rooster.ts).
+ * Dit bestand wordt momenteel ALLEEN nog gebruikt door:
+ *   - scripts/migrate-shiftbase-naar-db.ts (eenmalige historie-import)
+ *   - eventuele cron-sync (recente Shiftbase-wijzigingen oppikken)
+ *
+ * Plan: na validatie dat eigen Postgres alle scenario's dekt (rooster maken,
+ * publiceren, klok-events, beschikbaarheid) wordt dit bestand + de
+ * SHIFTBASE_API_KEY env-var verwijderd en kan het Shiftbase-abonnement
+ * worden opgezegd.
+ *
+ * NIEUWE CODE: schrijf direct naar lib/rooster.ts of lib/db/* — NIET hier.
+ */
 import { unstable_cache } from "next/cache";
 import type { Bedrijf } from "./sumup";
 
