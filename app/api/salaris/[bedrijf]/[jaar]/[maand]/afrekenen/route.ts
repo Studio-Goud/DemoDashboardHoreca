@@ -9,7 +9,7 @@
  * niet meer, maar worden wel zichtbaar als hash-mismatch in het rapport.
  */
 import { NextResponse } from "next/server";
-import { huidigeSessie } from "@/lib/auth";
+import { huidigeAdminSessie } from "@/lib/admin-auth";
 import { berekenSalarisVoorBedrijf, slaSalarisPeriodeOp, markeerAfgerekend } from "@/lib/salaris";
 import type { Bedrijf } from "@/lib/sumup";
 
@@ -21,7 +21,7 @@ export async function POST(
   req: Request,
   { params }: { params: { bedrijf: string; jaar: string; maand: string } },
 ) {
-  const sessie = await huidigeSessie();
+  const sessie = huidigeAdminSessie();
   if (!sessie) return NextResponse.json({ error: "niet ingelogd" }, { status: 401 });
   if (sessie.rol !== "owner") {
     return NextResponse.json({ error: "alleen owner mag afrekenen" }, { status: 403 });
@@ -48,7 +48,7 @@ export async function POST(
 
     for (const b of targets) {
       await slaSalarisPeriodeOp(b);
-      await markeerAfgerekend(b.medewerkerId, jaar, maand, sessie.medewerkerId);
+      await markeerAfgerekend(b.medewerkerId, jaar, maand, null);
     }
 
     return NextResponse.json({

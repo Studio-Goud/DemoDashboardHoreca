@@ -8,7 +8,7 @@
  * te markeren met het bank-referentienummer voor latere koppeling.
  */
 import { NextResponse } from "next/server";
-import { huidigeSessie } from "@/lib/auth";
+import { huidigeAdminSessie } from "@/lib/admin-auth";
 import { markeerUitbetaald } from "@/lib/salaris";
 import type { Bedrijf } from "@/lib/sumup";
 
@@ -20,7 +20,7 @@ export async function POST(
   req: Request,
   { params }: { params: { bedrijf: string; jaar: string; maand: string } },
 ) {
-  const sessie = await huidigeSessie();
+  const sessie = huidigeAdminSessie();
   if (!sessie) return NextResponse.json({ error: "niet ingelogd" }, { status: 401 });
   if (sessie.rol !== "owner") {
     return NextResponse.json({ error: "alleen owner mag uitbetaling markeren" }, { status: 403 });

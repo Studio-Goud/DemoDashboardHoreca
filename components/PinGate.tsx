@@ -51,7 +51,24 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
     setChecking(false);
   }, []);
 
-  function voltooidInloggen(profiel: typeof PIN_PROFIEL[string], vestiging: "bb" | "sl" | "kl") {
+  async function voltooidInloggen(
+    profiel: typeof PIN_PROFIEL[string],
+    vestiging: "bb" | "sl" | "kl",
+    pin: string,
+  ) {
+    // Server-side admin-cookie zetten zodat API-endpoints (db-init,
+    // salaris, etc.) de owner/manager kunnen autoriseren. Niet-blokkerend:
+    // bij netwerkfout gaan we toch door op basis van sessionStorage.
+    try {
+      await fetch("/api/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin, vestiging }),
+      });
+    } catch {
+      // niet kritiek voor de UI-flow
+    }
+
     sessionStorage.setItem(STORAGE_KEY, "1");
     sessionStorage.setItem(USER_KEY, profiel.naam);
     sessionStorage.setItem(ROL_KEY, profiel.rol);
@@ -83,7 +100,7 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
         return;
       }
       // Owner: meteen door (vaste vestiging gekoppeld aan PIN)
-      voltooidInloggen(profiel, profiel.vestiging ?? "bb");
+      voltooidInloggen(profiel, profiel.vestiging ?? "bb", nieuw);
     }
   }
 
@@ -95,7 +112,7 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
   function kiesVestiging(slug: "bb" | "sl" | "kl") {
     const profiel = PIN_PROFIEL[input];
     if (!profiel) return;
-    voltooidInloggen(profiel, slug);
+    voltooidInloggen(profiel, slug, input);
   }
 
   if (checking) {

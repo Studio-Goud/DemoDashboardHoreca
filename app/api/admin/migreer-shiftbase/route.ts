@@ -5,22 +5,20 @@
  *   body: { dagenHistorie?: number, dagenVooruit?: number }
  *
  * Importeert departments, medewerkers, shift-templates, rosters en
- * beschikbaarheid uit Shiftbase naar eigen Postgres. Idempotent — meerdere
- * keren draaien is veilig.
+ * beschikbaarheid uit Shiftbase naar eigen Postgres. Idempotent.
  *
- * Lange-loop endpoint: maxDuration = 300s (5 min, Pro plan). Bij Hobby
- * plan kan 60s te krap zijn voor 12 maanden historie × 3 vestigingen;
- * dan gewoon opnieuw aanroepen (idempotent — pakt verder waar gestopt).
+ * maxDuration = 300s (Pro plan). Bij Hobby kan 60s te krap zijn voor
+ * vol jaar × 3 vestigingen; gewoon opnieuw aanroepen (idempotent).
  */
 import { NextResponse } from "next/server";
-import { huidigeSessie } from "@/lib/auth";
+import { huidigeAdminSessie } from "@/lib/admin-auth";
 import { migreerShiftbase } from "@/lib/shiftbase-migratie";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 export async function POST(req: Request) {
-  const sessie = await huidigeSessie();
+  const sessie = huidigeAdminSessie();
   if (!sessie) {
     return NextResponse.json({ error: "niet ingelogd" }, { status: 401 });
   }

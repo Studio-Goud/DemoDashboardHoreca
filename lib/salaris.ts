@@ -286,7 +286,7 @@ export async function markeerAfgerekend(
   medewerkerId: number,
   jaar: number,
   maand: number,
-  doorMedewerkerId: number,
+  doorMedewerkerId: number | null,
 ): Promise<void> {
   await db.update(schema.salarisPerioden)
     .set({

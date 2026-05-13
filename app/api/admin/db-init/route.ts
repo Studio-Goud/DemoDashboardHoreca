@@ -1,22 +1,18 @@
 /**
  * Owner-only DB-init endpoint.
  *
- * POST /api/admin/db-init
- *   → leest drizzle/*.sql en voert ze uit tegen de live Postgres.
- *
- * Idempotent: SQL gebruikt CREATE TABLE IF NOT EXISTS. Meerdere keren
- * aanroepen doet geen kwaad. Vervangt `npm run db:push` voor situaties
- * zonder shell-toegang.
+ * POST /api/admin/db-init → leest drizzle/*.sql en voert ze uit tegen
+ * de live Postgres. Idempotent (CREATE TABLE IF NOT EXISTS).
  */
 import { NextResponse } from "next/server";
-import { huidigeSessie } from "@/lib/auth";
+import { huidigeAdminSessie } from "@/lib/admin-auth";
 import { runAllePendingMigraties } from "@/lib/db/init-sql";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
 export async function POST() {
-  const sessie = await huidigeSessie();
+  const sessie = huidigeAdminSessie();
   if (!sessie) {
     return NextResponse.json({ error: "niet ingelogd" }, { status: 401 });
   }

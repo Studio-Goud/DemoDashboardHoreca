@@ -16,7 +16,7 @@
  * gebruiken de huidige opgeslagen waardes.
  */
 import { NextResponse } from "next/server";
-import { huidigeSessie } from "@/lib/auth";
+import { huidigeAdminSessie } from "@/lib/admin-auth";
 import { genereerMaandrapport, maandrapportNaarCsv, berekenSalarisVoorBedrijf } from "@/lib/salaris";
 import type { Bedrijf } from "@/lib/sumup";
 
@@ -28,12 +28,11 @@ export async function GET(
   req: Request,
   { params }: { params: { bedrijf: string; jaar: string; maand: string } },
 ) {
-  const sessie = await huidigeSessie();
+  // Salaris is owner/manager-functionaliteit, gebruikt de admin-cookie.
+  // Medewerkers krijgen 401 (ze hebben geen admin-cookie).
+  const sessie = huidigeAdminSessie();
   if (!sessie) {
     return NextResponse.json({ error: "niet ingelogd" }, { status: 401 });
-  }
-  if (sessie.rol !== "owner" && sessie.rol !== "manager") {
-    return NextResponse.json({ error: "geen toegang" }, { status: 403 });
   }
 
   if (!(VALID as string[]).includes(params.bedrijf)) {
