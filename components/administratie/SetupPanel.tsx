@@ -7,7 +7,7 @@ interface Props {
 }
 
 interface DbInitResultaat {
-  bestand: string;
+  naam: string;
   statementsUitgevoerd: number;
   duurMs: number;
 }
@@ -104,7 +104,7 @@ export default function SetupPanel({ hex }: Props) {
           </div>
           {dbResult && (
             <div className="mt-3 text-[11px]" style={{ color: "#30B26F" }}>
-              ✓ {dbResult.map((r) => `${r.bestand} (${r.statementsUitgevoerd} stmts, ${r.duurMs}ms)`).join(" · ")}
+              ✓ {dbResult.map((r) => `${r.naam} (${r.statementsUitgevoerd} stmts, ${r.duurMs}ms)`).join(" · ")}
             </div>
           )}
         </div>

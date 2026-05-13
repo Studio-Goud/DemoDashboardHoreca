@@ -1,77 +1,119 @@
 /**
- * Voert idempotente DB-migratie SQL uit tegen de live Postgres.
+ * Idempotente DB-migraties — inline SQL constants.
  *
- * Gebruikt voor het aanmaken van nieuwe tabellen (audit_log, salaris_perioden)
- * op productie — vervangt `npm run db:push` voor situaties waar de gebruiker
- * geen shell-toegang heeft (bv. vanaf iPhone).
+ * Voorheen las dit module SQL-files uit ./drizzle/ via readFileSync. Op
+ * Vercel werkt dat niet: serverless functies krijgen NIET automatisch de
+ * SQL-files mee in hun bundel. Daarom staan de migraties hier inline.
  *
  * Idempotent: alle statements gebruiken CREATE TABLE IF NOT EXISTS /
- * CREATE INDEX IF NOT EXISTS, dus meerdere keren draaien is veilig.
+ * CREATE INDEX IF NOT EXISTS. Meerdere keren uitvoeren is veilig.
  */
 
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { sql } from "drizzle-orm";
 import { db } from "./client";
 
 export interface DbInitResultaat {
-  bestand: string;
+  naam: string;
   statementsUitgevoerd: number;
   duurMs: number;
 }
 
-/**
- * Splits SQL op in losse statements. Drizzle's --> statement-breakpoint
- * commentaar is de canonieke scheider; daarna sluiten we op ;
- */
-function splitStatements(sqlText: string): string[] {
-  // Verwijder regel-commentaren
-  const zonderCommentaar = sqlText
-    .split("\n")
-    .filter((r) => !r.trim().startsWith("--"))
-    .join("\n");
-
-  // Split op '; gevolgd door whitespace/einde'
-  return zonderCommentaar
-    .split(/;\s*\n/)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
+interface Migratie {
+  naam: string;
+  statements: string[];
 }
 
-export async function voerSqlBestandUit(relPath: string): Promise<DbInitResultaat> {
+/**
+ * Migratie 0001: audit_log + salaris_perioden.
+ *
+ * Een append-only log voor elke wijziging aan rosters/klok_events, plus
+ * een maand-tabel voor de salaris-administratie. Beide vereist door de
+ * endpoints uit PR #5 en #6.
+ */
+const MIGRATIE_0001: Migratie = {
+  naam: "0001_audit_log_en_salaris_perioden",
+  statements: [
+    // ─── audit_log tabel ────────────────────────────────────────────────
+    `CREATE TABLE IF NOT EXISTS "audit_log" (
+      "id"                  serial PRIMARY KEY NOT NULL,
+      "entiteit"            varchar(32) NOT NULL,
+      "entiteit_id"         integer NOT NULL,
+      "actie"               varchar(16) NOT NULL,
+      "door_medewerker_id"  integer,
+      "door_rol"            varchar(12),
+      "oude_waarde"         text,
+      "nieuwe_waarde"       text,
+      "reden"               text,
+      "ip_adres"            varchar(64),
+      "user_agent"          text,
+      "created_at"          timestamp with time zone DEFAULT now() NOT NULL,
+      CONSTRAINT "audit_log_door_medewerker_id_fk"
+        FOREIGN KEY ("door_medewerker_id") REFERENCES "medewerkers"("id") ON DELETE SET NULL
+    )`,
+    `CREATE INDEX IF NOT EXISTS "audit_log_entiteit_idx"
+       ON "audit_log" USING btree ("entiteit", "entiteit_id")`,
+    `CREATE INDEX IF NOT EXISTS "audit_log_door_idx"
+       ON "audit_log" USING btree ("door_medewerker_id", "created_at")`,
+    `CREATE INDEX IF NOT EXISTS "audit_log_tijd_idx"
+       ON "audit_log" USING btree ("created_at")`,
+
+    // ─── salaris_perioden tabel ─────────────────────────────────────────
+    `CREATE TABLE IF NOT EXISTS "salaris_perioden" (
+      "id"                    serial PRIMARY KEY NOT NULL,
+      "medewerker_id"         integer NOT NULL,
+      "jaar"                  integer NOT NULL,
+      "maand"                 integer NOT NULL,
+      "bruto_uren"            numeric(7, 2) NOT NULL,
+      "uurloon"               numeric(6, 2) NOT NULL,
+      "bruto_loon"            numeric(9, 2) NOT NULL,
+      "vakantiegeld_pct"      numeric(5, 3) NOT NULL,
+      "vakantiegeld_eur"      numeric(9, 2) NOT NULL,
+      "vakantie_uren_pct"     numeric(5, 3) NOT NULL,
+      "vakantie_uren_eur"     numeric(9, 2) NOT NULL,
+      "totaal_eur"            numeric(9, 2) NOT NULL,
+      "bron"                  varchar(16) DEFAULT 'rooster' NOT NULL,
+      "bereken_hash"          varchar(64) NOT NULL,
+      "status"                varchar(16) DEFAULT 'open' NOT NULL,
+      "afgerekend_op"         timestamp with time zone,
+      "afgerekend_door"       integer,
+      "uitbetaald_op"         timestamp with time zone,
+      "betaling_referentie"   varchar(64),
+      "created_at"            timestamp with time zone DEFAULT now() NOT NULL,
+      "updated_at"            timestamp with time zone DEFAULT now() NOT NULL,
+      CONSTRAINT "salaris_perioden_medewerker_id_fk"
+        FOREIGN KEY ("medewerker_id") REFERENCES "medewerkers"("id") ON DELETE CASCADE,
+      CONSTRAINT "salaris_perioden_afgerekend_door_fk"
+        FOREIGN KEY ("afgerekend_door") REFERENCES "medewerkers"("id") ON DELETE SET NULL
+    )`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS "salaris_periode_uq"
+       ON "salaris_perioden" USING btree ("medewerker_id", "jaar", "maand")`,
+    `CREATE INDEX IF NOT EXISTS "salaris_periode_jaar_maand_idx"
+       ON "salaris_perioden" USING btree ("jaar", "maand")`,
+  ],
+};
+
+const ALLE_MIGRATIES: Migratie[] = [MIGRATIE_0001];
+
+async function voerMigratieUit(m: Migratie): Promise<DbInitResultaat> {
   const start = Date.now();
-  const absPath = join(process.cwd(), relPath);
-  const sqlText = readFileSync(absPath, "utf-8");
-
-  const statements = splitStatements(sqlText);
-  let uitgevoerd = 0;
-
-  for (const stmt of statements) {
-    // Drizzle's sql.raw voor losse statements
+  for (const stmt of m.statements) {
     await db.execute(sql.raw(stmt));
-    uitgevoerd++;
   }
-
   return {
-    bestand: relPath,
-    statementsUitgevoerd: uitgevoerd,
+    naam: m.naam,
+    statementsUitgevoerd: m.statements.length,
     duurMs: Date.now() - start,
   };
 }
 
 /**
- * Run alle pending migration-files in volgorde. Voor nu hard-coded
- * — als we meer migraties krijgen kunnen we drizzle-kit's migration
- * tracking gebruiken (maar dat vereist een aparte __drizzle_migrations table).
+ * Run alle pending migraties. Idempotent — kan veilig meerdere keren
+ * worden aangeroepen.
  */
 export async function runAllePendingMigraties(): Promise<DbInitResultaat[]> {
-  const bestanden = [
-    "drizzle/0001_audit_log_en_salaris_perioden.sql",
-  ];
   const resultaten: DbInitResultaat[] = [];
-  for (const b of bestanden) {
-    const r = await voerSqlBestandUit(b);
-    resultaten.push(r);
+  for (const m of ALLE_MIGRATIES) {
+    resultaten.push(await voerMigratieUit(m));
   }
   return resultaten;
 }
