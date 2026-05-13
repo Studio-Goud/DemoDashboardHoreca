@@ -105,22 +105,30 @@ export default function MedewerkerBeheer({
     }
   }
 
-  async function uitnodigen(m: Medewerker) {
+  const [gegenereerdeCode, setGegenereerdeCode] = useState<{
+    code: string; email: string; voornaam: string; verlooptOp: string;
+  } | null>(null);
+
+  async function maakCode(m: Medewerker) {
     if (!m.email || m.email.startsWith("geen-email-")) {
-      setFout("Deze medewerker heeft geen geldig e-mailadres");
+      setFout("Deze medewerker heeft geen geldig e-mailadres — vul dat eerst in via Bewerken");
       return;
     }
-    if (!confirm(`Uitnodigingsmail sturen naar ${m.email}?\n\nDe medewerker kan dan een eigen PIN aanmaken en inloggen.`))
-      return;
     setBusy(true);
     setFout(null);
     try {
-      const res = await fetch(`/api/medewerkers/${m.id}/uitnodigen`, { method: "POST" });
+      const res = await fetch(`/api/medewerkers/${m.id}/code`, { method: "POST" });
       if (!res.ok) {
         const j = await res.json().catch(() => ({ error: "fout" }));
-        throw new Error(j.error || "uitnodigen mislukt");
+        throw new Error(j.error || "code aanmaken mislukt");
       }
-      alert(`Uitnodiging verstuurd naar ${m.email}.`);
+      const j = await res.json();
+      setGegenereerdeCode({
+        code: j.code,
+        email: j.email,
+        voornaam: j.voornaam,
+        verlooptOp: j.verlooptOp,
+      });
     } catch (e) {
       setFout(e instanceof Error ? e.message : "fout");
     } finally {
@@ -192,13 +200,13 @@ export default function MedewerkerBeheer({
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       <button
-                        onClick={() => uitnodigen(m)}
+                        onClick={() => maakCode(m)}
                         disabled={busy}
-                        className="px-2 py-1 text-[12px] rounded-md disabled:opacity-50"
-                        style={{ color: "var(--text-2)" }}
-                        title="Uitnodigingsmail sturen voor PIN-registratie"
+                        className="px-2 py-1 text-[12px] rounded-md disabled:opacity-50 font-medium"
+                        style={{ color: hex }}
+                        title="Maak een 6-cijferige registratiecode aan voor handmatige uitdeling"
                       >
-                        Uitnodigen
+                        {m.heeftPin ? "Nieuwe code" : "Code aanmaken"}
                       </button>
                       <button
                         onClick={() => startBewerken(m)}
@@ -344,6 +352,114 @@ export default function MedewerkerBeheer({
             border-color: ${hex};
           }
         `}</style>
+      </div>
+
+      {gegenereerdeCode && (
+        <CodeDialog
+          code={gegenereerdeCode}
+          hex={hex}
+          onSluit={() => setGegenereerdeCode(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function CodeDialog({
+  code, hex, onSluit,
+}: {
+  code: { code: string; email: string; voornaam: string; verlooptOp: string };
+  hex: string;
+  onSluit: () => void;
+}) {
+  const [gekopieerd, setGekopieerd] = useState(false);
+  const verlooptDatum = new Intl.DateTimeFormat("nl-NL", {
+    day: "numeric", month: "long",
+  }).format(new Date(code.verlooptOp));
+
+  async function kopieer() {
+    try {
+      await navigator.clipboard.writeText(code.code);
+      setGekopieerd(true);
+      setTimeout(() => setGekopieerd(false), 1500);
+    } catch {
+      // stil
+    }
+  }
+
+  const deelTekst = `Hoi ${code.voornaam}! Je kunt je aanmelden bij het Studio Goud rooster met:\n\n• Email: ${code.email}\n• Code: ${code.code}\n\nGa naar: ${typeof window !== "undefined" ? window.location.origin : ""}/welkom\n\nKies daar een eigen 4-cijferige PIN om voortaan in te loggen. Code geldig t/m ${verlooptDatum}.`;
+
+  async function deelViaWhatsapp() {
+    const url = `https://wa.me/?text=${encodeURIComponent(deelTekst)}`;
+    window.open(url, "_blank");
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)" }}
+      onClick={onSluit}
+    >
+      <div
+        className="card max-w-md w-full"
+        onClick={(e) => e.stopPropagation()}
+        style={{ background: "var(--bg-elev)" }}
+      >
+        <div className="text-center pb-4">
+          <p className="eyebrow mb-1">Registratiecode voor {code.voornaam}</p>
+          <p
+            className="text-[42px] font-semibold tabular-nums tracking-widest hologram"
+            style={{ color: hex, letterSpacing: "0.15em" }}
+          >
+            {code.code}
+          </p>
+          <p className="text-[12px] mt-2" style={{ color: "var(--muted)" }}>
+            Geldig t/m {verlooptDatum}
+          </p>
+        </div>
+
+        <div
+          className="p-3 rounded-[10px] mb-3 text-[12.5px]"
+          style={{ background: "var(--bg)", border: "1px solid var(--hairline)" }}
+        >
+          <p className="font-medium mb-1" style={{ color: "var(--text)" }}>
+            Geef door aan {code.voornaam}:
+          </p>
+          <ol className="space-y-0.5 list-decimal list-inside" style={{ color: "var(--text-2)" }}>
+            <li>Open <strong>/welkom</strong> op telefoon</li>
+            <li>Vul email <strong>{code.email}</strong> in</li>
+            <li>Vul code <strong>{code.code}</strong> in</li>
+            <li>Kies eigen 4-cijferige PIN</li>
+          </ol>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={deelViaWhatsapp}
+            className="w-full py-2.5 rounded-[10px] text-[14px] font-semibold text-white flex items-center justify-center gap-2"
+            style={{ background: "#25D366" }}
+          >
+            Delen via WhatsApp
+          </button>
+          <button
+            onClick={kopieer}
+            className="w-full py-2 rounded-[10px] text-[13px] font-medium"
+            style={{
+              background: "var(--bg)",
+              border: "1px solid var(--hairline)",
+              color: "var(--text)",
+            }}
+          >
+            {gekopieerd ? "✓ Gekopieerd" : "Kopieer code"}
+          </button>
+          <button
+            onClick={onSluit}
+            className="w-full py-2 text-[13px]"
+            style={{ color: "var(--muted)" }}
+          >
+            Sluit
+          </button>
+        </div>
       </div>
     </div>
   );

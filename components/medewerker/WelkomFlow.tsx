@@ -5,23 +5,28 @@ import { useRouter } from "next/navigation";
 
 interface Props { token: string }
 
-type Fase = "valideren" | "pin-kiezen" | "pin-bevestigen" | "klaar" | "ongeldig";
+type Fase = "valideren" | "code-invoeren" | "pin-kiezen" | "pin-bevestigen" | "klaar" | "ongeldig";
 
 export default function WelkomFlow({ token }: Props) {
   const router = useRouter();
-  const [fase, setFase] = useState<Fase>("valideren");
+  const [fase, setFase] = useState<Fase>(token ? "valideren" : "code-invoeren");
+
+  // Voor token-flow (email-link)
   const [naam, setNaam] = useState("");
   const [email, setEmail] = useState("");
+
+  // Voor code-flow (handmatige invoer)
+  const [emailInput, setEmailInput] = useState("");
+  const [codeInput, setCodeInput] = useState("");
+
   const [pin, setPin] = useState("");
   const [pin2, setPin2] = useState("");
   const [fout, setFout] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // URL-token validatie bij mount (email-flow)
   useEffect(() => {
-    if (!token) {
-      setFase("ongeldig");
-      return;
-    }
+    if (!token) return;
     fetch(`/api/medewerker/registreren?token=${encodeURIComponent(token)}`)
       .then((r) => r.json().then((j) => ({ ok: r.ok, data: j })))
       .then(({ ok, data }) => {
@@ -39,6 +44,27 @@ export default function WelkomFlow({ token }: Props) {
         setFout("Kon verbinding niet maken");
       });
   }, [token]);
+
+  async function codeValideren() {
+    setFout(null);
+    if (!/^\S+@\S+\.\S+$/.test(emailInput)) {
+      setFout("Vul een geldig e-mailadres in");
+      return;
+    }
+    if (!/^\d{6}$/.test(codeInput)) {
+      setFout("De code is 6 cijfers");
+      return;
+    }
+    setBusy(true);
+    try {
+      // We valideren impliciet door registratie te proberen — maar we hebben
+      // eerst de PIN nodig. Dus we tonen de PIN-keuze en valideren bij submit.
+      setEmail(emailInput);
+      setFase("pin-kiezen");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   function drukPin(c: string, naar: "pin" | "pin2") {
     setFout(null);
@@ -71,10 +97,13 @@ export default function WelkomFlow({ token }: Props) {
     setBusy(true);
     setFout(null);
     try {
+      const body = token
+        ? { token, pin: p }
+        : { email: emailInput, code: codeInput, pin: p };
       const res = await fetch("/api/medewerker/registreren", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, pin: p }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({ error: "fout" }));
@@ -84,7 +113,7 @@ export default function WelkomFlow({ token }: Props) {
       setTimeout(() => router.replace("/m/login?email=" + encodeURIComponent(email)), 1500);
     } catch (e) {
       setFout(e instanceof Error ? e.message : "fout");
-      setFase("pin-kiezen");
+      setFase(token ? "pin-kiezen" : "code-invoeren");
       setPin("");
       setPin2("");
     } finally {
@@ -108,9 +137,16 @@ export default function WelkomFlow({ token }: Props) {
         <h1 className="text-[22px] font-semibold mb-2" style={{ color: "var(--text)" }}>
           Deze link werkt niet meer
         </h1>
-        <p className="text-[14px]" style={{ color: "var(--muted)" }}>
-          {fout || "De link is ongeldig of verlopen. Vraag je manager om een nieuwe uitnodiging."}
+        <p className="text-[14px] mb-4" style={{ color: "var(--muted)" }}>
+          {fout || "De link is ongeldig of verlopen. Vraag je manager om een nieuwe code."}
         </p>
+        <button
+          onClick={() => { setFase("code-invoeren"); setFout(null); }}
+          className="text-[13px] underline"
+          style={{ color: "#0A84FF" }}
+        >
+          Ik heb een 6-cijferige code →
+        </button>
       </div>
     );
   }
@@ -129,13 +165,79 @@ export default function WelkomFlow({ token }: Props) {
     );
   }
 
+  if (fase === "code-invoeren") {
+    return (
+      <div className="max-w-sm w-full">
+        <div className="text-center mb-8">
+          <p className="eyebrow mb-2">Studio Goud</p>
+          <h1
+            className="text-[22px] font-semibold tracking-tight"
+            style={{ color: "var(--text)", letterSpacing: "-0.019em" }}
+          >
+            Welkom bij het team
+          </h1>
+          <p className="text-[13px] mt-2" style={{ color: "var(--muted)" }}>
+            Vul je e-mailadres en de 6-cijferige code in die je manager je heeft gegeven.
+          </p>
+        </div>
+
+        <label className="eyebrow block mb-1.5">E-mailadres</label>
+        <input
+          type="email"
+          value={emailInput}
+          autoFocus
+          onChange={(e) => setEmailInput(e.target.value)}
+          className="w-full px-3 py-3 rounded-[10px] text-[15px] mb-3"
+          style={{
+            background: "var(--bg-elev)",
+            border: "1px solid var(--hairline)",
+            color: "var(--text)",
+          }}
+          placeholder="jouw@email.nl"
+        />
+
+        <label className="eyebrow block mb-1.5">Registratiecode (6 cijfers)</label>
+        <input
+          type="text"
+          inputMode="numeric"
+          pattern="\d{6}"
+          maxLength={6}
+          value={codeInput}
+          onChange={(e) => setCodeInput(e.target.value.replace(/\D/g, ""))}
+          onKeyDown={(e) => e.key === "Enter" && codeValideren()}
+          className="w-full px-3 py-3 rounded-[10px] text-[24px] font-semibold tabular-nums tracking-widest text-center"
+          style={{
+            background: "var(--bg-elev)",
+            border: "1px solid var(--hairline)",
+            color: "var(--text)",
+            letterSpacing: "0.2em",
+          }}
+          placeholder="000000"
+        />
+
+        {fout && (
+          <p className="mt-3 text-[13px]" style={{ color: "#E5484D" }}>{fout}</p>
+        )}
+
+        <button
+          onClick={codeValideren}
+          disabled={busy || !emailInput || codeInput.length !== 6}
+          className="w-full mt-4 py-3 rounded-[10px] text-[15px] font-semibold text-white disabled:opacity-50"
+          style={{ background: "#0A84FF" }}
+        >
+          {busy ? "Bezig…" : "Volgende"}
+        </button>
+      </div>
+    );
+  }
+
   const huidigeWaarde = fase === "pin-kiezen" ? pin : pin2;
   const huidigeNaar: "pin" | "pin2" = fase === "pin-kiezen" ? "pin" : "pin2";
 
   return (
     <div className="max-w-sm w-full">
       <div className="text-center mb-8">
-        <p className="eyebrow mb-2">Welkom {naam}</p>
+        <p className="eyebrow mb-2">{token ? `Welkom ${naam}` : `Welkom`}</p>
         <h1
           className="text-[22px] font-semibold tracking-tight"
           style={{ color: "var(--text)", letterSpacing: "-0.019em" }}

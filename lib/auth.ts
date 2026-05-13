@@ -13,7 +13,7 @@ import { db, schema } from "./db/client";
 
 const SESSIE_COOKIE = "sg_sessie_token";
 const SESSIE_DUUR_DAGEN = 30;
-const REGISTRATIE_DUUR_DAGEN = 7;
+const REGISTRATIE_DUUR_DAGEN = 14;
 
 export type Rol = "owner" | "manager" | "medewerker";
 
@@ -42,8 +42,30 @@ export async function checkPin(pin: string, hash: string): Promise<boolean> {
   return bcrypt.compare(pin, hash);
 }
 
-// ─── Uitnodiging: token genereren + opslaan ───────────────────────────────
+// ─── Registratie: code/token genereren + opslaan ──────────────────────────
 
+/**
+ * Genereert een 6-cijferige registratiecode (handmatig deelbaar via WhatsApp,
+ * SMS, mondeling). Geldig 14 dagen. Combineer met email voor validatie.
+ *
+ * Botsing 1-op-1M acceptabel binnen kleine medewerkerset. Bij validatie zoeken
+ * we op (email + code), dus zelfde code bij twee medewerkers is geen issue.
+ */
+export async function maakRegistratieCode(medewerkerId: number): Promise<{
+  code: string; verloopt: Date;
+}> {
+  const code = String(Math.floor(Math.random() * 1_000_000)).padStart(6, "0");
+  const verloopt = new Date();
+  verloopt.setDate(verloopt.getDate() + REGISTRATIE_DUUR_DAGEN);
+  await db.update(schema.medewerkers).set({
+    registratieToken: code,
+    registratieVerloopt: verloopt,
+    updatedAt: new Date(),
+  }).where(eq(schema.medewerkers.id, medewerkerId));
+  return { code, verloopt };
+}
+
+// Alias voor backwards-compat met email-flow (lange token in URL)
 export async function maakRegistratieToken(medewerkerId: number): Promise<{
   token: string; verloopt: Date;
 }> {
@@ -58,6 +80,7 @@ export async function maakRegistratieToken(medewerkerId: number): Promise<{
   return { token, verloopt };
 }
 
+/** Validatie via lange URL-token (email-flow). */
 export async function valideerRegistratieToken(token: string): Promise<{
   medewerkerId: number;
   voornaam: string;
@@ -72,6 +95,30 @@ export async function valideerRegistratieToken(token: string): Promise<{
     .from(schema.medewerkers)
     .where(and(
       eq(schema.medewerkers.registratieToken, token),
+      eq(schema.medewerkers.actief, true),
+    ));
+  if (rows.length === 0) return null;
+  const row = rows[0];
+  if (!row.verloopt || row.verloopt < new Date()) return null;
+  return { medewerkerId: row.id, voornaam: row.voornaam, email: row.email };
+}
+
+/** Validatie via email + 6-cijferige code (handmatige flow). */
+export async function valideerRegistratieCodeMetEmail(email: string, code: string): Promise<{
+  medewerkerId: number;
+  voornaam: string;
+  email: string;
+} | null> {
+  const rows = await db.select({
+    id: schema.medewerkers.id,
+    voornaam: schema.medewerkers.voornaam,
+    email: schema.medewerkers.email,
+    verloopt: schema.medewerkers.registratieVerloopt,
+  })
+    .from(schema.medewerkers)
+    .where(and(
+      eq(schema.medewerkers.email, email.toLowerCase().trim()),
+      eq(schema.medewerkers.registratieToken, code),
       eq(schema.medewerkers.actief, true),
     ));
   if (rows.length === 0) return null;
