@@ -140,6 +140,56 @@ export const klokEvents = pgTable("klok_events", {
   rosterIdx:     index("klok_events_roster_idx").on(t.rosterId),
 }));
 
+// ─── Salaris-perioden ────────────────────────────────────────────────────────
+// Per medewerker per maand één record met de berekende uren + bedragen.
+// Status-flow: 'open' (live, kan veranderen door rooster-wijzigingen) →
+// 'afgerekend' (maand is gesloten, hash bevriest de waarden) →
+// 'uitbetaald' (bankoverschrijving gedaan).
+//
+// Het hash-veld is een SHA-256 over alle relevante velden, zodat we later
+// kunnen detecteren of een afgerekend bedrag is bijgewerkt zonder dat we
+// dat zien (integrity-check).
+export const salarisPerioden = pgTable("salaris_perioden", {
+  id: serial("id").primaryKey(),
+  medewerkerId: integer("medewerker_id").notNull().references(() => medewerkers.id, { onDelete: "cascade" }),
+  jaar: integer("jaar").notNull(),       // bv. 2026
+  maand: integer("maand").notNull(),     // 1..12
+
+  // Berekening
+  brutoUren: decimal("bruto_uren", { precision: 7, scale: 2 }).notNull(),
+  uurloon:   decimal("uurloon",    { precision: 6, scale: 2 }).notNull(),
+  brutoLoon: decimal("bruto_loon", { precision: 9, scale: 2 }).notNull(),
+
+  // Vakantiegeld (8.33%) en vakantie-uren (8%) erbovenop direct uitbetaald
+  vakantiegeldPct: decimal("vakantiegeld_pct", { precision: 5, scale: 3 }).notNull(),
+  vakantiegeldEur: decimal("vakantiegeld_eur", { precision: 9, scale: 2 }).notNull(),
+  vakantieUrenPct: decimal("vakantie_uren_pct", { precision: 5, scale: 3 }).notNull(),
+  vakantieUrenEur: decimal("vakantie_uren_eur", { precision: 9, scale: 2 }).notNull(),
+
+  // Eindbedrag
+  totaalEur: decimal("totaal_eur", { precision: 9, scale: 2 }).notNull(),
+
+  // Bron-uren: 'klok' (uit klok_events) of 'rooster' (uit rosters) of 'mix'.
+  // Bij oude historie uit Shiftbase hebben we geen klok-events → fallback rooster.
+  bron: varchar("bron", { length: 16 }).notNull().default("rooster"),
+
+  // Integrity-check
+  berekenHash: varchar("bereken_hash", { length: 64 }).notNull(),
+
+  // Status-flow
+  status: varchar("status", { length: 16 }).notNull().default("open"),
+  afgerekendOp: timestamp("afgerekend_op", { withTimezone: true }),
+  afgerekendDoor: integer("afgerekend_door").references(() => medewerkers.id, { onDelete: "set null" }),
+  uitbetaaldOp: timestamp("uitbetaald_op", { withTimezone: true }),
+  betalingReferentie: varchar("betaling_referentie", { length: 64 }),
+
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  uq: uniqueIndex("salaris_periode_uq").on(t.medewerkerId, t.jaar, t.maand),
+  jaarMaandIdx: index("salaris_periode_jaar_maand_idx").on(t.jaar, t.maand),
+}));
+
 // ─── Audit-log ───────────────────────────────────────────────────────────────
 // Onveranderlijke log van elke wijziging aan kritieke entiteiten (rosters,
 // klok_events). Doel: nooit uren-data verliezen — bij elke create/update/delete
@@ -297,5 +347,7 @@ export type KlokEvent       = typeof klokEvents.$inferSelect;
 export type Sessie          = typeof sessies.$inferSelect;
 export type AuditLog       = typeof auditLog.$inferSelect;
 export type NieuweAuditLog = typeof auditLog.$inferInsert;
+export type SalarisPeriode = typeof salarisPerioden.$inferSelect;
+export type NieuweSalarisPeriode = typeof salarisPerioden.$inferInsert;
 export type VoorraadProduct = typeof voorraadProducten.$inferSelect;
 export type VoorraadStatus  = typeof voorraadStatus.$inferSelect;
