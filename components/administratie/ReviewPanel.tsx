@@ -46,6 +46,7 @@ const CATEGORIEEN = [
   { value: "vergoeding",          label: "Vergoeding (OV etc.)",  tarief: 0  },
   { value: "kasstorting",         label: "Kasstorting (cash → bank)", tarief: 0 },
   { value: "interne-overboeking", label: "Interne overboeking (tussen eigen rekeningen)", tarief: 0 },
+  { value: "terugbetaling",       label: "Terugbetaling / teruggave (inkomend, geen omzet)", tarief: 0 },
   { value: "omzet",               label: "Omzet / inkomsten",     tarief: 0  },
   { value: "overig",              label: "Overig (geen BTW)",     tarief: 0  },
 ] as const;

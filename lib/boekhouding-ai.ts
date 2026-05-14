@@ -34,6 +34,7 @@ export const CATEGORIE_OPTIES = [
   { value: "vergoeding",          label: "Vergoeding (OV etc.)",  tarief: 0  },
   { value: "kasstorting",         label: "Kasstorting (cash → bank)", tarief: 0 },
   { value: "interne-overboeking", label: "Interne overboeking",   tarief: 0  },
+  { value: "terugbetaling",       label: "Terugbetaling / teruggave (inkomend)", tarief: 0 },
   { value: "omzet",               label: "Omzet / inkomsten",     tarief: 0  },
   { value: "overig",              label: "Overig (geen BTW)",     tarief: 0  },
 ] as const;
@@ -78,7 +79,8 @@ Categorie-opties met standaard BTW-tarief:
 - "vergoeding" (0%): OV-vergoedingen, reiskosten zonder factuur
 - "kasstorting" (0%): cash dat we op de bankrekening storten (omschrijving bevat "Storting") — wordt NIET als kosten of omzet geboekt (alleen kas→bank). Hoog vertrouwen bij "Storting"-omschrijving.
 - "interne-overboeking" (0%): geld tussen onze eigen rekeningen (BB ↔ SL ↔ KL ↔ privé van Ricardo/Matthieu). Geen kosten, geen omzet.
-- "omzet" (0%): inkomsten/binnenkomende betalingen (richting=credit)
+- "terugbetaling" (0%): inkomende correcties die GEEN omzet zijn — privé-stortingen, teruggaven Belastingdienst, refunds van leveranciers. Geen kosten, geen omzet. Gebruik dit voor elke credit die niet omzet of interne-overboeking is.
+- "omzet" (0%): inkomsten uit verkoop (SumUp/Zettle/PayPal settlements). 9% afdragen-BTW wordt automatisch berekend over het bedrag.
 - "overig" (0%): rest, onduidelijk, privé
 
 Regels:

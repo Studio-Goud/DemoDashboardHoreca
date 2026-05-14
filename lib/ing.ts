@@ -69,7 +69,10 @@ const BTW_REGELS: BtwRegel[] = [
 
   // 21% zakelijke diensten / huur / telecom
   { patroon: /klepierre/i,                 tarief21: -1, tarief9: 0, categorie: "huur",             status: "auto" },
-  { patroon: /echt\s*rotterdams/i,         tarief21: 0,  tarief9: 0, categorie: "dga-er",           status: "nvt"  },
+  // DGA-er: factuur mét 21% BTW, voorbelasting wordt automatisch berekend.
+  // De winst-routine telt het bedrag mee als DGA-salaris EN de voorbelasting
+  // bij voorbelasting21 (zie lib/boekhouding.ts verwerkSplit/maandTxs loop).
+  { patroon: /echt\s*rotterdams/i,         tarief21: -1, tarief9: 0, categorie: "dga-er",           status: "auto" },
   { patroon: /\bmp5\b/i,                  tarief21: 0,  tarief9: 0, categorie: "dga-mp5",          status: "nvt"  },
   { patroon: /odido/i,                     tarief21: -1, tarief9: 0, categorie: "telecom",          status: "auto" },
   { patroon: /t-mobile/i,                  tarief21: -1, tarief9: 0, categorie: "telecom",          status: "auto" },
@@ -93,6 +96,11 @@ const BTW_REGELS: BtwRegel[] = [
   { patroon: /surebusiness/i,              tarief21: 0,  tarief9: 0, categorie: "verzekering",      status: "nvt" },
   { patroon: /geldmaat/i,                  tarief21: 0,  tarief9: 0, categorie: "contant",          status: "nvt" },
   { patroon: /via\s*tikkie/i,              tarief21: 0,  tarief9: 0, categorie: "vergoeding",       status: "nvt" },
+
+  // Inter-company transfers tussen onze eigen entiteiten — geen kosten, geen omzet
+  { patroon: /brunch\s*&?\s*brew|brunch\s*and\s*brew/i, tarief21: 0, tarief9: 0, categorie: "interne-overboeking", status: "auto" },
+  { patroon: /sat[eé]\s*lounge/i,          tarief21: 0,  tarief9: 0, categorie: "interne-overboeking", status: "auto" },
+  { patroon: /kroket\s*loket/i,            tarief21: 0,  tarief9: 0, categorie: "interne-overboeking", status: "auto" },
 
   // Salaris / personeel — initialen + achternaam patroon (bijv. T COSTA, HL FRANKEN-SNOEI, M DE CARVALHO PINHO BARBOSA, J.P. MEIJER)
   { patroon: /^[A-Z]{1,3}(?:\.[A-Z])*\.?\s+(?:(?:de|van|den|der|ter|te|het|in|op|'t)\s+)?[A-Z][A-Z\s-]{1,}$/i, tarief21: 0, tarief9: 0, categorie: "salaris", status: "nvt" },
@@ -171,6 +179,73 @@ function hashId(datum: string, naam: string, bedrag: number): string {
   return `${datum}-${naam.slice(0, 20).replace(/\s/g, "")}-${bedrag}`.replace(/[^a-zA-Z0-9-]/g, "");
 }
 
+/**
+ * Robuust een ING-bedrag parsen. Excel-export levert soms een Number, soms
+ * een string met Nederlandse notatie ("1.675,00" of "1675,00") of zonder
+ * decimalen ("1.675"). Eerdere implementatie deed alleen `replace(",", ".")`
+ * wat €1.675,00 → "1.675.00" → NaN → fallback naar 1.675 maakte (bug: FJORD
+ * stond op €75 ipv €1.675 omdat dezelfde regex per ongeluk maar 1 deel pakte).
+ *
+ * Strategie:
+ *  - Numeric? Direct gebruiken.
+ *  - String met komma: dots zijn duizend-separators → strippen, komma → punt.
+ *  - String zonder komma: meerdere dots? → duizend-separators → strippen.
+ *  - String zonder komma, één dot: ambigu — interpreteer als decimaal punt
+ *    (Excel-export EN-formaat) tenzij gevolgd door 3 cijfers (dan duizend).
+ */
+function parseDutchBedrag(raw: unknown): { bedrag: number; ruwe: string } {
+  if (raw === null || raw === undefined || raw === "") {
+    return { bedrag: NaN, ruwe: "" };
+  }
+  if (typeof raw === "number") {
+    return { bedrag: Math.abs(raw), ruwe: String(raw) };
+  }
+  const ruwe = String(raw).trim();
+  const cleaned = ruwe.replace(/[^\d.,\-]/g, ""); // alleen cijfers, dot, comma, minus
+  if (!cleaned) return { bedrag: NaN, ruwe };
+
+  let normalised: string;
+  if (cleaned.includes(",")) {
+    // Nederlandse notatie: dots zijn duizend-sep, comma is decimaal
+    normalised = cleaned.replace(/\./g, "").replace(",", ".");
+  } else {
+    const dots = (cleaned.match(/\./g) || []).length;
+    if (dots > 1) {
+      // 1.234.567 — meerdere duizend-separators, geen decimaal
+      normalised = cleaned.replace(/\./g, "");
+    } else if (dots === 1) {
+      const [, frac] = cleaned.split(".");
+      // "1.675" met 3 cijfers na de dot → vrijwel zeker duizend-separator
+      // ("1675"); "12.34" → decimaal
+      normalised = frac && frac.length === 3 ? cleaned.replace(".", "") : cleaned;
+    } else {
+      normalised = cleaned;
+    }
+  }
+  const n = Number(normalised);
+  return { bedrag: Number.isFinite(n) ? Math.abs(n) : NaN, ruwe };
+}
+
+/** Verzameld in een module-scope array zodat verwerkRij callers er bij kunnen. */
+const PARSE_WAARSCHUWINGEN: string[] = [];
+export function ingParseWaarschuwingen(): string[] {
+  return [...PARSE_WAARSCHUWINGEN];
+}
+function resetParseWaarschuwingen() {
+  PARSE_WAARSCHUWINGEN.length = 0;
+}
+
+/** Categorieën die niet logisch zijn voor inkomende betalingen. Als een
+ *  credit-transactie hier matcht, hebbenwe een misclassificatie en gooien
+ *  we de categorie naar "terugbetaling" (neutraal — geen kosten, geen omzet).
+ */
+const EXPENSE_ONLY_CATS = new Set([
+  "salaris", "loon", "loonkosten", "belasting", "sociale-lasten", "pensioen",
+  "levensmiddelen", "huur", "telecom", "software", "marketing", "materiaal",
+  "representatie", "verzekering", "vergoeding", "bankkosten",
+  "hosting", "abonnement", "gemeentekosten", "markthal",
+]);
+
 // Verrijk kolommen: als het bestand al BTW-kolommen heeft (gebruikers-export), gebruik die.
 // Zo niet, categoriseer automatisch.
 function verwerkRij(row: unknown[]): IngTransactie | null {
@@ -191,8 +266,22 @@ function verwerkRij(row: unknown[]): IngTransactie | null {
   if (/^(totaal|inkomsten|uitgaven|saldo)\b/i.test(naam)) return null;
 
   const richting: "debit" | "credit" = richtingRaw.includes("debit") || richtingRaw === "af" ? "debit" : "credit";
-  const bedrag = Math.abs(Number(String(bedragRaw).replace(",", ".")));
+  const parsed = parseDutchBedrag(bedragRaw);
+  const bedrag = parsed.bedrag;
   if (isNaN(bedrag) || bedrag === 0) return null;
+
+  // Waarschuwing bij verdachte parse: ruwe string had wel cijfers maar het
+  // resultaat lijkt te klein (kan duizend-separator-bug zijn).
+  const ruwDigits = parsed.ruwe.replace(/\D/g, "");
+  if (
+    ruwDigits.length >= 4 &&
+    bedrag < 100 &&
+    Number(ruwDigits) > bedrag * 10
+  ) {
+    PARSE_WAARSCHUWINGEN.push(
+      `[ING-parser] verdacht klein bedrag voor "${naam}": ruw "${parsed.ruwe}" → €${bedrag.toFixed(2)}. Controleer handmatig.`,
+    );
+  }
 
   const datumIso = ingDatumNaarIso(datum);
 
@@ -215,6 +304,20 @@ function verwerkRij(row: unknown[]): IngTransactie | null {
     btwStatus = cat.btwStatus;
   }
 
+  // ── Harde regel voor credittransacties ──────────────────────────────────
+  // Inkomsten kunnen nooit voorbelasting opleveren. Als de categorisering
+  // toch een expense-only categorie heeft toegewezen (Mrs Hilary salaris,
+  // Belastingdienst-teruggaaf, etc.), forceer een neutrale categorie zodat
+  // de winstberekening klopt.
+  if (richting === "credit") {
+    btw21 = 0;
+    btw9  = 0;
+    if (EXPENSE_ONLY_CATS.has(categorie)) {
+      categorie = "terugbetaling";
+      btwStatus = "auto";
+    }
+  }
+
   return {
     id: hashId(datumIso, naam, bedrag),
     datum: datumIso,
@@ -233,6 +336,7 @@ function verwerkRij(row: unknown[]): IngTransactie | null {
 }
 
 export function parseIngExcel(buffer: Buffer): IngTransactie[] {
+  resetParseWaarschuwingen();
   const wb = XLSX.read(buffer, { type: "buffer" });
   const transacties: IngTransactie[] = [];
 
@@ -262,6 +366,7 @@ export function parseIngExcel(buffer: Buffer): IngTransactie[] {
 }
 
 export function parseIngCsv(text: string): IngTransactie[] {
+  resetParseWaarschuwingen();
   // Standaard ING CSV-export (puntkomma-gescheiden, Nederlandse kolommen)
   const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
   if (lines.length < 2) return [];

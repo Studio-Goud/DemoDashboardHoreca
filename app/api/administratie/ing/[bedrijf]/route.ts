@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { parseIngExcel, parseIngCsv, herclassificeer } from "@/lib/ing";
+import { parseIngExcel, parseIngCsv, herclassificeer, ingParseWaarschuwingen } from "@/lib/ing";
 import { slaIngOp, haalIngOp, updateIngTransactie, verwijderIngMaand } from "@/lib/boekhouding-kv";
 import { extracteerPatroon, slaRegelOp, geleerdeRegels, matchRegel, teltToepassing } from "@/lib/ing-leer-regels";
 
@@ -15,7 +15,8 @@ const CATEGORIE_TARIEF: Record<string, 0 | 9 | 21> = {
   huur: 21, telecom: 21, software: 21, marketing: 21, materiaal: 21, representatie: 21,
   salaris: 0, belasting: 0, pensioen: 0, "sociale-lasten": 0, bankkosten: 0,
   verzekering: 0, vergoeding: 0, omzet: 0, overig: 0,
-  kasstorting: 0, "interne-overboeking": 0,
+  kasstorting: 0, "interne-overboeking": 0, terugbetaling: 0,
+  "dga-er": 21, "dga-mp5": 0,
 };
 
 function berekenBtwUitTarief(bedrag: number, tarief: 0 | 9 | 21): { btw21: number; btw9: number } {
@@ -75,10 +76,12 @@ export async function POST(
   await slaIngOp(bedrijf, txs);
 
   const reviewCount = txs.filter((t) => t.btwStatus === "review").length;
+  const waarschuwingen = ingParseWaarschuwingen();
   return NextResponse.json({
     opgeslagen: txs.length,
     reviewNodig: reviewCount,
-    bericht: `${txs.length} transacties verwerkt, ${reviewCount} vereisen handmatige BTW-controle.`,
+    waarschuwingen,
+    bericht: `${txs.length} transacties verwerkt, ${reviewCount} vereisen handmatige BTW-controle.${waarschuwingen.length > 0 ? ` ${waarschuwingen.length} parser-waarschuwing(en).` : ""}`,
   });
 }
 
