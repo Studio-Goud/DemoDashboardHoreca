@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import PinGate from "@/components/PinGate";
 import LiveBalk from "@/components/LiveBalk";
+import TaalFloater from "@/components/TaalFloater";
 import { TaalProvider } from "@/lib/i18n/TaalProvider";
 import { getTaal, htmlLang } from "@/lib/i18n/server";
 
@@ -40,6 +41,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <PinGate>
             <LiveBalk />
             {children}
+            <TaalFloater />
           </PinGate>
         </TaalProvider>
       </body>

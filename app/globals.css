@@ -345,3 +345,32 @@ body {
   0%, 100% { background-position: 0% 0%, 0% 0%; }
   50%      { background-position: 4% 2%, -3% -2%; }
 }
+
+/* LiveBalk: kolom-pulse — laat de gekleurde onderbalk pulseren wanneer
+   de huidige insight die specifieke vestiging betreft. De CSS-variable
+   --puls-kleur wordt per kolom inline gezet (bedrijfs-kleur). */
+@keyframes kolomPuls {
+  0%, 100% {
+    box-shadow:
+      inset 0 -2px 0 var(--puls-kleur),
+      0 4px 14px -2px color-mix(in srgb, var(--puls-kleur) 50%, transparent),
+      0 0 0 0 color-mix(in srgb, var(--puls-kleur) 0%, transparent);
+    background:
+      linear-gradient(180deg,
+        transparent 70%,
+        color-mix(in srgb, var(--puls-kleur) 6%, transparent) 100%);
+  }
+  50% {
+    box-shadow:
+      inset 0 -3px 0 var(--puls-kleur),
+      0 6px 22px -2px color-mix(in srgb, var(--puls-kleur) 80%, transparent),
+      0 0 0 1px color-mix(in srgb, var(--puls-kleur) 28%, transparent);
+    background:
+      linear-gradient(180deg,
+        transparent 55%,
+        color-mix(in srgb, var(--puls-kleur) 14%, transparent) 100%);
+  }
+}
+.kolom-pulse {
+  animation: kolomPuls 2.4s ease-in-out infinite;
+}

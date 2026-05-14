@@ -146,86 +146,6 @@ function maakInsights(staten: InsightInput): Insight[] {
 }
 
 
-// ─── Animatie-definities ──────────────────────────────────────────────────────
-
-interface AnimDef { naam: string; duur: string; herh: string; timing: string }
-
-const ANIMATIES: AnimDef[] = [
-  { naam: "pBob",     duur: "2.2s",  herh: "1",  timing: "ease-in-out" }, // rustige bob
-  { naam: "pSpread",  duur: "1.4s",  herh: "1",  timing: "ease-in-out" }, // vleugels spreiden
-  { naam: "pGaap",    duur: "1.8s",  herh: "1",  timing: "ease-in-out" }, // gapen
-  { naam: "pSchud",   duur: "0.6s",  herh: "3",  timing: "ease-in-out" }, // hoofd schudden
-  { naam: "pSprong",  duur: "0.9s",  herh: "1",  timing: "ease-out"    }, // springen
-  { naam: "pWiebel",  duur: "0.5s",  herh: "4",  timing: "ease-in-out" }, // wiebelen
-  { naam: "pBuig",    duur: "1.4s",  herh: "1",  timing: "ease-in-out" }, // buigen/strikken
-  { naam: "pTril",    duur: "0.1s",  herh: "10", timing: "linear"      }, // opgewonden trillen
-  { naam: "pDraai",   duur: "1.0s",  herh: "1",  timing: "ease-in-out" }, // flip/draaien
-  { naam: "pKnik",    duur: "0.5s",  herh: "3",  timing: "ease-in-out" }, // knikken
-];
-
-const IDLE: AnimDef = { naam: "pIdle", duur: "3s", herh: "infinite", timing: "ease-in-out" };
-
-// ─── Papegaai component ───────────────────────────────────────────────────────
-
-function Papegaai({
-  kleur,
-  startDelay,
-  actief,
-}: {
-  kleur: string;
-  startDelay: number;
-  actief: boolean;
-}) {
-  const [huidig, setHuidig] = useState<AnimDef>(IDLE);
-  const [animKey, setAnimKey] = useState(0); // force re-render om animatie opnieuw te triggeren
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const planVolgende = useCallback(() => {
-    // Wacht 1–4 seconden (idle), dan nieuwe willekeurige animatie
-    const wacht = 1000 + Math.random() * 3000;
-    timerRef.current = setTimeout(() => {
-      setHuidig(ANIMATIES[Math.floor(Math.random() * ANIMATIES.length)]);
-      setAnimKey(k => k + 1);
-    }, wacht);
-  }, []);
-
-  useEffect(() => {
-    // Start na initiële vertraging
-    timerRef.current = setTimeout(() => {
-      setHuidig(ANIMATIES[Math.floor(Math.random() * ANIMATIES.length)]);
-      setAnimKey(k => k + 1);
-    }, startDelay);
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // animatie-state behouden voor backwards compat, maar visueel niet meer gebruikt
-  void huidig; void animKey; void planVolgende;
-
-  return (
-    <div className="relative flex flex-col items-center">
-      {/* Gradient-orb — pulseert subtiel wanneer dit bedrijf "praat" */}
-      <div
-        className="relative w-2 h-2 rounded-full transition-all duration-700"
-        style={{
-          background: actief
-            ? `radial-gradient(circle at 35% 30%, #ffffff 0%, ${kleur} 55%, ${kleur} 100%)`
-            : `${kleur}40`,
-          boxShadow: actief
-            ? `0 0 0 3px ${kleur}22, 0 0 14px 2px ${kleur}88`
-            : `0 0 0 1px ${kleur}30`,
-          transform: actief ? "scale(1.25)" : "scale(1)",
-        }}
-      />
-
-      {/* Speech bubble verwijderd uit Papegaai-component zelf:
-          het tekstwolkje stak BUITEN de LiveBalk uit en overlapte de
-          DashboardNav-tabs eronder. Tekst staat nu als gedeelde
-          regel binnen de balk (zie hieronder bij render). */}
-    </div>
-  );
-}
-
 // ─── BedrijfKolom ─────────────────────────────────────────────────────────────
 
 interface BedrijfStaat { omzet: number; klanten: number; verwachtNu: number }
@@ -456,8 +376,6 @@ export default function LiveBalk() {
     };
   }, []);
 
-  const DELAYS = [0, 800, 1800];
-
   // Welkomst via papegaai ipv WelkomBanner
   const [welkomOverride, setWelkomOverride] = useState<{ idx: number; tekst: string } | null>(null);
   const welkomTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -506,16 +424,26 @@ export default function LiveBalk() {
           borderBottom: "1px solid rgba(255,255,255,0.08)",
         }}
       >
-        {/* Datakolommen — klikbaar als navigatie */}
+        {/* Datakolommen — klikbaar als navigatie. De onderbalk pulseert
+            wanneer de huidige insight die specifieke vestiging betreft
+            (welkom-override heeft voorrang). */}
         <div className="flex" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-          {BEDRIJVEN.map((b) => {
-            const isActief = pathname === `/${b.slug}`;
+          {BEDRIJVEN.map((b, i) => {
+            const isActief    = pathname === `/${b.slug}`;
+            const welkomHere  = welkomOverride?.idx === i;
+            const insightHere = !welkomOverride && huidigeInsight?.bedrijfIdx === i;
+            const pulseAan    = welkomHere || insightHere;
+            const borderKleur = isActief ? b.kleur : "transparent";
             return (
               <Link
                 key={b.slug}
                 href={`/${b.slug}`}
-                className="flex-1 block"
-                style={isActief ? { borderBottom: `2px solid ${b.kleur}` } : { borderBottom: "2px solid transparent" }}
+                className={`flex-1 block relative ${pulseAan ? "kolom-pulse" : ""}`}
+                style={{
+                  borderBottom: `2px solid ${borderKleur}`,
+                  // CSS variable zodat de @keyframes de juiste vestiging-kleur gebruikt
+                  ["--puls-kleur" as string]: b.kleur,
+                }}
               >
                 <BedrijfKolom
                   {...b}
@@ -533,32 +461,13 @@ export default function LiveBalk() {
             pointer-events: none want er valt niets te klikken. */}
         {rol !== "manager" && (
           <div style={{ pointerEvents: "none" }}>
-            {/* Orb-row — pulseert bij welkom of bij vestiging-specifieke insight */}
-            <div className="flex">
-              {BEDRIJVEN.map((b, i) => {
-                const welkomActief = welkomOverride?.idx === i;
-                const insightActief = !welkomOverride && huidigeInsight?.bedrijfIdx === i;
-                const isActief = welkomActief || insightActief;
-                return (
-                  <div
-                    key={b.slug}
-                    className="flex-1 flex justify-center items-center py-2"
-                  >
-                    <Papegaai
-                      kleur={b.kleur}
-                      startDelay={DELAYS[i]}
-                      actief={isActief}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-
             {/* Live-pulse ticker — data-driven insight rotateert elke ~5,5s.
-                Welkom-override krijgt voorrang. Vaste hoogte zodat de balk
-                niet "ademt"; truncate met ellipsis voor te lange tekst. */}
+                De gekleurde onderbalk van de bijbehorende vestiging pulseert
+                mee (zie .kolom-pulse). Welkom-override krijgt voorrang.
+                Vaste hoogte zodat de balk niet "ademt"; truncate met ellipsis
+                voor te lange tekst. */}
             <div
-              className="px-4 pb-2 h-[26px] flex items-center justify-center overflow-hidden"
+              className="px-4 py-2.5 h-[34px] flex items-center justify-center overflow-hidden"
               aria-hidden="true"
             >
               {(() => {
