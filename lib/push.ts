@@ -11,16 +11,23 @@ export interface OpgeslagenSubscription {
   gemaakt: string;
 }
 
+function normaliseerVapidKey(raw: string): string {
+  // web-push verwacht URL-safe Base64 zonder padding. Vercel-env's bevatten
+  // soms een trailing "=" (standaard Base64 padding) of "+"/"/" — strippen
+  // en omzetten zodat copy-paste-fouten geen 500 veroorzaken.
+  return raw.trim().replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
+}
+
 function configureerWebpush() {
-  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-  const privateKey = process.env.VAPID_PRIVATE_KEY;
-  const subject = process.env.VAPID_SUBJECT || "mailto:ricardo@studio-goud.nl";
-  if (!publicKey || !privateKey) {
+  const publicKeyRaw = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  const privateKeyRaw = process.env.VAPID_PRIVATE_KEY;
+  const subject = process.env.VAPID_SUBJECT || "mailto:info@brunchandbrew.nl";
+  if (!publicKeyRaw || !privateKeyRaw) {
     throw new Error(
       "VAPID sleutels ontbreken — zet NEXT_PUBLIC_VAPID_PUBLIC_KEY en VAPID_PRIVATE_KEY in Vercel env."
     );
   }
-  webpush.setVapidDetails(subject, publicKey, privateKey);
+  webpush.setVapidDetails(subject, normaliseerVapidKey(publicKeyRaw), normaliseerVapidKey(privateKeyRaw));
 }
 
 function kvBeschikbaar(): boolean {
