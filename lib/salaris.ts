@@ -41,7 +41,10 @@ export interface SalarisBerekening {
   totaalEur: number;
   bron: SalarisBron;
   berekenHash: string;
-  details: Array<{ datum: string; uren: number; bron: "klok" | "rooster"; pauzeMin: number }>;
+  details: Array<{ datum: string; uren: number; bron: "klok" | "rooster"; pauzeMin: number; departmentSlug: string | null }>;
+  /** Uren gesplitst per vestiging waar gewerkt — laat zien wanneer een
+   *  medewerker thuis bij BB hoort maar uren maakte op SL (inleen). */
+  urenPerVestiging: Array<{ departmentSlug: string; departmentNaam: string; uren: number }>;
 }
 
 const DEFAULT_VAKANTIEGELD_PCT = 8.333;
@@ -80,11 +83,19 @@ async function urenPerDagVoorMedewerker(
   medewerkerId: number,
   start: string,
   eind: string,
-): Promise<Array<{ datum: string; uren: number; bron: "klok" | "rooster"; pauzeMin: number }>> {
-  // Klok-events
+): Promise<Array<{ datum: string; uren: number; bron: "klok" | "rooster"; pauzeMin: number; departmentSlug: string | null }>> {
+  // Klok-events met join op roster → department (om te weten waar gewerkt)
   const klokEvents = await db
-    .select()
+    .select({
+      id: schema.klokEvents.id,
+      type: schema.klokEvents.type,
+      tijdstempel: schema.klokEvents.tijdstempel,
+      rosterId: schema.klokEvents.rosterId,
+      departmentSlug: schema.departments.slug,
+    })
     .from(schema.klokEvents)
+    .leftJoin(schema.rosters, eq(schema.klokEvents.rosterId, schema.rosters.id))
+    .leftJoin(schema.departments, eq(schema.rosters.departmentId, schema.departments.id))
     .where(and(
       eq(schema.klokEvents.medewerkerId, medewerkerId),
       gte(schema.klokEvents.tijdstempel, new Date(`${start}T00:00:00Z`)),
@@ -92,31 +103,39 @@ async function urenPerDagVoorMedewerker(
     ))
     .orderBy(asc(schema.klokEvents.tijdstempel));
 
-  type DagAggregaat = { uren: number; bron: "klok" | "rooster"; pauzeMin: number };
-  const perDag = new Map<string, DagAggregaat>();
-  let openIn: Date | null = null;
+  type DagAggregaat = { uren: number; bron: "klok" | "rooster"; pauzeMin: number; departmentSlug: string | null };
+  // Sleutel = datum (Klok kan over middernacht lopen — slag rond door
+  // de in-event datum te nemen). Voor splitsing per vestiging: als één dag
+  // meerdere shifts op verschillende vestigingen kent, behouden we per
+  // (datum, vestiging) een rij.
+  const perDagVestiging = new Map<string, DagAggregaat>();
+  let openIn: { tijd: Date; deptSlug: string | null } | null = null;
   for (const ev of klokEvents) {
     if (ev.type === "in") {
-      openIn = ev.tijdstempel;
+      openIn = { tijd: ev.tijdstempel, deptSlug: ev.departmentSlug };
     } else if (ev.type === "out" && openIn) {
-      const uren = (ev.tijdstempel.getTime() - openIn.getTime()) / 1000 / 3600;
-      const datum = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Amsterdam" }).format(openIn);
-      const cur = perDag.get(datum) ?? { uren: 0, bron: "klok" as const, pauzeMin: 0 };
+      const uren = (ev.tijdstempel.getTime() - openIn.tijd.getTime()) / 1000 / 3600;
+      const datum = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Amsterdam" }).format(openIn.tijd);
+      const slug = openIn.deptSlug;
+      const sleutel = `${datum}|${slug ?? ""}`;
+      const cur = perDagVestiging.get(sleutel) ?? { uren: 0, bron: "klok" as const, pauzeMin: 0, departmentSlug: slug };
       cur.uren += Math.max(0, uren);
-      perDag.set(datum, cur);
+      perDagVestiging.set(sleutel, cur);
       openIn = null;
     }
   }
 
-  // Fallback op rosters voor dagen ZONDER klok-events
+  // Fallback op rosters voor dagen/vestigingen ZONDER klok-events
   const rosters = await db
     .select({
       datum: schema.rosters.datum,
       start: schema.rosters.start,
       eind: schema.rosters.eind,
       pauzeMin: schema.rosters.pauzeMin,
+      departmentSlug: schema.departments.slug,
     })
     .from(schema.rosters)
+    .innerJoin(schema.departments, eq(schema.rosters.departmentId, schema.departments.id))
     .where(and(
       eq(schema.rosters.medewerkerId, medewerkerId),
       eq(schema.rosters.gepubliceerd, true),
@@ -125,15 +144,27 @@ async function urenPerDagVoorMedewerker(
     ));
 
   for (const r of rosters) {
-    if (perDag.has(r.datum)) continue;
+    const sleutel = `${r.datum}|${r.departmentSlug}`;
+    if (perDagVestiging.has(sleutel)) continue;
     const [sh, sm] = r.start.split(":").map(Number);
     const [eh, em] = r.eind.split(":").map(Number);
     const minuten = Math.max(0, eh * 60 + em - sh * 60 - sm - r.pauzeMin);
-    perDag.set(r.datum, { uren: minuten / 60, bron: "rooster", pauzeMin: r.pauzeMin });
+    perDagVestiging.set(sleutel, {
+      uren: minuten / 60,
+      bron: "rooster",
+      pauzeMin: r.pauzeMin,
+      departmentSlug: r.departmentSlug,
+    });
   }
 
-  return Array.from(perDag.entries())
-    .map(([datum, v]) => ({ datum, uren: rondAfTwee(v.uren), bron: v.bron, pauzeMin: v.pauzeMin }))
+  return Array.from(perDagVestiging.entries())
+    .map(([sleutel, v]) => ({
+      datum: sleutel.split("|")[0],
+      uren: rondAfTwee(v.uren),
+      bron: v.bron,
+      pauzeMin: v.pauzeMin,
+      departmentSlug: v.departmentSlug,
+    }))
     .sort((a, b) => a.datum.localeCompare(b.datum));
 }
 
@@ -165,6 +196,26 @@ export async function berekenSalarisVoorMedewerker(
     : bronnen.size === 2 ? "mix"
     : (bronnen.has("klok") ? "klok" : "rooster");
 
+  // Aggregeer uren per vestiging waar gewerkt — owner ziet zo direct
+  // of inleen-uren erin zitten (bv. Gianni KL die 8u bij BB werkte).
+  const VESTIGING_NAMEN: Record<string, string> = {
+    bb: "Brunch & Brew",
+    sl: "Saté Lounge",
+    kl: "Het Kroket Loket",
+  };
+  const urenPerVestigingMap = new Map<string, number>();
+  for (const d of details) {
+    const slug = d.departmentSlug ?? "onbekend";
+    urenPerVestigingMap.set(slug, (urenPerVestigingMap.get(slug) ?? 0) + d.uren);
+  }
+  const urenPerVestiging = Array.from(urenPerVestigingMap.entries())
+    .map(([slug, uren]) => ({
+      departmentSlug: slug,
+      departmentNaam: VESTIGING_NAMEN[slug] ?? slug,
+      uren: rondAfTwee(uren),
+    }))
+    .sort((a, b) => b.uren - a.uren);
+
   const berekening: Omit<SalarisBerekening, "berekenHash" | "details" | "voornaam" | "achternaam"> = {
     medewerkerId,
     jaar,
@@ -178,6 +229,7 @@ export async function berekenSalarisVoorMedewerker(
     vakantieUrenEur: rondAfTwee(vakantieUrenEur),
     totaalEur: rondAfTwee(totaalEur),
     bron,
+    urenPerVestiging,
   };
 
   return {
@@ -186,6 +238,7 @@ export async function berekenSalarisVoorMedewerker(
     achternaam: med.achternaam,
     berekenHash: berekenHash(berekening),
     details,
+    urenPerVestiging,
   };
 }
 

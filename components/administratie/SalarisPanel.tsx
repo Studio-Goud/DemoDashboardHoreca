@@ -18,6 +18,8 @@ interface MedewerkerRegel {
   berekenHash: string;
   dbStatus: "open" | "afgerekend" | "uitbetaald";
   hashKlopt: boolean;
+  /** Uren gesplitst per vestiging — owner ziet hier inleen-uren. */
+  urenPerVestiging?: Array<{ departmentSlug: string; departmentNaam: string; uren: number }>;
 }
 
 interface OwnerRapport {
@@ -312,7 +314,18 @@ export default function SalarisPanel({ bedrijf, hex }: Props) {
                     <td className="p-2" style={{ color: "var(--text)" }}>
                       {r.voornaam} <span style={{ color: "var(--muted)" }}>{r.achternaam}</span>
                     </td>
-                    <td className="p-2 text-right tabular-nums">{fmtUren(r.brutoUren)}</td>
+                    <td className="p-2 text-right tabular-nums">
+                      {fmtUren(r.brutoUren)}
+                      {r.urenPerVestiging && r.urenPerVestiging.length > 1 && (
+                        <div className="text-[9px] mt-0.5" style={{ color: "var(--muted)" }}>
+                          {r.urenPerVestiging.map((v) => (
+                            <span key={v.departmentSlug} className="block">
+                              {v.uren.toFixed(1)}u {v.departmentSlug.toUpperCase()}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </td>
                     <td className="p-2 text-right tabular-nums">
                       <UurloonCel
                         medewerkerId={r.medewerkerId}
