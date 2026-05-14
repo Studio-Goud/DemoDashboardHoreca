@@ -12,6 +12,7 @@ import { cruisesOpDatum } from "@/lib/cruises";
 import { feestdagOpDatum, vakantieOpDatum } from "@/lib/feestdagen";
 import RoosterEditor from "@/components/RoosterEditor";
 import BedrijfTabBar from "@/components/BedrijfTabBar";
+import TabHero from "@/components/TabHero";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -148,7 +149,8 @@ export default async function RoosterEditorPage({ params, searchParams }: Props)
   return (
     <main className="min-h-screen p-4 sm:p-6 max-w-7xl mx-auto">
       <BedrijfTabBar bedrijf={config.slug} actiefId="rooster" />
-      <div className="mt-4">
+      <TabHero titel="Rooster" icon="calendar-clock" accent="#30B26F" />
+      <div>
       <RoosterEditor
         bedrijf={config.slug}
         naam={config.naam}

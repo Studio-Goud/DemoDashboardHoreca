@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Icon from "./Icon";
 import TaalPagina from "./TaalPagina";
+import TabHero from "./TabHero";
 import { useRol, type Rol } from "@/lib/useRol";
 import { useT } from "@/lib/i18n/useT";
 
@@ -199,48 +200,15 @@ export default function DashboardNav({ tabs, hex, children }: Props) {
         </div>
       </div>
 
-      {/* Hero-strip per tab — duidelijke visuele markering welke tab je bekijkt */}
+      {/* Hero-strip per tab — duidelijke visuele markering welke tab je bekijkt.
+          Gedeeld met sub-pages via TabHero zodat het consistent voelt. */}
       {huidigeContentTab && (
-        <div
-          key={actief}
-          ref={heroRef}
-          className="mt-4 mb-3 rounded-[14px] overflow-hidden fade-up relative"
-          style={{
-            border: "1px solid var(--hairline)",
-            background: `linear-gradient(135deg, ${huidigeAccent}14 0%, ${huidigeAccent}05 60%, var(--bg-elev) 100%)`,
-          }}
-        >
-          {/* Subtiel scan-light effect bij tab-wissel */}
-          <div
-            className="absolute top-0 left-0 right-0 h-[1px] live-flash"
-            style={{ opacity: 0.5 }}
+        <div key={actief} ref={heroRef}>
+          <TabHero
+            titel={labelVan(huidigeContentTab)}
+            icon={huidigeContentTab.icon}
+            accent={huidigeAccent}
           />
-          <div className="flex items-center gap-3 p-3.5">
-            <span
-              className="inline-flex items-center justify-center w-10 h-10 rounded-[12px] shrink-0"
-              style={{
-                background: `linear-gradient(135deg, ${huidigeAccent}33 0%, ${huidigeAccent}11 100%)`,
-                color: huidigeAccent,
-                boxShadow: `inset 0 0 0 1px ${huidigeAccent}55, 0 0 16px -4px ${huidigeAccent}55`,
-              }}
-            >
-              <Icon name={huidigeContentTab.icon} size={20} strokeWidth={2} />
-            </span>
-            <div className="min-w-0">
-              <p
-                className="text-[10px] uppercase tracking-[0.16em] font-semibold"
-                style={{ color: huidigeAccent, opacity: 0.85 }}
-              >
-                Tab
-              </p>
-              <h2
-                className="text-[18px] font-semibold tracking-tight leading-tight"
-                style={{ color: "var(--text)", letterSpacing: "-0.019em" }}
-              >
-                {labelVan(huidigeContentTab)}
-              </h2>
-            </div>
-          </div>
         </div>
       )}
 

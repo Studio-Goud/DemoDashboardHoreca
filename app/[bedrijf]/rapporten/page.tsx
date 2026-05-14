@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import UrenRapport from "@/components/UrenRapport";
 import BedrijfTabBar from "@/components/BedrijfTabBar";
+import TabHero from "@/components/TabHero";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,8 @@ export default function RapportenPage({ params, searchParams }: Props) {
   return (
     <main className="min-h-screen p-4 sm:p-6 max-w-5xl mx-auto">
       <BedrijfTabBar bedrijf={params.bedrijf as "bb" | "sl" | "kl"} actiefId="rapporten" />
-      <div className="mt-4">
+      <TabHero titel="Uren" icon="wallet" accent="#FFD60A" />
+      <div>
         <UrenRapport bedrijf={params.bedrijf} naam={config.naam} hex={config.hex} maand={maand} />
       </div>
     </main>
