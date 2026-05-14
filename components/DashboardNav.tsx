@@ -119,6 +119,17 @@ export default function DashboardNav({ tabs, hex, children }: Props) {
   // — niet uit de ruwe `tabs` prop, anders mist taal in de panel-render.
   const contentTabs = zichtbareTabs.filter((t) => !t.href);
   const huidigeContentTab = contentTabs.find((t) => t.id === actief);
+
+  // children worden door de caller op INDEX gekoppeld aan de oorspronkelijke
+  // `tabs`-volgorde. Bij rol-filtering schuift de zichtbareTabs-index op,
+  // waardoor zonder mapping de panels verkeerd geplakt worden (bv. manager
+  // ziet bij "Salaris" de Admin-content). We bouwen daarom een tab-id →
+  // child map op basis van de RUWE tabs-prop.
+  const ruweContentTabs = tabs.filter((t) => !t.href);
+  const childByTabId = new Map<string, React.ReactNode>();
+  ruweContentTabs.forEach((tab, idx) => {
+    childByTabId.set(tab.id, children[idx]);
+  });
   const huidigeAccent = (huidigeContentTab?.accent) ?? TAB_ACCENT[actief] ?? hex;
 
   return (
@@ -212,15 +223,18 @@ export default function DashboardNav({ tabs, hex, children }: Props) {
         </div>
       )}
 
-      {/* Tab inhoud. Taal-tab heeft eigen built-in content (geen child uit caller). */}
+      {/* Tab inhoud. Taal-tab heeft eigen built-in content (geen child uit caller).
+          Children worden via tab-id gemapt, niet via index, anders schuift de
+          mapping op zodra een rol-filter een tab verbergt (bv. manager mist
+          admin → salaris-panel kreeg per ongeluk admin-content). */}
       <div className="mt-2">
-        {contentTabs.map((tab, idx) => (
+        {contentTabs.map((tab) => (
           <div
             key={tab.id}
             role="tabpanel"
             className={`space-y-6 ${actief === tab.id ? "block" : "hidden"}`}
           >
-            {tab.id === "taal" ? <TaalPagina /> : children[idx]}
+            {tab.id === "taal" ? <TaalPagina /> : childByTabId.get(tab.id)}
           </div>
         ))}
       </div>
