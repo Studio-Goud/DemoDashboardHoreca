@@ -48,8 +48,10 @@ interface BulkUurlonenResultaat {
   }>;
 }
 
-// Voorgeschreven BB-uurlonen (uit loonsysteem). Owner kan ze met één klik
-// importeren — geen handmatige SQL of inline-edits per persoon meer.
+// Voorgeschreven uurlonen per vestiging (uit loonsysteem mei 2026).
+// BB-tabel is exact uit bruto-uurloon overzicht. SL/KL zijn berekend uit
+// Vergoedingen-belast / Uren in het loonkosten-overzicht (incl. vakgeld-
+// component) — owner kan via de inline-editor in Salaris-tab finetunen.
 const BB_UURLONEN = [
   { identifier: "7",  uurloon: 14.75, naam: "D Tuncel" },
   { identifier: "18", uurloon: 14.75, naam: "S van Nieuwenhoven" },
@@ -64,6 +66,38 @@ const BB_UURLONEN = [
   { identifier: "43", uurloon:  9.75, naam: "D de Willigen" },
 ];
 
+const SL_UURLONEN = [
+  { identifier: "1",  uurloon: 19.82, naam: "S Mathoera" },
+  { identifier: "4",  uurloon: 17.63, naam: "L Broeders" },
+  { identifier: "10", uurloon: 15.93, naam: "K Itjoejaree" },
+  { identifier: "13", uurloon: 12.15, naam: "J Maat" },
+  { identifier: "23", uurloon: 15.93, naam: "LL Ysulan" },
+  { identifier: "26", uurloon: 15.93, naam: "M De Carvalho Pinho Barbo" },
+  { identifier: "27", uurloon: 15.93, naam: "M Canini" },
+  { identifier: "28", uurloon: 11.99, naam: "JR Person Snoei" },
+  { identifier: "29", uurloon: 15.93, naam: "DRB Nakchedi" },
+];
+
+const KL_UURLONEN = [
+  { identifier: "20", uurloon: 17.62, naam: "N.J. Korff" },
+  { identifier: "30", uurloon: 17.62, naam: "N Yonathan" },
+  { identifier: "33", uurloon: 11.99, naam: "ISL Psarianou" },
+  { identifier: "36", uurloon: 17.62, naam: "BEM de Bruin" },
+  { identifier: "43", uurloon: 19.72, naam: "G Gasparinetti" },
+  { identifier: "44", uurloon: 12.37, naam: "H de Vroom" },
+  { identifier: "49", uurloon: 10.42, naam: "F Kort" },
+  { identifier: "52", uurloon:  7.18, naam: "F Giuntoli" },
+  { identifier: "53", uurloon: 13.50, naam: "S de Bruijn" },
+  { identifier: "54", uurloon: 11.93, naam: "RI el Kaka" },
+  { identifier: "55", uurloon: 11.74, naam: "XI Pelt" },
+];
+
+const UURLONEN_PER_VESTIGING = {
+  bb: { naam: "Brunch & Brew", data: BB_UURLONEN },
+  sl: { naam: "Saté Lounge",   data: SL_UURLONEN },
+  kl: { naam: "Het Kroket Loket", data: KL_UURLONEN },
+} as const;
+
 export default function SetupPanel({ hex }: Props) {
   const [busy, setBusy] = useState<"db" | "migratie" | "zettle" | "uurlonen" | null>(null);
   const [dbResult, setDbResult] = useState<DbInitResultaat[] | null>(null);
@@ -72,8 +106,9 @@ export default function SetupPanel({ hex }: Props) {
   const [uurlonenResult, setUurlonenResult] = useState<BulkUurlonenResultaat | null>(null);
   const [fout, setFout] = useState<string | null>(null);
 
-  async function importeerBbUurlonen() {
-    if (!confirm(`Alle ${BB_UURLONEN.length} BB-uurlonen importeren? Bestaande waarden worden overschreven. Idempotent.`)) return;
+  async function importeerUurlonen(vestiging: "bb" | "sl" | "kl") {
+    const cfg = UURLONEN_PER_VESTIGING[vestiging];
+    if (!confirm(`Alle ${cfg.data.length} uurlonen voor ${cfg.naam} importeren? Bestaande waarden worden overschreven. Idempotent.`)) return;
     setBusy("uurlonen");
     setFout(null);
     setUurlonenResult(null);
@@ -82,8 +117,8 @@ export default function SetupPanel({ hex }: Props) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          vestiging: "bb",
-          regels: BB_UURLONEN.map((r) => ({ identifier: r.identifier, uurloon: r.uurloon })),
+          vestiging,
+          regels: cfg.data.map((r) => ({ identifier: r.identifier, uurloon: r.uurloon })),
         }),
       });
       if (!res.ok) {
@@ -307,26 +342,34 @@ export default function SetupPanel({ hex }: Props) {
           )}
         </div>
 
-        {/* Stap 4: Bulk-import uurlonen */}
+        {/* Stap 4: Bulk-import uurlonen per vestiging */}
         <div className="rounded-[10px] p-3" style={{ background: "var(--bg)", border: "1px solid var(--hairline)" }}>
-          <div className="flex items-start justify-between gap-3 flex-wrap">
-            <div className="min-w-0">
-              <p className="text-[13px] font-semibold" style={{ color: "var(--text)" }}>
-                4. Importeer BB-uurlonen
-              </p>
-              <p className="text-[11px] mt-1" style={{ color: "var(--muted)" }}>
-                Eenmalige import van {BB_UURLONEN.length} uurlonen voor Brunch & Brew + thuis-vestiging zetten.
-                Idempotent — opnieuw klikken overschrijft. Bron: jouw loonsysteem-screenshot mei 2026.
-              </p>
-            </div>
-            <button
-              onClick={importeerBbUurlonen}
-              disabled={busy !== null}
-              className="px-3 py-1.5 rounded-[8px] text-[12px] font-medium text-white shrink-0 disabled:opacity-50"
-              style={{ background: hex }}
-            >
-              {busy === "uurlonen" ? "Bezig…" : "Importeer"}
-            </button>
+          <div className="mb-2">
+            <p className="text-[13px] font-semibold" style={{ color: "var(--text)" }}>
+              4. Importeer uurlonen + thuis-vestiging
+            </p>
+            <p className="text-[11px] mt-1" style={{ color: "var(--muted)" }}>
+              Eenmalige import uit loonsysteem mei 2026. Bestaande waarden worden overschreven (idempotent).
+              Per vestiging matcht de import op shiftbase_user_id; bij gelijke ID over vestigingen win de laatste klik.
+              Owner kan daarna via de inline-editor in Salaris finetunen.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {(["bb", "sl", "kl"] as const).map((slug) => {
+              const cfg = UURLONEN_PER_VESTIGING[slug];
+              return (
+                <button
+                  key={slug}
+                  onClick={() => importeerUurlonen(slug)}
+                  disabled={busy !== null}
+                  className="px-3 py-1.5 rounded-[8px] text-[12px] font-medium text-white shrink-0 disabled:opacity-50"
+                  style={{ background: hex }}
+                  title={`${cfg.data.length} medewerkers`}
+                >
+                  {busy === "uurlonen" ? "Bezig…" : `${cfg.naam} (${cfg.data.length})`}
+                </button>
+              );
+            })}
           </div>
           {uurlonenResult && (
             <div className="mt-3 text-[11px] space-y-1" style={{ color: "var(--text-2)" }}>
