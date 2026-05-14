@@ -36,6 +36,7 @@ const CATEGORIEEN = [
   { value: "software",            label: "Software / abonnement", tarief: 21 },
   { value: "marketing",           label: "Marketing",             tarief: 21 },
   { value: "materiaal",           label: "Materiaal / inrichting",tarief: 21 },
+  { value: "energie",             label: "Energie (gas/elektra/water)", tarief: 21 },
   { value: "representatie",       label: "Representatie",         tarief: 21 },
   { value: "salaris",             label: "Salaris / personeel",   tarief: 0  },
   { value: "belasting",           label: "Belasting / loonheffing",tarief: 0 },

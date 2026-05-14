@@ -24,6 +24,7 @@ export const CATEGORIE_OPTIES = [
   { value: "software",            label: "Software / abonnement", tarief: 21 },
   { value: "marketing",           label: "Marketing",             tarief: 21 },
   { value: "materiaal",           label: "Materiaal / inrichting",tarief: 21 },
+  { value: "energie",             label: "Energie (gas/elektra/water)", tarief: 21 },
   { value: "representatie",       label: "Representatie",         tarief: 21 },
   { value: "salaris",             label: "Salaris / personeel",   tarief: 0  },
   { value: "belasting",           label: "Belasting / loonheffing",tarief: 0 },
@@ -69,6 +70,7 @@ Categorie-opties met standaard BTW-tarief:
 - "software" (21%): SaaS-abonnementen, hosting, Shopify, Shiftbase
 - "marketing" (21%): advertenties, sociale media, drukwerk
 - "materiaal" (21%): bouwmarkt (Praxis, Gamma), inrichting, gereedschap
+- "energie" (21%): gas/elektra/water leveranciers (Eneco, Vattenfall, Greenchoice, Essent, Evides, etc.) + netbeheerders (Enexis, Stedin, Liander)
 - "representatie" (21%): zakelijke lunches, klantgeschenken
 - "salaris" (0%): netto-loon uitbetaling aan medewerkers
 - "belasting" (0%): Belastingdienst, loonheffing

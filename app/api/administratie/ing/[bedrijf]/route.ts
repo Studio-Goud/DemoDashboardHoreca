@@ -14,7 +14,7 @@ const CATEGORIE_TARIEF: Record<string, 0 | 9 | 21> = {
   levensmiddelen: 9,
   huur: 21, telecom: 21, software: 21, marketing: 21, materiaal: 21, representatie: 21,
   salaris: 0, belasting: 0, pensioen: 0, "sociale-lasten": 0, bankkosten: 0,
-  verzekering: 0, vergoeding: 0, omzet: 0, overig: 0,
+  verzekering: 0, vergoeding: 0, omzet: 0, overig: 0, energie: 21,
   kasstorting: 0, "interne-overboeking": 0, terugbetaling: 0,
   "dga-er": 21, "dga-mp5": 0,
 };

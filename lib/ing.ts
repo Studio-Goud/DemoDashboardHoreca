@@ -83,6 +83,19 @@ const BTW_REGELS: BtwRegel[] = [
   { patroon: /shiftbase/i,                 tarief21: -1, tarief9: 0, categorie: "software",         status: "auto" },
   { patroon: /directsocials/i,             tarief21: -1, tarief9: 0, categorie: "marketing",        status: "auto" },
   { patroon: /gemeente\s*rotterdam/i,      tarief21: -1, tarief9: 0, categorie: "gemeentekosten",   status: "auto" },
+  // Energie (21% BTW) — alle Nederlandse leveranciers + gas/water nutsbedrijven
+  { patroon: /eneco/i,                     tarief21: -1, tarief9: 0, categorie: "energie",          status: "auto" },
+  { patroon: /vattenfall/i,                tarief21: -1, tarief9: 0, categorie: "energie",          status: "auto" },
+  { patroon: /nuon/i,                      tarief21: -1, tarief9: 0, categorie: "energie",          status: "auto" },
+  { patroon: /greenchoice/i,               tarief21: -1, tarief9: 0, categorie: "energie",          status: "auto" },
+  { patroon: /\bessent\b/i,                tarief21: -1, tarief9: 0, categorie: "energie",          status: "auto" },
+  { patroon: /\bengie\b/i,                 tarief21: -1, tarief9: 0, categorie: "energie",          status: "auto" },
+  { patroon: /budget\s*energie|budgetenergie/i, tarief21: -1, tarief9: 0, categorie: "energie",     status: "auto" },
+  { patroon: /\boxxio\b/i,                 tarief21: -1, tarief9: 0, categorie: "energie",          status: "auto" },
+  { patroon: /vandebron/i,                 tarief21: -1, tarief9: 0, categorie: "energie",          status: "auto" },
+  { patroon: /pure\s*energie/i,            tarief21: -1, tarief9: 0, categorie: "energie",          status: "auto" },
+  { patroon: /evides/i,                    tarief21: -1, tarief9: 0, categorie: "energie",          status: "auto" }, // water
+  { patroon: /enexis|stedin|liander/i,     tarief21: -1, tarief9: 0, categorie: "energie",          status: "auto" }, // netbeheer
   { patroon: /praxis/i,                    tarief21: -1, tarief9: 0, categorie: "materiaal",        status: "auto" },
   { patroon: /bck\*markthal/i,             tarief21: -1, tarief9: 0, categorie: "markthal",         status: "auto" },
   { patroon: /disposable\s*discounter/i,   tarief21: -1, tarief9: 0, categorie: "materiaal",        status: "auto" },
