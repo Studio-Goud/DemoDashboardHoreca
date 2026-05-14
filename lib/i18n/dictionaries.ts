@@ -59,6 +59,7 @@ const nl: Dictionary = {
   "tab.products": "Producten",
   "tab.insights": "Inzichten",
   "tab.admin": "Administratie",
+  "tab.salary": "Salaris",
   "tab.language": "Taal",
 
   // Rooster
@@ -901,6 +902,7 @@ const en: Dictionary = {
   "tab.products": "Products",
   "tab.insights": "Insights",
   "tab.admin": "Admin",
+  "tab.salary": "Salary",
   "tab.language": "Language",
 
   "schedule.today": "Schedule today",
@@ -1730,6 +1732,7 @@ const pt: Dictionary = {
   "tab.products": "Produtos",
   "tab.insights": "Análises",
   "tab.admin": "Administração",
+  "tab.salary": "Salário",
   "tab.language": "Idioma",
 
   "schedule.today": "Horário de hoje",

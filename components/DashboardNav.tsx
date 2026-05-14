@@ -35,6 +35,8 @@ const TAB_ACCENT: Record<string, string> = {
   voorraad:  "#FF9F0A", // SF orange
   producten: "#BF5AF2", // SF purple
   inzichten: "#FF453A", // SF red
+  admin:     "#8E8E93", // SF gray
+  salaris:   "#00C7BE", // SF teal
   taal:      "#64748b", // neutraal slate
 };
 
@@ -112,7 +114,9 @@ export default function DashboardNav({ tabs, hex, children }: Props) {
     container.scrollLeft += eRect.left - cRect.left - (cRect.width - eRect.width) / 2;
   }, [actief]);
 
-  const contentTabs = tabs.filter((t) => !t.href);
+  // contentTabs uit zichtbareTabs (inclusief de auto-toegevoegde TAAL_TAB)
+  // — niet uit de ruwe `tabs` prop, anders mist taal in de panel-render.
+  const contentTabs = zichtbareTabs.filter((t) => !t.href);
   const huidigeContentTab = contentTabs.find((t) => t.id === actief);
   const huidigeAccent = (huidigeContentTab?.accent) ?? TAB_ACCENT[actief] ?? hex;
 

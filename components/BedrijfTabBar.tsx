@@ -5,7 +5,6 @@ import { useRef, useEffect } from "react";
 import Icon from "./Icon";
 import { useRol, type Rol } from "@/lib/useRol";
 import { useT } from "@/lib/i18n/useT";
-import TaalSwitcher from "./TaalSwitcher";
 
 type IconName = React.ComponentProps<typeof Icon>["name"];
 
@@ -56,8 +55,13 @@ export default function BedrijfTabBar({ bedrijf, actiefId }: Props) {
     { id: "inzichten", label: t("tab.insights"),  icon: "lightbulb",     href: `/${bedrijf}#inzichten`  },
     {
       id: "admin", label: t("tab.admin"), icon: "clipboard",
-      href: `/administratie/${bedrijf}`, roles: ["owner"],
+      href: `/${bedrijf}#admin`, roles: ["owner"],
     },
+    {
+      id: "salaris", label: t("tab.salary"), icon: "users",
+      href: `/${bedrijf}#salaris`,
+    },
+    { id: "taal", label: t("tab.language"), icon: "globe", href: `/${bedrijf}#taal` },
   ];
 
   const zichtbaar = tabs.filter((t) => {
@@ -66,13 +70,19 @@ export default function BedrijfTabBar({ bedrijf, actiefId }: Props) {
     return t.roles.includes(rol);
   });
 
-  // Scroll actieve tab in beeld
+  // Scroll actieve tab in beeld — alleen als hij buiten beeld staat.
+  // Instant scroll (geen smooth) want smooth-animatie vocht met user-swipes.
   useEffect(() => {
-    const el = navRef.current?.querySelector(`[data-tab="${actiefId}"]`) as HTMLElement;
-    el?.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
+    const container = navRef.current;
+    if (!container) return;
+    const el = container.querySelector(`[data-tab="${actiefId}"]`) as HTMLElement | null;
+    if (!el) return;
+    const cRect = container.getBoundingClientRect();
+    const eRect = el.getBoundingClientRect();
+    const buiten = eRect.left < cRect.left + 8 || eRect.right > cRect.right - 8;
+    if (!buiten) return;
+    container.scrollLeft += eRect.left - cRect.left - (cRect.width - eRect.width) / 2;
   }, [actiefId]);
-
-  const huidigeAccent = TAB_ACCENT[actiefId] ?? "#0A84FF";
 
   return (
     <div
@@ -82,18 +92,16 @@ export default function BedrijfTabBar({ bedrijf, actiefId }: Props) {
         borderBottom: "1px solid var(--hairline)",
       }}
     >
-      <div
-        className="absolute top-0 left-0 right-0 h-[2px] transition-all duration-500"
-        style={{
-          background: `linear-gradient(90deg, transparent 0%, ${huidigeAccent}cc 50%, transparent 100%)`,
-          opacity: 0.85,
-        }}
-      />
       <div className="flex items-center gap-2 max-w-full">
       <div
         ref={navRef}
         className="flex gap-1.5 overflow-x-auto scrollbar-hide flex-1 min-w-0"
         role="tablist"
+        style={{
+          touchAction: "pan-x",
+          overscrollBehaviorX: "contain",
+          WebkitOverflowScrolling: "touch",
+        }}
       >
         {zichtbaar.map((tab) => {
           const isActief = tab.id === actiefId;
@@ -120,9 +128,6 @@ export default function BedrijfTabBar({ bedrijf, actiefId }: Props) {
             </Link>
           );
         })}
-      </div>
-      <div className="shrink-0 pl-1">
-        <TaalSwitcher />
       </div>
       </div>
     </div>

@@ -32,6 +32,8 @@ import RoosterVandaag from "@/components/RoosterVandaag";
 import RoosterWeek from "@/components/RoosterWeek";
 import ManagerWidgets from "@/components/ManagerWidgets";
 import VoorraadAlerts from "@/components/VoorraadAlerts";
+import AdminTab from "@/components/administratie/AdminTab";
+import SalarisPanel from "@/components/administratie/SalarisPanel";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -228,9 +230,15 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
       id: "admin",
       label: "Administratie",
       icon: "clipboard" as const,
-      href: `/administratie/${config.slug}`,
       roles: ["owner"] as ("owner" | "manager")[],
       tKey: "tab.admin",
+    },
+    {
+      id: "salaris",
+      label: "Salaris",
+      icon: "users" as const,
+      roles: ["owner", "manager"] as ("owner" | "manager")[],
+      tKey: "tab.salary",
     },
   ];
 
@@ -343,8 +351,11 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
           )}
         </>
 
-        {/* Tab 5 — Administratie: navigeert direct via href op de tab */}
-        <></>
+        {/* Tab 5 — Administratie (inline, owner-only) */}
+        <AdminTab bedrijf={config.slug} hex={config.hex} />
+
+        {/* Tab 6 — Salaris (inline, owner = detail, manager = aggregaat) */}
+        <SalarisPanel bedrijf={config.slug} hex={config.hex} />
       </DashboardNav>
     </div>
   );
