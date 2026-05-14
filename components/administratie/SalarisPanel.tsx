@@ -313,8 +313,13 @@ export default function SalarisPanel({ bedrijf, hex }: Props) {
                       {r.voornaam} <span style={{ color: "var(--muted)" }}>{r.achternaam}</span>
                     </td>
                     <td className="p-2 text-right tabular-nums">{fmtUren(r.brutoUren)}</td>
-                    <td className="p-2 text-right tabular-nums" style={{ color: "var(--muted)" }}>
-                      {fmtEur(r.uurloon)}
+                    <td className="p-2 text-right tabular-nums">
+                      <UurloonCel
+                        medewerkerId={r.medewerkerId}
+                        huidigeWaarde={r.uurloon}
+                        bewerkbaar={rapport.rol === "owner" && r.dbStatus === "open"}
+                        onOpgeslagen={laden}
+                      />
                     </td>
                     <td className="p-2 text-right tabular-nums">{fmtEur(r.brutoLoon)}</td>
                     <td className="p-2 text-right tabular-nums" style={{ color: "var(--muted)" }}>
@@ -403,5 +408,99 @@ export default function SalarisPanel({ bedrijf, hex }: Props) {
       )}
     </div>
     </>
+  );
+}
+
+// ─── Inline-editable uurloon cel ─────────────────────────────────────────────
+
+interface UurloonCelProps {
+  medewerkerId: number;
+  huidigeWaarde: number;
+  bewerkbaar: boolean;
+  onOpgeslagen: () => void | Promise<void>;
+}
+
+/**
+ * Klikbare cel voor het uurloon. Owner kan tijdens een OPEN periode klikken,
+ * een nieuw bedrag typen en met Enter direct het rapport laten herberekenen
+ * (de salaris-API leest het verse uurloon en geeft per medewerker bruto +
+ * vakantiegeld + totaal terug). Manager (of bevroren periode) krijgt alleen
+ * de read-only waarde te zien.
+ */
+function UurloonCel({ medewerkerId, huidigeWaarde, bewerkbaar, onOpgeslagen }: UurloonCelProps) {
+  const [open, setOpen] = useState(false);
+  const [waarde, setWaarde] = useState(huidigeWaarde > 0 ? String(huidigeWaarde) : "");
+  const [bezig, setBezig] = useState(false);
+
+  // Sync wanneer huidigeWaarde van buiten wijzigt (bv. na refresh)
+  useEffect(() => {
+    setWaarde(huidigeWaarde > 0 ? String(huidigeWaarde) : "");
+  }, [huidigeWaarde]);
+
+  if (!bewerkbaar) {
+    return (
+      <span style={{ color: huidigeWaarde === 0 ? "#E07A1F" : "var(--muted)" }}>
+        {huidigeWaarde === 0 ? "—" : "€" + huidigeWaarde.toFixed(2).replace(".", ",")}
+      </span>
+    );
+  }
+
+  async function opslaan() {
+    const num = Number(waarde.replace(",", "."));
+    if (!Number.isFinite(num) || num < 0) {
+      setOpen(false);
+      setWaarde(huidigeWaarde > 0 ? String(huidigeWaarde) : "");
+      return;
+    }
+    setBezig(true);
+    try {
+      await fetch(`/api/shiftbase/medewerkers/${medewerkerId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uurloon: num }),
+      });
+      setOpen(false);
+      await onOpgeslagen();
+    } finally {
+      setBezig(false);
+    }
+  }
+
+  if (open) {
+    return (
+      <input
+        type="number"
+        step="0.01"
+        autoFocus
+        value={waarde}
+        onChange={(e) => setWaarde(e.target.value)}
+        onBlur={opslaan}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") opslaan();
+          else if (e.key === "Escape") {
+            setOpen(false);
+            setWaarde(huidigeWaarde > 0 ? String(huidigeWaarde) : "");
+          }
+        }}
+        disabled={bezig}
+        className="w-20 text-right tabular-nums border border-blue-300 rounded px-1 py-0.5"
+        style={{ outline: "none", background: "white", color: "var(--text)" }}
+      />
+    );
+  }
+
+  return (
+    <button
+      onClick={() => setOpen(true)}
+      className="hover:bg-blue-50 rounded px-1.5 py-0.5 transition-colors tabular-nums"
+      title="Klik om uurloon aan te passen — bruto + totaal updaten direct"
+      style={{
+        color: huidigeWaarde === 0 ? "#E07A1F" : "var(--text-2)",
+        cursor: "pointer",
+        borderBottom: huidigeWaarde === 0 ? "1px dashed #E07A1F" : "1px dashed transparent",
+      }}
+    >
+      {huidigeWaarde === 0 ? "+ uurloon" : "€" + huidigeWaarde.toFixed(2).replace(".", ",")}
+    </button>
   );
 }

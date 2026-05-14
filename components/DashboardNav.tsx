@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Icon from "./Icon";
 import TaalPagina from "./TaalPagina";
 import TabHero from "./TabHero";
+import FinancieelAdviseur from "./administratie/FinancieelAdviseur";
 import { useRol, type Rol } from "@/lib/useRol";
 import { useT } from "@/lib/i18n/useT";
 
@@ -24,6 +25,10 @@ interface Props {
   tabs: TabDef[];
   hex: string;
   children: React.ReactNode[];
+  /** Bedrijf-slug voor built-in tabs zoals AI-adviseur die data per
+   *  vestiging nodig hebben. Verplicht zodra een built-in tab een bedrijf
+   *  vereist; weglaten = die tab werkt niet. */
+  bedrijf?: "bb" | "sl" | "kl";
 }
 
 // Tab-accent kleuren per tab-id — geeft elke tab een eigen "vibe".
@@ -39,9 +44,17 @@ const TAB_ACCENT: Record<string, string> = {
   admin:     "#8E8E93", // SF gray
   salaris:   "#00C7BE", // SF teal
   taal:      "#64748b", // neutraal slate
+  adviseur:  "#BF5AF2", // SF purple — AI-adviseur
 };
 
-// Vaste taal-tab die elke pagina automatisch krijgt — geen per-page wiring.
+// Vaste tabs die elke pagina automatisch krijgt — geen per-page wiring.
+const ADVISEUR_TAB: TabDef = {
+  id: "adviseur",
+  label: "Adviseur",
+  icon: "lightbulb",
+  tKey: "tab.adviseur",
+  roles: ["owner"], // owner-only — antwoord bevat winst/cashflow/DGA
+};
 const TAAL_TAB: TabDef = {
   id: "taal",
   label: "Taal",
@@ -53,20 +66,28 @@ function hashKey(bedrijfHex: string): string {
   return `sg_tab_${bedrijfHex.replace("#", "").toLowerCase()}`;
 }
 
-export default function DashboardNav({ tabs, hex, children }: Props) {
+export default function DashboardNav({ tabs, hex, children, bedrijf }: Props) {
   const { rol } = useRol();
   const { t } = useT();
 
   const labelVan = (tab: TabDef) => tab.tKey ? t(tab.tKey) : tab.label;
 
-  // Tabs filteren op rol — plus de vaste taal-tab als laatste content-tab.
+  // Tabs filteren op rol — plus de vaste built-in tabs (Adviseur, Taal).
+  const builtIn = [
+    ...(bedrijf ? [ADVISEUR_TAB] : []),
+    TAAL_TAB,
+  ];
   const zichtbareTabs = [
     ...tabs.filter((t) => {
       if (!t.roles) return true;
       if (!rol) return true;
       return t.roles.includes(rol);
     }),
-    TAAL_TAB,
+    ...builtIn.filter((t) => {
+      if (!t.roles) return true;
+      if (!rol) return true;
+      return t.roles.includes(rol);
+    }),
   ];
 
   // Initiële actieve tab: probeer eerst URL hash, dan sessionStorage,
@@ -234,7 +255,11 @@ export default function DashboardNav({ tabs, hex, children }: Props) {
             role="tabpanel"
             className={`space-y-6 ${actief === tab.id ? "block" : "hidden"}`}
           >
-            {tab.id === "taal" ? <TaalPagina /> : childByTabId.get(tab.id)}
+            {tab.id === "taal"
+              ? <TaalPagina />
+              : tab.id === "adviseur" && bedrijf
+                ? <FinancieelAdviseur bedrijf={bedrijf} hex={hex} />
+                : childByTabId.get(tab.id)}
           </div>
         ))}
       </div>

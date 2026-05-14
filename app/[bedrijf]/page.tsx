@@ -262,7 +262,7 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
 
       {/* Tab-navigatie staat direct onder de LiveBalk; alle hero-widgets
           zitten binnen de Omzet-tab (de default tab) */}
-      <DashboardNav tabs={TABS} hex={config.hex}>
+      <DashboardNav tabs={TABS} hex={config.hex} bedrijf={config.slug}>
         {/* Tab 1 — Omzet (incl. hero-widgets die altijd direct zichtbaar zijn als default tab) */}
         <>
           {/* Manager-only: leaderboard + doel-tracker als hero */}
