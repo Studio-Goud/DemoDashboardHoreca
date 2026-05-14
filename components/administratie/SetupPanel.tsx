@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import PushAanmelden from "@/components/PushAanmelden";
 
 interface Props {
   hex: string;
@@ -108,7 +109,43 @@ export default function SetupPanel({ hex }: Props) {
   const [migrResult, setMigrResult] = useState<MigratieResultaat | null>(null);
   const [zettleResult, setZettleResult] = useState<ZettleSnapshotResultaat | null>(null);
   const [uurlonenResult, setUurlonenResult] = useState<BulkUurlonenResultaat | null>(null);
+  const [pushStatus, setPushStatus] = useState<{
+    push: { vapidGezet: boolean; kvBeschikbaar: boolean };
+    notify: { webpush: boolean; telegram: boolean; email: boolean };
+    subscribers: number;
+    klaarVoorGebruik: boolean;
+  } | null>(null);
+  const [testBezig, setTestBezig] = useState(false);
+  const [testResultaat, setTestResultaat] = useState<string | null>(null);
   const [fout, setFout] = useState<string | null>(null);
+
+  const laadPushStatus = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/push-status", { cache: "no-store" });
+      if (res.ok) setPushStatus(await res.json());
+    } catch { /* stil */ }
+  }, []);
+
+  useEffect(() => { laadPushStatus(); }, [laadPushStatus]);
+
+  async function stuurTestNotificatie() {
+    setTestBezig(true);
+    setTestResultaat(null);
+    try {
+      const res = await fetch("/api/admin/push-test", { method: "POST" });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? "test mislukt");
+      const gelukt = Array.isArray(j.resultaten)
+        ? j.resultaten.filter((r: { gelukt: boolean }) => r.gelukt).length
+        : 0;
+      const totaal = Array.isArray(j.resultaten) ? j.resultaten.length : 0;
+      setTestResultaat(`✓ Verzonden naar ${gelukt}/${totaal} kanaal/kanalen. Check binnen ~5s.`);
+    } catch (e) {
+      setTestResultaat(`✗ ${e instanceof Error ? e.message : "fout"}`);
+    } finally {
+      setTestBezig(false);
+    }
+  }
 
   async function importeerUurlonen(vestiging: "bb" | "sl" | "kl") {
     const cfg = UURLONEN_PER_VESTIGING[vestiging];
@@ -395,6 +432,74 @@ export default function SetupPanel({ hex }: Props) {
                 </ul>
               </details>
             </div>
+          )}
+        </div>
+
+        {/* Stap 5: Push-notificaties */}
+        <div className="rounded-[10px] p-3" style={{ background: "var(--bg)", border: "1px solid var(--hairline)" }}>
+          <div className="mb-2">
+            <p className="text-[13px] font-semibold" style={{ color: "var(--text)" }}>
+              5. Push-notificaties
+            </p>
+            <p className="text-[11px] mt-1" style={{ color: "var(--muted)" }}>
+              Krijg meldingen bij kritieke voorraad (07:00 NL), grote onbekende
+              transacties bij ING-upload, en wanneer een rooster gepubliceerd is.
+            </p>
+          </div>
+
+          {/* Config-diagnose */}
+          {pushStatus && (
+            <div className="text-[11px] mb-3 grid grid-cols-2 gap-x-3 gap-y-1 tabular-nums" style={{ color: "var(--text-2)" }}>
+              <span>VAPID-sleutels in Vercel</span>
+              <span style={{ color: pushStatus.push.vapidGezet ? "#30B26F" : "#E5484D" }}>
+                {pushStatus.push.vapidGezet ? "✓ ingesteld" : "✗ ontbreekt"}
+              </span>
+              <span>KV-storage</span>
+              <span style={{ color: pushStatus.push.kvBeschikbaar ? "#30B26F" : "#E5484D" }}>
+                {pushStatus.push.kvBeschikbaar ? "✓ beschikbaar" : "✗ niet geconfigureerd"}
+              </span>
+              <span>Actieve subscribers</span>
+              <span style={{ color: pushStatus.subscribers > 0 ? "#30B26F" : "#E07A1F" }}>
+                {pushStatus.subscribers} {pushStatus.subscribers === 1 ? "apparaat" : "apparaten"}
+              </span>
+            </div>
+          )}
+
+          {pushStatus && !pushStatus.klaarVoorGebruik && (
+            <div className="rounded-md p-2.5 mb-3 text-[11px]" style={{ background: "#FFF7E6", border: "1px solid #F0B731", color: "#9F6700" }}>
+              ⚠️ Eerst <code>NEXT_PUBLIC_VAPID_PUBLIC_KEY</code> + <code>VAPID_PRIVATE_KEY</code> + Vercel KV
+              configureren in de Vercel-dashboard onder Settings → Environment Variables. Daarna deze
+              pagina herladen.
+            </div>
+          )}
+
+          {pushStatus?.klaarVoorGebruik && (
+            <>
+              {/* Subscribe-knop voor dit apparaat */}
+              <div className="mb-3">
+                <PushAanmelden hex={hex} />
+              </div>
+
+              {/* Test-notificatie */}
+              <button
+                onClick={stuurTestNotificatie}
+                disabled={testBezig || pushStatus.subscribers === 0}
+                className="text-[12px] px-3 py-1.5 rounded text-white disabled:opacity-50"
+                style={{ background: hex }}
+              >
+                {testBezig ? "Bezig…" : "🔔 Stuur test-notificatie"}
+              </button>
+              {pushStatus.subscribers === 0 && (
+                <p className="text-[10px] mt-1.5" style={{ color: "var(--muted)" }}>
+                  Eerst aanmelden hierboven voordat je een test kan sturen.
+                </p>
+              )}
+              {testResultaat && (
+                <p className="text-[11px] mt-2" style={{ color: testResultaat.startsWith("✓") ? "#30B26F" : "#E5484D" }}>
+                  {testResultaat}
+                </p>
+              )}
+            </>
           )}
         </div>
 
