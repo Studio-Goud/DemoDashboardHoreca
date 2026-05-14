@@ -42,6 +42,13 @@ export const medewerkers = pgTable("medewerkers", {
   avatarUrl: text("avatar_url"),
   actief:    boolean("actief").notNull().default(true),
 
+  // Thuis-vestiging — gebruikt voor doorbereken-overzicht inleen-uren.
+  // Werk bij een andere vestiging telt als "uitgeleend" en wordt aan het
+  // einde van de maand inzichtelijk gemaakt (BB → SL: €X aan uren).
+  // null = nog niet gezet; in dat geval valt logica terug op de eerste
+  // koppeling in medewerker_departments.
+  hoofdDepartmentId: integer("hoofd_department_id").references(() => departments.id, { onDelete: "set null" }),
+
   // Voor migratie
   shiftbaseUserId: varchar("shiftbase_user_id", { length: 32 }),
 

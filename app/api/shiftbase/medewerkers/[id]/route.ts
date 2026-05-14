@@ -18,6 +18,7 @@ export async function PUT(
       uurloon?: number | null;
       vakantiegeldPct?: number;
       vakantieUrenPct?: number;
+      hoofdDepartmentId?: number | null;
     };
     await updateMedewerker(params.id, body);
     revalidateTag("shiftbase-medewerkers");

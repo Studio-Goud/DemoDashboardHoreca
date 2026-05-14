@@ -130,7 +130,25 @@ const MIGRATIE_0002: Migratie = {
   ],
 };
 
-const ALLE_MIGRATIES: Migratie[] = [MIGRATIE_0001, MIGRATIE_0002];
+/**
+ * Migratie 0003: medewerkers.hoofd_department_id.
+ *
+ * Thuis-vestiging per medewerker — gebruikt voor inleen-doorberekening
+ * tussen vestigingen (BB → SL kan zien hoeveel uur Y aan haar werknemers
+ * heeft geleend en wat dat kost).
+ */
+const MIGRATIE_0003: Migratie = {
+  naam: "0003_medewerker_hoofd_department",
+  statements: [
+    `ALTER TABLE "medewerkers"
+       ADD COLUMN IF NOT EXISTS "hoofd_department_id" integer
+       REFERENCES "departments"("id") ON DELETE SET NULL`,
+    `CREATE INDEX IF NOT EXISTS "medewerkers_hoofd_dept_idx"
+       ON "medewerkers" USING btree ("hoofd_department_id")`,
+  ],
+};
+
+const ALLE_MIGRATIES: Migratie[] = [MIGRATIE_0001, MIGRATIE_0002, MIGRATIE_0003];
 
 async function voerMigratieUit(m: Migratie): Promise<DbInitResultaat> {
   const start = Date.now();

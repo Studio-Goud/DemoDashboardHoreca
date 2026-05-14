@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Medewerker } from "@/lib/rooster";
 import type { Bedrijf } from "@/lib/sumup";
 import Icon from "./Icon";
@@ -28,12 +28,28 @@ export default function MedewerkerBeheer({
   const [uurloon,         setUurloon]         = useState("");
   const [vakantiegeldPct, setVakantiegeldPct] = useState("8.33");
   const [vakantieUrenPct, setVakantieUrenPct] = useState("8.00");
+  /** Thuis-vestiging als string ("" = nog niet gezet). Bron voor inleen-doorberekening. */
+  const [hoofdDept,       setHoofdDept]       = useState<string>("");
   const [busy,            setBusy]            = useState(false);
   const [fout,            setFout]            = useState<string | null>(null);
+
+  // Department-lijst voor de dropdown (cached na eerste fetch)
+  const [departments, setDepartments] = useState<Array<{ id: number; slug: string; naam: string }>>([]);
+
+  // Lazy-load de departments-lijst zodra het component mount.
+  useEffect(() => {
+    let actief = true;
+    fetch("/api/shiftbase/departments", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => { if (actief && Array.isArray(data)) setDepartments(data); })
+      .catch(() => null);
+    return () => { actief = false; };
+  }, []);
 
   function reset() {
     setVoornaam(""); setAchternaam(""); setEmail(""); setStartdatum("");
     setUurloon(""); setVakantiegeldPct("8.33"); setVakantieUrenPct("8.00");
+    setHoofdDept("");
     setFout(null); setEdit(null);
   }
 
@@ -46,6 +62,7 @@ export default function MedewerkerBeheer({
     setUurloon(m.uurloon !== null && m.uurloon !== undefined ? String(m.uurloon) : "");
     setVakantiegeldPct(String(m.vakantiegeldPct ?? 8.33));
     setVakantieUrenPct(String(m.vakantieUrenPct ?? 8.00));
+    setHoofdDept(m.hoofdDepartmentId !== null && m.hoofdDepartmentId !== undefined ? String(m.hoofdDepartmentId) : "");
     setModus("bewerken");
   }
 
@@ -56,6 +73,7 @@ export default function MedewerkerBeheer({
       const uurloonNum = uurloon.trim() ? Number(uurloon.replace(",", ".")) : null;
       const vgPct = Number(vakantiegeldPct.replace(",", ".")) || 8.33;
       const vuPct = Number(vakantieUrenPct.replace(",", ".")) || 8.00;
+      const hoofdDeptId = hoofdDept ? Number(hoofdDept) : null;
 
       if (modus === "nieuw") {
         const res = await fetch("/api/shiftbase/medewerkers", {
@@ -69,13 +87,20 @@ export default function MedewerkerBeheer({
           const j = await res.json().catch(() => ({ error: "fout" }));
           throw new Error(j.error || "toevoegen mislukt");
         }
-        // Net aangemaakt: nog uurloon/% updaten met PUT
-        if (uurloonNum !== null) {
+        // Net aangemaakt: uurloon/% en hoofd-vestiging updaten met PUT.
+        // Altijd PUT'en als één van de drie gezet is, zodat de thuis-
+        // vestiging ook bij €0-uurloon-medewerkers wordt vastgelegd.
+        if (uurloonNum !== null || hoofdDeptId !== null) {
           const j = await res.json();
           await fetch(`/api/shiftbase/medewerkers/${j.id}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ uurloon: uurloonNum, vakantiegeldPct: vgPct, vakantieUrenPct: vuPct }),
+            body: JSON.stringify({
+              uurloon: uurloonNum,
+              vakantiegeldPct: vgPct,
+              vakantieUrenPct: vuPct,
+              hoofdDepartmentId: hoofdDeptId,
+            }),
           });
         }
       } else if (modus === "bewerken" && edit) {
@@ -88,6 +113,7 @@ export default function MedewerkerBeheer({
             uurloon: uurloonNum,
             vakantiegeldPct: vgPct,
             vakantieUrenPct: vuPct,
+            hoofdDepartmentId: hoofdDeptId,
           }),
         });
         if (!res.ok) {
@@ -193,6 +219,18 @@ export default function MedewerkerBeheer({
                     <div className="min-w-0">
                       <p className="text-[13px] font-medium truncate" style={{ color: "var(--text)" }}>
                         {m.voornaam} {m.achternaam}
+                        {m.hoofdDepartmentId && (() => {
+                          const d = departments.find((x) => x.id === m.hoofdDepartmentId);
+                          return d ? (
+                            <span
+                              className="ml-2 text-[10px] font-medium px-1.5 py-0.5 rounded"
+                              style={{ background: "var(--bg-elev)", color: "var(--text-2)" }}
+                              title="Thuis-vestiging"
+                            >
+                              {d.naam}
+                            </span>
+                          ) : null;
+                        })()}
                       </p>
                       <p className="text-[11px] truncate" style={{ color: "var(--muted)" }}>
                         {m.email || "—"}
@@ -284,6 +322,19 @@ export default function MedewerkerBeheer({
                 className="inputveld"
                 placeholder="bv. 14,50"
               />
+            </Veld>
+
+            <Veld label="Thuis-vestiging — gebruikt voor inleen-doorberekening tussen bedrijven">
+              <select
+                value={hoofdDept}
+                onChange={(e) => setHoofdDept(e.target.value)}
+                className="inputveld"
+              >
+                <option value="">— Nog niet gezet —</option>
+                {departments.map((d) => (
+                  <option key={d.id} value={d.id}>{d.naam}</option>
+                ))}
+              </select>
             </Veld>
 
             <div className="grid grid-cols-2 gap-3">

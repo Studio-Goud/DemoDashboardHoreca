@@ -59,6 +59,8 @@ export interface Medewerker {
   vakantiegeldPct: number;
   vakantieUrenPct: number;
   heeftPin: boolean;
+  /** Thuis-vestiging — bron voor inleen-doorberekening. null = nog niet gezet. */
+  hoofdDepartmentId: number | null;
 }
 
 export interface ShiftTemplate {
@@ -332,6 +334,7 @@ export async function fetchMedewerkers(): Promise<Medewerker[]> {
         vakantiegeldPct: m.vakantiegeldPct === null ? 8.33 : Number(m.vakantiegeldPct),
         vakantieUrenPct: m.vakantieUrenPct === null ? 8.00 : Number(m.vakantieUrenPct),
         heeftPin: !!m.pinHash,
+        hoofdDepartmentId: m.hoofdDepartmentId ?? null,
       });
     }
     if (row.deptSlug) {
@@ -561,6 +564,8 @@ export interface MedewerkerPatch {
   uurloon?: number | null;             // in euro
   vakantiegeldPct?: number;            // bv. 8.33
   vakantieUrenPct?: number;            // bv. 8.00
+  /** Thuis-vestiging (department.id). null = ontkoppelen. */
+  hoofdDepartmentId?: number | null;
 }
 
 export async function updateMedewerker(id: string, patch: MedewerkerPatch): Promise<void> {
@@ -578,6 +583,7 @@ export async function updateMedewerker(id: string, patch: MedewerkerPatch): Prom
   }
   if (patch.vakantiegeldPct !== undefined) updates.vakantiegeldPct = String(patch.vakantiegeldPct);
   if (patch.vakantieUrenPct !== undefined) updates.vakantieUrenPct = String(patch.vakantieUrenPct);
+  if (patch.hoofdDepartmentId !== undefined) updates.hoofdDepartmentId = patch.hoofdDepartmentId;
   await db.update(schema.medewerkers).set(updates).where(eq(schema.medewerkers.id, Number(id)));
 }
 

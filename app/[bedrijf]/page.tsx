@@ -34,6 +34,7 @@ import ManagerWidgets from "@/components/ManagerWidgets";
 import VoorraadAlerts from "@/components/VoorraadAlerts";
 import AdminTab from "@/components/administratie/AdminTab";
 import SalarisPanel from "@/components/administratie/SalarisPanel";
+import InleenDoorberekening from "@/components/administratie/InleenDoorberekening";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -355,7 +356,10 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
         <AdminTab bedrijf={config.slug} hex={config.hex} />
 
         {/* Tab 6 — Salaris (inline, owner = detail, manager = aggregaat) */}
-        <SalarisPanel bedrijf={config.slug} hex={config.hex} />
+        <div className="space-y-5">
+          <SalarisPanel bedrijf={config.slug} hex={config.hex} />
+          <InleenDoorberekening hex={config.hex} filterSlug={config.slug} />
+        </div>
       </DashboardNav>
     </div>
   );
