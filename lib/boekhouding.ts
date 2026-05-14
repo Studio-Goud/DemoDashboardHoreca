@@ -190,20 +190,24 @@ export function berekenMaand(
   // Omzet uit ING-credits met categorie "omzet" (SumUp/PayPal/Zettle settlements
   // die op de bankrekening landen). Aanname: alle horeca-omzet valt onder het
   // 9% BTW-tarief; afdragen-BTW = bedrag − bedrag/1.09.
-  // Voor credits met categorie "omzet": tellen op in omzetBruto + omzetBtw.
-  // De externe `omzetBruto` parameter (uit SumUp/Zettle direct) blijft als
-  // fallback voor als er nooit ING-uploads zijn — beide tellen op, dus de
-  // beller moet ervoor zorgen ze niet beide te passen (kwartaal-route doet
-  // dat correct: geen extern omzet meer doorgeven, alleen ING-credits).
-  let ingOmzetBruto = 0;
-  let ingOmzetBtw9 = 0;
-  for (const tx of maandCredits) {
-    if (tx.categorie !== "omzet") continue;
-    ingOmzetBruto += tx.bedrag;
-    ingOmzetBtw9 += tx.bedrag - tx.bedrag / 1.09;
+  //
+  // BELANGRIJK — voorkom dubbeltelling: als de beller al externe omzetBruto
+  // doorgeeft (MaandPnL passeert SumUp/Zettle live API totals), zijn de ING
+  // bank-credits PAYOUTS van diezelfde POS-provider. Die mogen we NIET nog een
+  // keer optellen. We tellen ING-credits-omzet alleen als er geen externe
+  // omzet is doorgegeven (kwartaal-export pad, waar de aangifte enkel uit
+  // bank-data wordt opgemaakt).
+  if (omzetBruto === 0 && omzetBtwBetaald === 0) {
+    let ingOmzetBruto = 0;
+    let ingOmzetBtw9 = 0;
+    for (const tx of maandCredits) {
+      if (tx.categorie !== "omzet") continue;
+      ingOmzetBruto += tx.bedrag;
+      ingOmzetBtw9 += tx.bedrag - tx.bedrag / 1.09;
+    }
+    omzetBruto += ingOmzetBruto;
+    omzetBtwBetaald += ingOmzetBtw9;
   }
-  omzetBruto += ingOmzetBruto;
-  omzetBtwBetaald += ingOmzetBtw9;
 
   // Factuur kosten
   let kostenFacturen = 0;
@@ -218,8 +222,11 @@ export function berekenMaand(
   }
 
   // Contant — BTW splitsen per richting:
-  //  - inkomsten-BTW = afdragen-BTW (komt bij omzetBtwBetaald)
-  //  - uitgaven-BTW  = voorbelasting (komt bij voorbelasting21/9)
+  //  - inkomsten-BTW = afdragen-BTW (gaat bij omzetBtwBetaald)
+  //  - uitgaven-BTW  = voorbelasting (gaat bij voorbelasting21/9)
+  // contantInkomsten en contantUitgaven blijven aparte velden in de
+  // MaandSamenvatting (MaandPnL toont ze als eigen kaartjes); alleen de
+  // BTW-bedragen worden gesplitst per richting.
   const contantInkomstRegels = maandContant.filter((c) => c.type === "inkomst");
   const contantUitgaveRegels = maandContant.filter((c) => c.type === "uitgave");
   const contantInkomsten = contantInkomstRegels.reduce((s, c) => s + c.bedrag, 0);
@@ -228,11 +235,9 @@ export function berekenMaand(
   const contantInkomstBtw9  = contantInkomstRegels.reduce((s, c) => s + c.btw9, 0);
   const contantUitgaveBtw21 = contantUitgaveRegels.reduce((s, c) => s + c.btw21, 0);
   const contantUitgaveBtw9  = contantUitgaveRegels.reduce((s, c) => s + c.btw9, 0);
-  // Optellen bij omzetBtwBetaald (afdragen op contante verkoop)
-  omzetBruto       += contantInkomsten;
-  omzetBtwBetaald  += contantInkomstBtw21 + contantInkomstBtw9;
-  // Voor backwards-compat blijven we contantBtw21/contantBtw9 als totaal-BTW
-  // exposen, maar betekenis = SUM van beide kanten (voor de Samenvatting-row)
+  // Contant inkomsten-BTW = afdragen, telt mee in omzetBtwBetaald
+  omzetBtwBetaald += contantInkomstBtw21 + contantInkomstBtw9;
+  // Totaal-BTW velden voor backwards-compat (Samenvatting/breakdown)
   const contantBtw21 = contantInkomstBtw21 + contantUitgaveBtw21;
   const contantBtw9  = contantInkomstBtw9  + contantUitgaveBtw9;
 
@@ -251,8 +256,7 @@ export function berekenMaand(
   const voorbelasting9  = rnd(voorb9Ing  + voorb9Facturen  + contantUitgaveBtw9);
   const voorbelastingTotaal = rnd(voorbelasting21 + voorbelasting9);
 
-  // omzetBruto bevat al contantInkomsten + ING-omzet-credits (zie hierboven)
-  const brutoResultaat = rnd(omzetBruto - kostenTotaal - salarissen);
+  const brutoResultaat = rnd(omzetBruto + contantInkomsten - kostenTotaal - salarissen);
   const btwTeVoldoen   = rnd(omzetBtwBetaald - voorbelastingTotaal);
   const nettoResultaat = rnd(brutoResultaat - Math.max(0, btwTeVoldoen));
 
