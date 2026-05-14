@@ -148,7 +148,43 @@ const MIGRATIE_0003: Migratie = {
   ],
 };
 
-const ALLE_MIGRATIES: Migratie[] = [MIGRATIE_0001, MIGRATIE_0002, MIGRATIE_0003];
+/**
+ * Migratie 0004: gedeelde voorraad (magazijn bij Saté Lounge).
+ *
+ * Eén productlijst die owner beheert (prijs per eenheid). Andere vestigingen
+ * loggen wat ze pakken. Aan het einde van de maand factureert SL het totaal
+ * door aan elke afnemende vestiging.
+ */
+const MIGRATIE_0004: Migratie = {
+  naam: "0004_gedeelde_voorraad",
+  statements: [
+    `CREATE TABLE IF NOT EXISTS "gedeelde_voorraad_producten" (
+      "id"                serial PRIMARY KEY NOT NULL,
+      "naam"              varchar(80) NOT NULL,
+      "categorie"         varchar(40),
+      "eenheid"           varchar(20) DEFAULT 'stuk' NOT NULL,
+      "prijs_per_eenheid" numeric(8, 2),
+      "actief"            boolean DEFAULT true NOT NULL,
+      "created_at"        timestamp with time zone DEFAULT now() NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS "gedeelde_voorraad_afnames" (
+      "id"                   serial PRIMARY KEY NOT NULL,
+      "product_id"           integer NOT NULL REFERENCES "gedeelde_voorraad_producten"("id") ON DELETE CASCADE,
+      "voor_bedrijf"         varchar(4) NOT NULL,
+      "aantal"               numeric(8, 2) NOT NULL,
+      "datum"                date NOT NULL,
+      "door_medewerker_id"   integer REFERENCES "medewerkers"("id") ON DELETE SET NULL,
+      "notitie"              text,
+      "created_at"           timestamp with time zone DEFAULT now() NOT NULL
+    )`,
+    `CREATE INDEX IF NOT EXISTS "afnames_bedrijf_datum_idx"
+       ON "gedeelde_voorraad_afnames" USING btree ("voor_bedrijf", "datum")`,
+    `CREATE INDEX IF NOT EXISTS "afnames_product_datum_idx"
+       ON "gedeelde_voorraad_afnames" USING btree ("product_id", "datum")`,
+  ],
+};
+
+const ALLE_MIGRATIES: Migratie[] = [MIGRATIE_0001, MIGRATIE_0002, MIGRATIE_0003, MIGRATIE_0004];
 
 async function voerMigratieUit(m: Migratie): Promise<DbInitResultaat> {
   const start = Date.now();

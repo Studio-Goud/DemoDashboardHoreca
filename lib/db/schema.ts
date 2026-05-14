@@ -342,6 +342,40 @@ export type ZettleTx        = typeof zettleTransacties.$inferSelect;
 export type NieuweZettleTx  = typeof zettleTransacties.$inferInsert;
 export type ZettleSyncState = typeof zettleSyncState.$inferSelect;
 
+// ─── Gedeelde voorraad (magazijn bij Saté Lounge) ────────────────────────────
+// Eén productlijst die de owner beheert (cola, water, handschoenen…). Andere
+// vestigingen halen items op en loggen dat per stuk. Aan het einde van de
+// maand wordt het totaal gefactureerd door SL aan de afnemende vestiging(en).
+
+export const gedeeldeVoorraadProducten = pgTable("gedeelde_voorraad_producten", {
+  id: serial("id").primaryKey(),
+  naam:        varchar("naam", { length: 80 }).notNull(),
+  categorie:   varchar("categorie", { length: 40 }),
+  eenheid:     varchar("eenheid", { length: 20 }).notNull().default("stuk"),  // 'tray' | 'doos' | 'stuk' | 'kg' | 'liter'
+  prijsPerEenheid: decimal("prijs_per_eenheid", { precision: 8, scale: 2 }),   // null = nog niet ingesteld door owner
+  actief:      boolean("actief").notNull().default(true),
+  createdAt:   timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const gedeeldeVoorraadAfnames = pgTable("gedeelde_voorraad_afnames", {
+  id:           serial("id").primaryKey(),
+  productId:    integer("product_id").notNull().references(() => gedeeldeVoorraadProducten.id, { onDelete: "cascade" }),
+  voorBedrijf:  varchar("voor_bedrijf", { length: 4 }).notNull(),                                  // 'bb' | 'sl' | 'kl'
+  aantal:       decimal("aantal", { precision: 8, scale: 2 }).notNull(),
+  datum:        date("datum").notNull(),
+  doorMedewerkerId: integer("door_medewerker_id").references(() => medewerkers.id, { onDelete: "set null" }),
+  notitie:      text("notitie"),
+  createdAt:    timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  perBedrijfDatumIdx: index("afnames_bedrijf_datum_idx").on(t.voorBedrijf, t.datum),
+  perProductDatumIdx: index("afnames_product_datum_idx").on(t.productId, t.datum),
+}));
+
+export type GedeeldProduct       = typeof gedeeldeVoorraadProducten.$inferSelect;
+export type NieuwGedeeldProduct  = typeof gedeeldeVoorraadProducten.$inferInsert;
+export type GedeeldeAfname       = typeof gedeeldeVoorraadAfnames.$inferSelect;
+export type NieuweGedeeldeAfname = typeof gedeeldeVoorraadAfnames.$inferInsert;
+
 // ─── Voorraad ────────────────────────────────────────────────────────────────
 // Producten per vestiging (eenmalig setup) + live status (aantal + niveau)
 

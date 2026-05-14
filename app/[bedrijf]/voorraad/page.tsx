@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import type { Bedrijf } from "@/lib/sumup";
 import { listProducten } from "@/lib/voorraad";
 import VoorraadBeheer from "@/components/VoorraadBeheer";
+import GedeeldeVoorraad from "@/components/GedeeldeVoorraad";
 import BedrijfTabBar from "@/components/BedrijfTabBar";
 import TabHero from "@/components/TabHero";
 
@@ -26,13 +27,14 @@ export default async function VoorraadPage({ params }: Props) {
     <main className="min-h-screen p-4 sm:p-6 max-w-5xl mx-auto">
       <BedrijfTabBar bedrijf={config.slug} actiefId="voorraad" />
       <TabHero titel="Voorraad" icon="shopping-bag" accent="#FF9F0A" />
-      <div>
-      <VoorraadBeheer
-        bedrijf={config.slug}
-        naam={config.naam}
-        hex={config.hex}
-        initieleProducten={producten}
-      />
+      <div className="space-y-5">
+        <VoorraadBeheer
+          bedrijf={config.slug}
+          naam={config.naam}
+          hex={config.hex}
+          initieleProducten={producten}
+        />
+        <GedeeldeVoorraad bedrijf={config.slug} hex={config.hex} />
       </div>
     </main>
   );
