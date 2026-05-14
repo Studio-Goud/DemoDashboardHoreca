@@ -199,8 +199,25 @@ const MIGRATIE_0005: Migratie = {
   ],
 };
 
+/**
+ * Migratie 0006: departments.huidig_saldo (cashflow-projectie).
+ *
+ * Owner werkt het saldo handmatig bij; vanaf dat punt rekent de
+ * cashflow-projectie vooruit met geplande loon, vaste lasten en
+ * omzet-prognose.
+ */
+const MIGRATIE_0006: Migratie = {
+  naam: "0006_huidig_saldo",
+  statements: [
+    `ALTER TABLE "departments"
+       ADD COLUMN IF NOT EXISTS "huidig_saldo" numeric(12,2)`,
+    `ALTER TABLE "departments"
+       ADD COLUMN IF NOT EXISTS "huidig_saldo_opgeslagen" timestamp with time zone`,
+  ],
+};
+
 const ALLE_MIGRATIES: Migratie[] = [
-  MIGRATIE_0001, MIGRATIE_0002, MIGRATIE_0003, MIGRATIE_0004, MIGRATIE_0005,
+  MIGRATIE_0001, MIGRATIE_0002, MIGRATIE_0003, MIGRATIE_0004, MIGRATIE_0005, MIGRATIE_0006,
 ];
 
 async function voerMigratieUit(m: Migratie): Promise<DbInitResultaat> {

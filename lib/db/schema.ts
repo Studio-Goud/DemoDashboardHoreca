@@ -18,6 +18,11 @@ export const departments = pgTable("departments", {
   //   - Inleen-doorberekening (toggle "Met werkgeverslasten")
   //   - Salaris-detail (totale arbeidskost per medewerker)
   werkgeverslastenPct: decimal("werkgeverslasten_pct", { precision: 5, scale: 2 }).default("27.00"),
+  // Huidig bank-saldo (handmatig bijgehouden door owner). Bron voor de
+  // cashflow-projectie — vanaf hier rekenen we vooruit. Owner werkt 'm bij
+  // na elke ING-upload of wanneer 'ie weet wat het saldo nu is.
+  huidigSaldo:           decimal("huidig_saldo",           { precision: 12, scale: 2 }),
+  huidigSaldoOpgeslagen: timestamp("huidig_saldo_opgeslagen", { withTimezone: true }),
   // Voor migratie van Shiftbase
   shiftbaseDepartmentId: varchar("shiftbase_department_id", { length: 32 }),
   shiftbaseTeamId:       varchar("shiftbase_team_id",       { length: 32 }),
