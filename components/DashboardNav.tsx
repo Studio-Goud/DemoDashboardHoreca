@@ -83,10 +83,20 @@ export default function DashboardNav({ tabs, hex, children }: Props) {
     history.replaceState(null, "", `#${id}`);
   }
 
-  // Scroll actieve tab in beeld (horizontaal in segmented bar)
+  // Scroll actieve tab in beeld — alleen ALS hij echt buiten beeld staat.
+  // Smooth-scroll is bewust uit: het vocht met user-swipes (touch ←→ smooth
+  // animatie), wat de stotter veroorzaakte. Instant scroll = geen conflict.
   useEffect(() => {
-    const el = navRef.current?.querySelector(`[data-tab="${actief}"]`) as HTMLElement;
-    el?.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
+    const container = navRef.current;
+    if (!container) return;
+    const el = container.querySelector(`[data-tab="${actief}"]`) as HTMLElement | null;
+    if (!el) return;
+    const cRect = container.getBoundingClientRect();
+    const eRect = el.getBoundingClientRect();
+    const buiten = eRect.left < cRect.left + 8 || eRect.right > cRect.right - 8;
+    if (!buiten) return;
+    // Centreer de actieve tab horizontaal in de container (instant, niet smooth).
+    container.scrollLeft += eRect.left - cRect.left - (cRect.width - eRect.width) / 2;
   }, [actief]);
 
   const contentTabs = tabs.filter((t) => !t.href);
@@ -117,6 +127,13 @@ export default function DashboardNav({ tabs, hex, children }: Props) {
           ref={navRef}
           className="flex gap-1.5 overflow-x-auto scrollbar-hide flex-1 min-w-0"
           role="tablist"
+          style={{
+            // Vertel iOS Safari expliciet: horizontaal pannen is de gesture.
+            // Voorkomt dat het systeem 50ms aarzelt tussen tap/scroll/back-swipe.
+            touchAction: "pan-x",
+            overscrollBehaviorX: "contain",
+            WebkitOverflowScrolling: "touch",
+          }}
         >
           {zichtbareTabs.map((tab) => {
             const isActief = tab.id === actief;
