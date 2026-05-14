@@ -59,6 +59,7 @@ const nl: Dictionary = {
   "tab.products": "Producten",
   "tab.insights": "Inzichten",
   "tab.admin": "Administratie",
+  "tab.language": "Taal",
 
   // Rooster
   "schedule.today": "Rooster vandaag",
@@ -900,6 +901,7 @@ const en: Dictionary = {
   "tab.products": "Products",
   "tab.insights": "Insights",
   "tab.admin": "Admin",
+  "tab.language": "Language",
 
   "schedule.today": "Schedule today",
   "schedule.this_week": "This week",
@@ -1728,6 +1730,7 @@ const pt: Dictionary = {
   "tab.products": "Produtos",
   "tab.insights": "Análises",
   "tab.admin": "Administração",
+  "tab.language": "Idioma",
 
   "schedule.today": "Horário de hoje",
   "schedule.this_week": "Esta semana",

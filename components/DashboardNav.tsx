@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Icon from "./Icon";
-import TaalSwitcher from "./TaalSwitcher";
+import TaalPagina from "./TaalPagina";
 import { useRol, type Rol } from "@/lib/useRol";
 import { useT } from "@/lib/i18n/useT";
 
@@ -35,6 +35,15 @@ const TAB_ACCENT: Record<string, string> = {
   voorraad:  "#FF9F0A", // SF orange
   producten: "#BF5AF2", // SF purple
   inzichten: "#FF453A", // SF red
+  taal:      "#64748b", // neutraal slate
+};
+
+// Vaste taal-tab die elke pagina automatisch krijgt — geen per-page wiring.
+const TAAL_TAB: TabDef = {
+  id: "taal",
+  label: "Taal",
+  icon: "globe",
+  tKey: "tab.language",
 };
 
 function hashKey(bedrijfHex: string): string {
@@ -47,12 +56,15 @@ export default function DashboardNav({ tabs, hex, children }: Props) {
 
   const labelVan = (tab: TabDef) => tab.tKey ? t(tab.tKey) : tab.label;
 
-  // Tabs filteren op rol
-  const zichtbareTabs = tabs.filter((t) => {
-    if (!t.roles) return true;
-    if (!rol) return true;
-    return t.roles.includes(rol);
-  });
+  // Tabs filteren op rol — plus de vaste taal-tab als laatste content-tab.
+  const zichtbareTabs = [
+    ...tabs.filter((t) => {
+      if (!t.roles) return true;
+      if (!rol) return true;
+      return t.roles.includes(rol);
+    }),
+    TAAL_TAB,
+  ];
 
   // Initiële actieve tab: probeer eerst URL hash, dan sessionStorage,
   // anders eerste content-tab.
@@ -114,15 +126,6 @@ export default function DashboardNav({ tabs, hex, children }: Props) {
           borderBottom: "1px solid var(--hairline)",
         }}
       >
-        {/* Accent-bar bovenkant — kleurt mee met actieve tab */}
-        <div
-          className="absolute top-0 left-0 right-0 h-[2px] transition-all duration-500"
-          style={{
-            background: `linear-gradient(90deg, transparent 0%, ${huidigeAccent}cc 50%, transparent 100%)`,
-            opacity: 0.85,
-          }}
-        />
-
         <div className="flex items-center gap-2 max-w-full">
         <div
           ref={navRef}
@@ -188,8 +191,6 @@ export default function DashboardNav({ tabs, hex, children }: Props) {
               </button>
             );
           })}
-          {/* Taal-switcher als laatste pill — visueel identiek aan een inactieve tab */}
-          <TaalSwitcher variant="tab" />
         </div>
         </div>
       </div>
@@ -239,7 +240,7 @@ export default function DashboardNav({ tabs, hex, children }: Props) {
         </div>
       )}
 
-      {/* Tab inhoud */}
+      {/* Tab inhoud. Taal-tab heeft eigen built-in content (geen child uit caller). */}
       <div className="mt-2">
         {contentTabs.map((tab, idx) => (
           <div
@@ -247,7 +248,7 @@ export default function DashboardNav({ tabs, hex, children }: Props) {
             role="tabpanel"
             className={`space-y-6 ${actief === tab.id ? "block" : "hidden"}`}
           >
-            {children[idx]}
+            {tab.id === "taal" ? <TaalPagina /> : children[idx]}
           </div>
         ))}
       </div>
