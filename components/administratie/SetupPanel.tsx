@@ -67,29 +67,33 @@ const BB_UURLONEN = [
 ];
 
 const SL_UURLONEN = [
-  { identifier: "1",  uurloon: 19.82, naam: "S Mathoera" },
-  { identifier: "4",  uurloon: 17.63, naam: "L Broeders" },
-  { identifier: "10", uurloon: 15.93, naam: "K Itjoejaree" },
-  { identifier: "13", uurloon: 12.15, naam: "J Maat" },
-  { identifier: "23", uurloon: 15.93, naam: "LL Ysulan" },
-  { identifier: "26", uurloon: 15.93, naam: "M De Carvalho Pinho Barbo" },
-  { identifier: "27", uurloon: 15.93, naam: "M Canini" },
-  { identifier: "28", uurloon: 11.99, naam: "JR Person Snoei" },
-  { identifier: "29", uurloon: 15.93, naam: "DRB Nakchedi" },
+  // Terug-gerekend uit Vergoedingen/Uren ÷ 1.1633 (vakgeld 8.33% + verlof 8%)
+  // zodat de app's defaults dezelfde totale-bruto reproduceren als in het
+  // loonsysteem mei 2026. Owner kan via inline-editor finetunen.
+  { identifier: "1",  uurloon: 17.04, naam: "S Mathoera" },
+  { identifier: "4",  uurloon: 15.16, naam: "L Broeders" },
+  { identifier: "10", uurloon: 13.69, naam: "K Itjoejaree" },
+  { identifier: "13", uurloon: 10.44, naam: "J Maat" },
+  { identifier: "23", uurloon: 13.69, naam: "LL Ysulan" },
+  { identifier: "26", uurloon: 13.69, naam: "M De Carvalho Pinho Barbo" },
+  { identifier: "27", uurloon: 13.69, naam: "M Canini" },
+  { identifier: "28", uurloon: 10.31, naam: "JR Person Snoei" },
+  { identifier: "29", uurloon: 13.69, naam: "DRB Nakchedi" },
 ];
 
 const KL_UURLONEN = [
-  { identifier: "20", uurloon: 17.62, naam: "N.J. Korff" },
-  { identifier: "30", uurloon: 17.62, naam: "N Yonathan" },
-  { identifier: "33", uurloon: 11.99, naam: "ISL Psarianou" },
-  { identifier: "36", uurloon: 17.62, naam: "BEM de Bruin" },
-  { identifier: "43", uurloon: 19.72, naam: "G Gasparinetti" },
-  { identifier: "44", uurloon: 12.37, naam: "H de Vroom" },
-  { identifier: "49", uurloon: 10.42, naam: "F Kort" },
-  { identifier: "52", uurloon:  7.18, naam: "F Giuntoli" },
-  { identifier: "53", uurloon: 13.50, naam: "S de Bruijn" },
-  { identifier: "54", uurloon: 11.93, naam: "RI el Kaka" },
-  { identifier: "55", uurloon: 11.74, naam: "XI Pelt" },
+  // Terug-gerekend zoals SL.
+  { identifier: "20", uurloon: 15.15, naam: "N.J. Korff" },
+  { identifier: "30", uurloon: 15.15, naam: "N Yonathan" },
+  { identifier: "33", uurloon: 10.31, naam: "ISL Psarianou" },
+  { identifier: "36", uurloon: 15.15, naam: "BEM de Bruin" },
+  { identifier: "43", uurloon: 16.95, naam: "G Gasparinetti" },
+  { identifier: "44", uurloon: 10.63, naam: "H de Vroom" },
+  { identifier: "49", uurloon:  8.96, naam: "F Kort" },
+  { identifier: "52", uurloon:  6.17, naam: "F Giuntoli" },
+  { identifier: "53", uurloon: 11.61, naam: "S de Bruijn" },
+  { identifier: "54", uurloon: 10.26, naam: "RI el Kaka" },
+  { identifier: "55", uurloon: 10.09, naam: "XI Pelt" },
 ];
 
 const UURLONEN_PER_VESTIGING = {
