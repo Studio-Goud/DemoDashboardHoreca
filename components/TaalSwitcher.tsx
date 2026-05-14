@@ -7,9 +7,11 @@ import { TALEN, type Taal } from "@/lib/i18n/dictionaries";
 interface Props {
   /** Compacte variant: alleen vlag + dropdown */
   compact?: boolean;
+  /** "tab"-variant matcht visueel een inactieve nav-tab (pill in DashboardNav). */
+  variant?: "default" | "tab";
 }
 
-export default function TaalSwitcher({ compact }: Props) {
+export default function TaalSwitcher({ compact, variant = "default" }: Props) {
   const { taal, setTaal } = useTaal();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -25,21 +27,33 @@ export default function TaalSwitcher({ compact }: Props) {
 
   const huidige = TALEN.find((t) => t.code === taal) ?? TALEN[0];
 
+  const isTab = variant === "tab";
+  const buttonClass = isTab
+    ? "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium whitespace-nowrap transition-all shrink-0"
+    : "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-semibold transition-all";
+  const buttonStyle: React.CSSProperties = isTab
+    ? { color: "var(--muted)" }
+    : {
+        background: "var(--bg-elev)",
+        border: "1px solid var(--hairline)",
+        color: "var(--text)",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+      };
+
   return (
     <div ref={ref} className="relative inline-block">
       <button
         onClick={() => setOpen(!open)}
-        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-semibold transition-all"
-        style={{
-          background: "var(--bg-elev)",
-          border: "1px solid var(--hairline)",
-          color: "var(--text)",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
-        }}
+        className={buttonClass}
+        style={buttonStyle}
         aria-label="Taal kiezen"
       >
-        <span className="text-[14px] leading-none">{huidige.vlag}</span>
-        {!compact && <span className="tracking-wide" style={{ color: "var(--text-2)" }}>{huidige.code.toUpperCase()}</span>}
+        <span className={isTab ? "text-[15px] leading-none" : "text-[14px] leading-none"}>{huidige.vlag}</span>
+        {!compact && (
+          <span className={isTab ? "" : "tracking-wide"} style={isTab ? undefined : { color: "var(--text-2)" }}>
+            {huidige.code.toUpperCase()}
+          </span>
+        )}
       </button>
 
       {open && (

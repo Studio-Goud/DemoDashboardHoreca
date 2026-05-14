@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Icon from "./Icon";
+import TaalSwitcher from "./TaalSwitcher";
 import { useRol, type Rol } from "@/lib/useRol";
 import { useT } from "@/lib/i18n/useT";
 
@@ -187,6 +188,8 @@ export default function DashboardNav({ tabs, hex, children }: Props) {
               </button>
             );
           })}
+          {/* Taal-switcher als laatste pill — visueel identiek aan een inactieve tab */}
+          <TaalSwitcher variant="tab" />
         </div>
         </div>
       </div>
