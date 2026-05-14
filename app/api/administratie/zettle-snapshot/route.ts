@@ -13,6 +13,7 @@
 import { NextResponse } from "next/server";
 import { huidigeAdminSessie } from "@/lib/admin-auth";
 import { backfillBedrijf, backfillAlle } from "@/lib/zettle-sync";
+import { runAllePendingMigraties } from "@/lib/db/init-sql";
 import type { Bedrijf } from "@/lib/zettle";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +30,20 @@ export async function POST(req: Request) {
 
   const body = (await req.json().catch(() => ({}))) as { bedrijf?: string };
   const start = Date.now();
+
+  // Zorg dat de zettle_transacties tabel bestaat — idempotent, draait alleen
+  // pending migraties. Voorkomt dat een snapshot-poging faalt met
+  // 'relation "zettle_transacties" does not exist' wanneer DB-init nog
+  // niet apart is uitgevoerd.
+  try {
+    await runAllePendingMigraties();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "onbekend";
+    return NextResponse.json(
+      { error: `DB-migratie mislukt: ${msg}. Probeer eerst stap 1 (DB-init) handmatig.` },
+      { status: 500 },
+    );
+  }
 
   if (body.bedrijf) {
     if (!GELDIGE_BEDRIJVEN.has(body.bedrijf as Bedrijf)) {

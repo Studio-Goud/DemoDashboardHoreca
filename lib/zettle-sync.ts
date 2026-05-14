@@ -95,9 +95,19 @@ async function schrijfSyncState(
  * bedrijven met veel historie maar hoeft maar één keer (en gebruikt
  * onConflictDoNothing dus re-run is veilig).
  */
+function korteError(e: unknown): string {
+  const ruw = e instanceof Error ? e.message : String(e);
+  // Drizzle's foutmelding bevat vaak de hele parametrized SQL — onbruikbaar
+  // voor UI. Knip op de eerste regel en max 300 tekens.
+  const eersteRegel = ruw.split("\n")[0].trim();
+  return eersteRegel.length > 300 ? eersteRegel.slice(0, 300) + "…" : eersteRegel;
+}
+
 export async function backfillBedrijf(bedrijf: Bedrijf): Promise<ZettleSyncResult> {
+  let opgehaaldRaw = 0;
   try {
     const purchases = await fetchZettleVolledig(bedrijf);
+    opgehaaldRaw = purchases.length;
     const rijen = purchases.map((p) => naarDbRij(bedrijf, p));
     const ingevoegd = await batchInsert(rijen);
     const laatste = rijen.reduce<Date | undefined>((acc, r) => {
@@ -105,11 +115,11 @@ export async function backfillBedrijf(bedrijf: Bedrijf): Promise<ZettleSyncResul
       return !acc || t > acc ? t : acc;
     }, undefined);
     await schrijfSyncState(bedrijf, laatste, ingevoegd, null);
-    return { bedrijf, opgehaaldRaw: purchases.length, ingevoegd };
+    return { bedrijf, opgehaaldRaw, ingevoegd };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "onbekend";
+    const msg = korteError(e);
     await schrijfSyncState(bedrijf, undefined, 0, msg).catch(() => null);
-    return { bedrijf, opgehaaldRaw: 0, ingevoegd: 0, fout: msg };
+    return { bedrijf, opgehaaldRaw, ingevoegd: 0, fout: msg };
   }
 }
 
@@ -152,7 +162,7 @@ export async function syncBedrijfIncrementeel(bedrijf: Bedrijf): Promise<ZettleS
     await schrijfSyncState(bedrijf, laatste, ingevoegd, null);
     return { bedrijf, opgehaaldRaw: purchases.length, ingevoegd };
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "onbekend";
+    const msg = korteError(e);
     await schrijfSyncState(bedrijf, undefined, 0, msg).catch(() => null);
     return { bedrijf, opgehaaldRaw: 0, ingevoegd: 0, fout: msg };
   }
