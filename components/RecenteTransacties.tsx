@@ -22,9 +22,16 @@ function tijdGeleden(iso: string): string {
   if (min < 1) return "zojuist";
   if (min < 60) return `${min} min`;
   const u = Math.floor(min / 60);
-  if (u < 24) return `${u}u ${min % 60}m`;
+  if (u < 24) return `${u}u${min % 60 ? ` ${min % 60}m` : ""}`;
   const d = Math.floor(u / 24);
   return `${d}d`;
+}
+
+function methodeKort(payment_type: string): string {
+  const m = payment_type.toLowerCase();
+  if (m.includes("cash")) return "cash";
+  if (m.includes("card") || m === "pos" || m.includes("pin")) return "kaart";
+  return payment_type.replace(/_/g, " ");
 }
 
 export default function RecenteTransacties({ bedrijf, hex }: Props) {
@@ -94,7 +101,7 @@ export default function RecenteTransacties({ bedrijf, hex }: Props) {
         </span>
       </div>
 
-      <div className="space-y-1.5">
+      <ul className="divide-y divide-slate-100 -mx-1">
         {txs.map((tx) => {
           const items =
             tx.products
@@ -106,36 +113,28 @@ export default function RecenteTransacties({ bedrijf, hex }: Props) {
               ? ` +${tx.products.length - 3}`
               : "";
           return (
-            <div
+            <li
               key={tx.id}
-              className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-slate-50 hover:bg-slate-50 transition-colors"
+              className="flex items-center justify-between gap-3 px-1 py-1.5"
             >
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold tabular-nums">
+              <div className="flex items-baseline gap-2 min-w-0 flex-1">
+                <span className="text-[14px] font-semibold tabular-nums text-slate-800">
                   €{tx.amount.toFixed(2)}
-                  <span className="text-slate-400 text-[11px] font-normal ml-2 capitalize">
-                    {tx.payment_type.replace(/_/g, " ")}
-                  </span>
-                </p>
-                {items && (
-                  <p className="text-[11px] text-slate-400 truncate">
-                    {items}
-                    {extra}
-                  </p>
-                )}
+                </span>
+                <span className="text-[11px] text-slate-400 truncate">
+                  {methodeKort(tx.payment_type)}
+                  {items && <> · {items}{extra}</>}
+                </span>
               </div>
-              <div className="text-right shrink-0">
-                <p className="text-xs text-slate-500 tabular-nums">
-                  {format(parseISO(tx.timestamp), "HH:mm", { locale: nl })}
-                </p>
-                <p className="text-[10px] text-slate-400">
-                  {tijdGeleden(tx.timestamp)} geleden
-                </p>
+              <div className="text-[11px] text-slate-400 tabular-nums shrink-0 whitespace-nowrap">
+                {format(parseISO(tx.timestamp), "HH:mm", { locale: nl })}
+                <span className="text-slate-300 mx-1">·</span>
+                {tijdGeleden(tx.timestamp)}
               </div>
-            </div>
+            </li>
           );
         })}
-      </div>
+      </ul>
     </div>
   );
 }
