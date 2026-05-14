@@ -125,13 +125,23 @@ async function verstuurWebPush(n: Notificatie): Promise<NotificatieResultaat[]> 
       url: n.url ?? "/",
       tag: n.tag ?? "omzet",
     });
-    return [
-      {
-        kanaal: "webpush",
-        gelukt: true,
-        fout: res.verzonden === 0 ? "geen abonnees" : undefined,
-      },
-    ];
+    // Per geslaagde verzending 1 resultaat, plus 1 resultaat per fout.
+    // Zo zie je 1/2 als 1 device wel en 1 niet werkt.
+    const resultaten: NotificatieResultaat[] = [];
+    for (let i = 0; i < res.verzonden; i++) {
+      resultaten.push({ kanaal: `webpush#${i + 1}`, gelukt: true });
+    }
+    for (const f of res.fouten) {
+      resultaten.push({
+        kanaal: `webpush:${f.endpoint}`,
+        gelukt: false,
+        fout: `${f.statusCode ?? "?"} — ${f.bericht}`,
+      });
+    }
+    if (resultaten.length === 0) {
+      resultaten.push({ kanaal: "webpush", gelukt: false, fout: "geen abonnees" });
+    }
+    return resultaten;
   } catch (e) {
     return [
       {

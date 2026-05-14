@@ -79,12 +79,19 @@ export async function verwijderSubscription(id: string): Promise<void> {
   await kv.set(KV_SLEUTEL, nieuw);
 }
 
+export interface PushFout {
+  id: string;
+  endpoint: string; // host-only, voor leesbaarheid
+  statusCode?: number;
+  bericht: string;
+}
+
 export async function stuurPush(
   onderwerp: string,
   body: string,
   extra: { url?: string; tag?: string } = {}
-): Promise<{ verzonden: number; verwijderd: number }> {
-  if (!kvBeschikbaar()) return { verzonden: 0, verwijderd: 0 };
+): Promise<{ verzonden: number; verwijderd: number; fouten: PushFout[] }> {
+  if (!kvBeschikbaar()) return { verzonden: 0, verwijderd: 0, fouten: [] };
   configureerWebpush();
   const subs = await alleSubscriptions();
   const payload = JSON.stringify({
@@ -96,7 +103,11 @@ export async function stuurPush(
 
   let verzonden = 0;
   const teVerwijderen: string[] = [];
+  const fouten: PushFout[] = [];
   for (const sub of subs) {
+    const host = (() => {
+      try { return new URL(sub.endpoint).host; } catch { return "?"; }
+    })();
     try {
       await webpush.sendNotification(
         {
@@ -107,12 +118,16 @@ export async function stuurPush(
       );
       verzonden++;
     } catch (e: unknown) {
-      const err = e as { statusCode?: number };
+      const err = e as { statusCode?: number; body?: string; message?: string };
+      const statusCode = err.statusCode;
+      const bericht = err.body || err.message || "onbekend";
       // 404 = subscription bestaat niet meer, 410 = gone
-      if (err.statusCode === 404 || err.statusCode === 410) {
+      if (statusCode === 404 || statusCode === 410) {
         teVerwijderen.push(sub.id);
+        fouten.push({ id: sub.id, endpoint: host, statusCode, bericht: "subscription verlopen — opnieuw aanmelden" });
       } else {
-        console.error(`Push naar ${sub.id} mislukt:`, e);
+        console.error(`Push naar ${sub.id} (${host}) mislukt:`, statusCode, bericht);
+        fouten.push({ id: sub.id, endpoint: host, statusCode, bericht });
       }
     }
   }
@@ -120,7 +135,7 @@ export async function stuurPush(
     const nieuw = subs.filter((s) => !teVerwijderen.includes(s.id));
     await kv.set(KV_SLEUTEL, nieuw);
   }
-  return { verzonden, verwijderd: teVerwijderen.length };
+  return { verzonden, verwijderd: teVerwijderen.length, fouten };
 }
 
 export function pushGeconfigureerd(): {

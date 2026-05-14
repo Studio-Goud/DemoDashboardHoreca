@@ -117,6 +117,7 @@ export default function SetupPanel({ hex }: Props) {
   } | null>(null);
   const [testBezig, setTestBezig] = useState(false);
   const [testResultaat, setTestResultaat] = useState<string | null>(null);
+  const [testDetails, setTestDetails] = useState<Array<{ kanaal: string; gelukt: boolean; fout?: string }> | null>(null);
   const [fout, setFout] = useState<string | null>(null);
 
   const laadPushStatus = useCallback(async () => {
@@ -131,15 +132,22 @@ export default function SetupPanel({ hex }: Props) {
   async function stuurTestNotificatie() {
     setTestBezig(true);
     setTestResultaat(null);
+    setTestDetails(null);
     try {
       const res = await fetch("/api/admin/push-test", { method: "POST" });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error ?? "test mislukt");
-      const gelukt = Array.isArray(j.resultaten)
-        ? j.resultaten.filter((r: { gelukt: boolean }) => r.gelukt).length
-        : 0;
-      const totaal = Array.isArray(j.resultaten) ? j.resultaten.length : 0;
-      setTestResultaat(`✓ Verzonden naar ${gelukt}/${totaal} kanaal/kanalen. Check binnen ~5s.`);
+      const lijst: Array<{ kanaal: string; gelukt: boolean; fout?: string }> =
+        Array.isArray(j.resultaten) ? j.resultaten : [];
+      const gelukt = lijst.filter((r) => r.gelukt).length;
+      const totaal = lijst.length;
+      setTestResultaat(
+        gelukt > 0
+          ? `✓ Verzonden naar ${gelukt}/${totaal} kanaal/kanalen. Check binnen ~5s.`
+          : `✗ Geen enkele kanaal gelukt (0/${totaal}). Zie details hieronder.`
+      );
+      setTestDetails(lijst);
+      laadPushStatus();
     } catch (e) {
       setTestResultaat(`✗ ${e instanceof Error ? e.message : "fout"}`);
     } finally {
@@ -498,6 +506,33 @@ export default function SetupPanel({ hex }: Props) {
                 <p className="text-[11px] mt-2" style={{ color: testResultaat.startsWith("✓") ? "#30B26F" : "#E5484D" }}>
                   {testResultaat}
                 </p>
+              )}
+              {testDetails && testDetails.length > 0 && (
+                <div className="mt-2 rounded-lg border p-2" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+                  <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "var(--muted)" }}>
+                    Per kanaal
+                  </p>
+                  <ul className="space-y-1">
+                    {testDetails.map((r, i) => (
+                      <li key={i} className="text-[11px] leading-snug">
+                        <span style={{ color: r.gelukt ? "#30B26F" : "#E5484D" }}>
+                          {r.gelukt ? "✓" : "✗"}
+                        </span>{" "}
+                        <span style={{ color: "var(--text)" }}>{r.kanaal}</span>
+                        {r.fout && (
+                          <span style={{ color: "var(--muted)" }}> — {r.fout}</span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                  {testDetails.every((r) => !r.gelukt) && (
+                    <p className="text-[10px] mt-2" style={{ color: "var(--muted)" }}>
+                      Tip: druk hierboven op &quot;Uitzetten&quot; en daarna opnieuw &quot;Aanmelden&quot;.
+                      Een subscription die vóór het zetten van de VAPID-sleutels is gemaakt,
+                      wordt door Apple/Google geweigerd.
+                    </p>
+                  )}
+                </div>
               )}
             </>
           )}
