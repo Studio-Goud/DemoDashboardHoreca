@@ -92,7 +92,45 @@ const MIGRATIE_0001: Migratie = {
   ],
 };
 
-const ALLE_MIGRATIES: Migratie[] = [MIGRATIE_0001];
+/**
+ * Migratie 0002: zettle_transacties + zettle_sync_state.
+ *
+ * Analoog aan sumup_transacties: één keer historie backfillen, daarna
+ * incrementeel via cron. Maakt de Zettle-reads in dashboard/forecast/AI
+ * direct lokaal-snel ipv afhankelijk van de paginated izettle.com API.
+ */
+const MIGRATIE_0002: Migratie = {
+  naam: "0002_zettle_transacties",
+  statements: [
+    `CREATE TABLE IF NOT EXISTS "zettle_transacties" (
+      "id"             serial PRIMARY KEY NOT NULL,
+      "bedrijf"        varchar(4) NOT NULL,
+      "purchase_uuid"  varchar(64) NOT NULL,
+      "bedrag"         numeric(10, 2) NOT NULL,
+      "btw_bedrag"     numeric(10, 2) DEFAULT '0',
+      "valuta"         varchar(8) DEFAULT 'EUR',
+      "refund"         boolean DEFAULT false NOT NULL,
+      "timestamp"      timestamp with time zone NOT NULL,
+      "producten"      text,
+      "created_at"     timestamp with time zone DEFAULT now() NOT NULL
+    )`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS "zettle_tx_bedrijf_uuid_uq"
+       ON "zettle_transacties" USING btree ("bedrijf", "purchase_uuid")`,
+    `CREATE INDEX IF NOT EXISTS "zettle_tx_bedrijf_ts_idx"
+       ON "zettle_transacties" USING btree ("bedrijf", "timestamp")`,
+    `CREATE INDEX IF NOT EXISTS "zettle_tx_ts_idx"
+       ON "zettle_transacties" USING btree ("timestamp")`,
+    `CREATE TABLE IF NOT EXISTS "zettle_sync_state" (
+      "bedrijf"          varchar(4) PRIMARY KEY NOT NULL,
+      "laatste_sync"     timestamp with time zone NOT NULL,
+      "laatste_tx_time"  timestamp with time zone,
+      "totaal_gesynct"   integer DEFAULT 0 NOT NULL,
+      "laatste_fout"     text
+    )`,
+  ],
+};
+
+const ALLE_MIGRATIES: Migratie[] = [MIGRATIE_0001, MIGRATIE_0002];
 
 async function voerMigratieUit(m: Migratie): Promise<DbInitResultaat> {
   const start = Date.now();

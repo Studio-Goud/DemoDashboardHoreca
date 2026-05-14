@@ -25,10 +25,22 @@ interface MigratieResultaat {
   log: string[];
 }
 
+interface ZettleSnapshotResultaat {
+  ok: boolean;
+  duurMs: number;
+  resultaten: Array<{
+    bedrijf: "bb" | "sl" | "kl";
+    opgehaaldRaw: number;
+    ingevoegd: number;
+    fout?: string;
+  }>;
+}
+
 export default function SetupPanel({ hex }: Props) {
-  const [busy, setBusy] = useState<"db" | "migratie" | null>(null);
+  const [busy, setBusy] = useState<"db" | "migratie" | "zettle" | null>(null);
   const [dbResult, setDbResult] = useState<DbInitResultaat[] | null>(null);
   const [migrResult, setMigrResult] = useState<MigratieResultaat | null>(null);
+  const [zettleResult, setZettleResult] = useState<ZettleSnapshotResultaat | null>(null);
   const [fout, setFout] = useState<string | null>(null);
 
   async function runDbInit() {
@@ -43,6 +55,30 @@ export default function SetupPanel({ hex }: Props) {
       }
       const j = (await res.json()) as { resultaten: DbInitResultaat[] };
       setDbResult(j.resultaten);
+    } catch (e) {
+      setFout(e instanceof Error ? e.message : "fout");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function runZettleSnapshot() {
+    if (!confirm("Volledige Zettle-historie naar onze database kopiëren?\n\nDuurt 1-3 min per bedrijf. Daarna leest het dashboard / forecast / AI direct uit de database — geen Zettle API-calls meer voor historische data. Idempotent: bestaande records worden overgeslagen.")) return;
+    setBusy("zettle");
+    setFout(null);
+    setZettleResult(null);
+    try {
+      const res = await fetch("/api/administratie/zettle-snapshot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({ error: "fout" }));
+        throw new Error(j.error || "snapshot mislukt");
+      }
+      const j = (await res.json()) as ZettleSnapshotResultaat;
+      setZettleResult(j);
     } catch (e) {
       setFout(e instanceof Error ? e.message : "fout");
     } finally {
@@ -87,6 +123,13 @@ export default function SetupPanel({ hex }: Props) {
         zichtbaar={busy === "migratie"}
         titel="Shiftbase-historie importeren"
         subtitel="12 maanden aan diensten + medewerkers + beschikbaarheid wordt opgehaald. Dit kan 1-5 min duren."
+        accent={hex}
+        toonTimer
+      />
+      <LoadingOverlay
+        zichtbaar={busy === "zettle"}
+        titel="Zettle-historie kopiëren naar database"
+        subtitel="Alle purchases per bedrijf worden in batches naar Postgres geschreven. Daarna leest de app uit de DB ipv de Zettle API. Kan 1-3 min per bedrijf duren."
         accent={hex}
         toonTimer
       />
@@ -160,6 +203,44 @@ export default function SetupPanel({ hex }: Props) {
                   {migrResult.log.join("\n")}
                 </pre>
               </details>
+            </div>
+          )}
+        </div>
+
+        {/* Stap 3: Zettle-snapshot */}
+        <div className="rounded-[10px] p-3" style={{ background: "var(--bg)", border: "1px solid var(--hairline)" }}>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[13px] font-semibold" style={{ color: "var(--text)" }}>
+                3. Zettle-historie → database
+              </p>
+              <p className="text-[11px] mt-1" style={{ color: "var(--muted)" }}>
+                Eenmalige backfill van alle iZettle-purchases per bedrijf naar
+                onze Postgres. Daarna leest dashboard / forecast / AI direct
+                uit de DB ipv de paginated Zettle API — milliseconden ipv
+                seconden. Daily cron prikt nieuwe purchases er vanzelf bij.
+              </p>
+            </div>
+            <button
+              onClick={runZettleSnapshot}
+              disabled={busy !== null}
+              className="px-3 py-1.5 rounded-[8px] text-[12px] font-medium text-white shrink-0 disabled:opacity-50"
+              style={{ background: hex }}
+            >
+              {busy === "zettle" ? "Bezig…" : "Snapshot"}
+            </button>
+          </div>
+          {zettleResult && (
+            <div className="mt-3 text-[11px] space-y-1" style={{ color: "var(--text-2)" }}>
+              <p style={{ color: zettleResult.ok ? "#30B26F" : "#E5484D" }}>
+                {zettleResult.ok ? "✓" : "⚠"} Klaar in {(zettleResult.duurMs / 1000).toFixed(1)}s
+              </p>
+              {zettleResult.resultaten.map((r) => (
+                <p key={r.bedrijf}>
+                  <strong>{r.bedrijf.toUpperCase()}</strong>: {r.opgehaaldRaw} opgehaald, {r.ingevoegd} nieuw in DB
+                  {r.fout && <span style={{ color: "#E5484D" }}> · fout: {r.fout}</span>}
+                </p>
+              ))}
             </div>
           )}
         </div>

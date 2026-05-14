@@ -301,6 +301,40 @@ export type SumUpTx        = typeof sumupTransacties.$inferSelect;
 export type NieuweSumUpTx  = typeof sumupTransacties.$inferInsert;
 export type SumUpSyncState = typeof sumupSyncState.$inferSelect;
 
+// ─── Zettle (iZettle) transacties — analoog aan SumUp ─────────────────────────
+// Hele historie staat hier zodat de app niet keer-op-keer de paginated
+// Zettle-API moet bellen. Backfill via /api/administratie/zettle-snapshot,
+// daily cron prikt nieuwe transacties erbij.
+
+export const zettleTransacties = pgTable("zettle_transacties", {
+  id: serial("id").primaryKey(),
+  bedrijf: varchar("bedrijf", { length: 4 }).notNull(),
+  purchaseUuid: varchar("purchase_uuid", { length: 64 }).notNull(),
+  bedrag: decimal("bedrag", { precision: 10, scale: 2 }).notNull(),     // in EUR (Zettle geeft centen → we delen door 100)
+  btwBedrag: decimal("btw_bedrag", { precision: 10, scale: 2 }).default("0"),
+  valuta: varchar("valuta", { length: 8 }).default("EUR"),
+  refund: boolean("refund").notNull().default(false),
+  timestamp: timestamp("timestamp", { withTimezone: true }).notNull(),
+  producten: text("producten"),                                          // JSON.stringify(products) — voor top-producten analyse
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  uniekPerBedrijf: uniqueIndex("zettle_tx_bedrijf_uuid_uq").on(t.bedrijf, t.purchaseUuid),
+  bedrijfTimeIdx: index("zettle_tx_bedrijf_ts_idx").on(t.bedrijf, t.timestamp),
+  timeIdx: index("zettle_tx_ts_idx").on(t.timestamp),
+}));
+
+export const zettleSyncState = pgTable("zettle_sync_state", {
+  bedrijf: varchar("bedrijf", { length: 4 }).primaryKey(),
+  laatsteSync: timestamp("laatste_sync", { withTimezone: true }).notNull(),
+  laatsteTxTime: timestamp("laatste_tx_time", { withTimezone: true }),
+  totaalGesynct: integer("totaal_gesynct").notNull().default(0),
+  laatsteFout: text("laatste_fout"),
+});
+
+export type ZettleTx        = typeof zettleTransacties.$inferSelect;
+export type NieuweZettleTx  = typeof zettleTransacties.$inferInsert;
+export type ZettleSyncState = typeof zettleSyncState.$inferSelect;
+
 // ─── Voorraad ────────────────────────────────────────────────────────────────
 // Producten per vestiging (eenmalig setup) + live status (aantal + niveau)
 

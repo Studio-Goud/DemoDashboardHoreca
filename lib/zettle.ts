@@ -225,14 +225,33 @@ function laadSnapshot(bedrijf: Bedrijf): SnapshotBestand {
 // en 2022 is toch niet relevant meer voor dag-op-dag vergelijkingen nu.
 const VANAF_DATUM = "2023-01-01T00:00:00.000Z";
 
-// Publieke functie: snapshot (vanaf 2023) + alleen nieuwere purchases via API.
-// Als de API-call faalt (rate limit, auth error, netwerk) valt de functie
-// terug op alleen de snapshot — beter een dag achterlopen dan niks tonen.
+// Publieke functie: laadt purchases voor dashboard / forecast / AI.
+//
+// Voorkeur: DB (zettle_transacties) — milliseconden, geen rate-limits, werkt
+// ook als Zettle plat ligt. De cron werkt de DB elke ~10 min bij, dus de
+// "recente" window die nog niet in DB zit is in de praktijk minuten.
+//
+// Fallback-keten als DB leeg is (eerste deploy, lokale dev zonder
+// backfill): probeer JSON-snapshot → anders volledige API fetch.
 export async function fetchAllZettlePurchases(
   bedrijf: Bedrijf
 ): Promise<ZettlePurchase[]> {
-  const snapshot = laadSnapshot(bedrijf);
+  // 1. DB-first
+  try {
+    const { leesZettleUitDb } = await import("./zettle-sync");
+    const dbRows = await leesZettleUitDb(bedrijf);
+    if (dbRows.length > 0) {
+      return dbRows.filter((p) => p.timestamp >= VANAF_DATUM);
+    }
+  } catch (err) {
+    console.warn(
+      `[zettle:${bedrijf}] DB-lees faalde, val terug op snapshot/API:`,
+      err instanceof Error ? err.message : err
+    );
+  }
 
+  // 2. Snapshot-bestand (legacy) — voor lokale dev zonder Postgres
+  const snapshot = laadSnapshot(bedrijf);
   if (snapshot.aantal > 0 && snapshot.laatsteTimestamp) {
     const historisch = snapshot.purchases.filter(
       (p) => p.timestamp >= VANAF_DATUM
@@ -249,12 +268,13 @@ export async function fetchAllZettlePurchases(
     }
   }
 
+  // 3. Niets lokaal: volledige API fetch (langzaam, eerste-keer pad)
   try {
     const alles = await fetchZettleVolledig(bedrijf);
     return alles.filter((p) => p.timestamp >= VANAF_DATUM);
   } catch (err) {
     console.warn(
-      `[zettle:${bedrijf}] volledige fetch faalde, geen snapshot beschikbaar:`,
+      `[zettle:${bedrijf}] volledige fetch faalde, geen data beschikbaar:`,
       err instanceof Error ? err.message : err
     );
     return [];

@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/sumup-sync",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/zettle-sync",
+      "schedule": "10 6 * * *"
     }
   ]
 }
