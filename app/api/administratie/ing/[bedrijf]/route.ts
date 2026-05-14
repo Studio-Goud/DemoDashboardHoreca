@@ -1,12 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseIngExcel, parseIngCsv, herclassificeer } from "@/lib/ing";
 import { slaIngOp, haalIngOp, updateIngTransactie, verwijderIngMaand } from "@/lib/boekhouding-kv";
+import { extracteerPatroon, slaRegelOp, geleerdeRegels, matchRegel, teltToepassing } from "@/lib/ing-leer-regels";
 
 type BedrijfSlug = "bb" | "sl" | "kl";
 const GELDIGE_BEDRIJVEN = new Set<BedrijfSlug>(["bb", "sl", "kl"]);
 
 function checkBedrijf(b: string): BedrijfSlug | null {
   return GELDIGE_BEDRIJVEN.has(b as BedrijfSlug) ? (b as BedrijfSlug) : null;
+}
+
+const CATEGORIE_TARIEF: Record<string, 0 | 9 | 21> = {
+  levensmiddelen: 9,
+  huur: 21, telecom: 21, software: 21, marketing: 21, materiaal: 21, representatie: 21,
+  salaris: 0, belasting: 0, pensioen: 0, "sociale-lasten": 0, bankkosten: 0,
+  verzekering: 0, vergoeding: 0, omzet: 0, overig: 0,
+};
+
+function berekenBtwUitTarief(bedrag: number, tarief: 0 | 9 | 21): { btw21: number; btw9: number } {
+  const rnd = (n: number) => Math.round(n * 100) / 100;
+  if (tarief === 21) return { btw21: rnd(bedrag - bedrag / 1.21), btw9: 0 };
+  if (tarief === 9)  return { btw21: 0, btw9: rnd(bedrag - bedrag / 1.09) };
+  return { btw21: 0, btw9: 0 };
 }
 
 // POST /api/administratie/ing/[bedrijf] — upload ING Excel of CSV
@@ -35,6 +50,25 @@ export async function POST(
 
   if (txs.length === 0) {
     return NextResponse.json({ error: "Geen transacties gevonden in bestand" }, { status: 422 });
+  }
+
+  // Pas geleerde regels toe op transacties die nog review zijn — voorkomt
+  // dat de eigenaar zelfde leveranciers iedere maand opnieuw moet
+  // categoriseren.
+  const regels = await geleerdeRegels(bedrijf);
+  if (regels.length > 0) {
+    for (const tx of txs) {
+      if (tx.btwStatus !== "review") continue;
+      const match = matchRegel(regels, tx.omschrijving);
+      if (!match) continue;
+      const { btw21, btw9 } = berekenBtwUitTarief(tx.bedrag, match.tarief);
+      tx.btw21 = btw21;
+      tx.btw9 = btw9;
+      tx.categorie = match.categorie;
+      tx.btwStatus = "auto";
+      // niet-blokkerend tellen
+      teltToepassing(bedrijf, match.patroon).catch(() => null);
+    }
   }
 
   await slaIngOp(bedrijf, txs);
@@ -107,6 +141,8 @@ export async function DELETE(
 }
 
 // PATCH /api/administratie/ing/[bedrijf] — handmatig BTW corrigeren
+// Side-effect: leert een regel zodat dezelfde leverancier volgende keer
+// automatisch wordt herkend (mits er een herkenbaar patroon te extraheren is).
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { bedrijf: string } }
@@ -117,6 +153,8 @@ export async function PATCH(
   const body = await req.json() as {
     id: string; jaar: number; maand: number;
     btw21?: number; btw9?: number; categorie?: string;
+    /** Optioneel: omschrijving voor regel-extractie (anders skip leren) */
+    omschrijving?: string;
   };
 
   await updateIngTransactie(bedrijf, body.jaar, body.maand, body.id, {
@@ -125,6 +163,20 @@ export async function PATCH(
     categorie: body.categorie,
     btwStatus: "handmatig",
   });
+
+  // Leer-laag: alleen als categorie meegegeven is en we een patroon kunnen
+  // extraheren. Faalt niet-blokkerend; KV-fout mag opslaan niet tegenhouden.
+  if (body.categorie && body.omschrijving) {
+    try {
+      const patroon = extracteerPatroon(body.omschrijving);
+      const tarief = CATEGORIE_TARIEF[body.categorie];
+      if (patroon && tarief !== undefined) {
+        await slaRegelOp(bedrijf, patroon, body.categorie, tarief, "manueel", 1.0);
+      }
+    } catch {
+      // niet kritiek
+    }
+  }
 
   return NextResponse.json({ ok: true });
 }
