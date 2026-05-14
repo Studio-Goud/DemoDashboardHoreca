@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { parseIngExcel, parseIngCsv, herclassificeer, ingParseWaarschuwingen } from "@/lib/ing";
 import { slaIngOp, haalIngOp, updateIngTransactie, verwijderIngMaand } from "@/lib/boekhouding-kv";
 import { extracteerPatroon, slaRegelOp, geleerdeRegels, matchRegel, teltToepassing } from "@/lib/ing-leer-regels";
+import { notify, heeftNotifyConfig } from "@/lib/notify";
 
 type BedrijfSlug = "bb" | "sl" | "kl";
 const GELDIGE_BEDRIJVEN = new Set<BedrijfSlug>(["bb", "sl", "kl"]);
@@ -74,6 +75,22 @@ export async function POST(
   }
 
   await slaIngOp(bedrijf, txs);
+
+  // Push-alert: grote ongebruikelijke debit-transacties (>€500 én status
+  // review = onbekende leverancier). Niet-blokkerend; faalt stil.
+  const grote = txs.filter(
+    (t) => t.richting === "debit" && t.bedrag > 500 && t.btwStatus === "review",
+  );
+  const notifyCfg = heeftNotifyConfig();
+  if (grote.length > 0 && (notifyCfg.webpush || notifyCfg.telegram || notifyCfg.email)) {
+    const top = grote.slice(0, 3).map((t) => `€${t.bedrag.toFixed(0)} ${t.omschrijving.slice(0, 28)}`).join(" · ");
+    notify({
+      onderwerp: `⚠️ ${bedrijf.toUpperCase()}: ${grote.length} grote onbekende transactie(s)`,
+      tekstPlatte: `${top}${grote.length > 3 ? ` +${grote.length - 3} andere` : ""}. Check Administratie → Review.`,
+      url: `/${bedrijf}#admin`,
+      tag: `ing-grote-${bedrijf}`,
+    }).catch(() => null);
+  }
 
   const reviewCount = txs.filter((t) => t.btwStatus === "review").length;
   const waarschuwingen = ingParseWaarschuwingen();
