@@ -10,7 +10,6 @@ import ReviewPanel from "@/components/administratie/ReviewPanel";
 import SetupPanel from "@/components/administratie/SetupPanel";
 import DgaEnergiePanel from "@/components/administratie/DgaEnergiePanel";
 import CashflowProjectie from "@/components/administratie/CashflowProjectie";
-import FinancieelAdviseur from "@/components/administratie/FinancieelAdviseur";
 
 interface Props {
   bedrijf: "bb" | "sl" | "kl";
@@ -30,7 +29,6 @@ export default function AdminTab({ bedrijf, hex }: Props) {
 
   return (
     <div className="space-y-5">
-      <FinancieelAdviseur bedrijf={bedrijf} hex={hex} />
       <MaandPnL bedrijf={bedrijf} hex={hex} key={`pnl-${refreshTrigger}`} />
       <CashflowProjectie bedrijf={bedrijf} hex={hex} />
       <DgaEnergiePanel bedrijf={bedrijf} hex={hex} />
