@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useRol } from "@/lib/useRol";
+import AnimatedAmount from "@/components/AnimatedAmount";
 
 const BEDRIJVEN = [
   { slug: "bb", naam: "Brunch & Brew",    emoji: "☕", kleur: "#0A84FF" },
@@ -641,7 +642,7 @@ function BedrijfKolom({
           className="text-[15px] sm:text-[17px] font-semibold tabular-nums leading-tight"
           style={{ color: "#f5f5f7", letterSpacing: "-0.014em" }}
         >
-          {data ? fmt(omzet) : "€–"}
+          {data ? <AnimatedAmount value={omzet} format={fmt} duurMs={650} /> : "€–"}
         </p>
 
         <div className="flex items-center gap-2 mt-0.5">
@@ -650,7 +651,12 @@ function BedrijfKolom({
               className="text-[10px] tabular-nums font-medium"
               style={{ color: voorOp ? "#34D399" : "#FB923C" }}
             >
-              {voorOp ? "+" : "−"}{fmt(verschil).replace("€", "€ ")}
+              {voorOp ? "+" : "−"}
+              <AnimatedAmount
+                value={verschil}
+                format={(n) => fmt(n).replace("€", "€ ")}
+                duurMs={650}
+              />
             </span>
           ) : (
             <span className="text-[10px]" style={{ color: "#64748b" }}>
