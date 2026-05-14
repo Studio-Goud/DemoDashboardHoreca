@@ -18,7 +18,7 @@
  */
 
 import { createHash } from "node:crypto";
-import { eq, and, gte, lte, asc } from "drizzle-orm";
+import { eq, and, gte, lte, asc, isNull } from "drizzle-orm";
 import { db, schema } from "./db/client";
 import type { Bedrijf } from "./sumup";
 
@@ -201,18 +201,41 @@ export async function berekenSalarisVoorBedrijf(
   if (!deptRow[0]) return [];
   const deptId = deptRow[0].id;
 
-  const medewerkers = await db
+  // Filter op THUIS-vestiging (hoofd_department_id), NIET op de many-to-many
+  // medewerker_departments tabel. Laura Chirinos kan bv. via Shiftbase-migratie
+  // aan zowel BB als SL gekoppeld zijn in medewerker_departments — maar haar
+  // thuis-vestiging is BB. Salaris wordt betaald door thuis-vestiging; eventueel
+  // uitgeleende uren bij andere vestigingen worden via inleen-doorberekening
+  // doorgefactureerd, niet via dubbele salaris-toewijzing.
+  //
+  // Fallback: medewerkers zonder hoofdDepartmentId (= nog niet gezet door
+  // owner) vallen terug op de oude logica via medewerker_departments, zodat
+  // ze niet stilletjes verdwijnen uit het salaris-overzicht.
+  const primair = await db
+    .select({ id: schema.medewerkers.id })
+    .from(schema.medewerkers)
+    .where(and(
+      eq(schema.medewerkers.hoofdDepartmentId, deptId),
+      eq(schema.medewerkers.actief, true),
+    ));
+
+  const fallback = await db
     .select({ id: schema.medewerkers.id })
     .from(schema.medewerkers)
     .innerJoin(schema.medewerkerDepartments, eq(schema.medewerkers.id, schema.medewerkerDepartments.medewerkerId))
     .where(and(
       eq(schema.medewerkerDepartments.departmentId, deptId),
       eq(schema.medewerkers.actief, true),
+      isNull(schema.medewerkers.hoofdDepartmentId),
     ));
 
+  const alleIds = new Set<number>();
+  for (const r of primair) alleIds.add(r.id);
+  for (const r of fallback) alleIds.add(r.id);
+
   const resultaten: SalarisBerekening[] = [];
-  for (const m of medewerkers) {
-    const b = await berekenSalarisVoorMedewerker(m.id, jaar, maand);
+  for (const id of Array.from(alleIds)) {
+    const b = await berekenSalarisVoorMedewerker(id, jaar, maand);
     if (b && b.brutoUren > 0) resultaten.push(b);
   }
   return resultaten.sort((a, b) => a.achternaam.localeCompare(b.achternaam));
