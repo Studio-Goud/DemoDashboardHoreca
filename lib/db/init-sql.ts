@@ -184,7 +184,24 @@ const MIGRATIE_0004: Migratie = {
   ],
 };
 
-const ALLE_MIGRATIES: Migratie[] = [MIGRATIE_0001, MIGRATIE_0002, MIGRATIE_0003, MIGRATIE_0004];
+/**
+ * Migratie 0005: departments.werkgeverslasten_pct.
+ *
+ * Werkgeverslasten als opslag boven bruto-loon (pensioen + AOF + WW + ZVW +
+ * sociaal fonds + opleidingsfonds). Per bedrijf instelbaar; default 27% is
+ * horeca-typisch (zie loonjournaal Brunch & Brew mei 2026 → 27,03%).
+ */
+const MIGRATIE_0005: Migratie = {
+  naam: "0005_werkgeverslasten_pct",
+  statements: [
+    `ALTER TABLE "departments"
+       ADD COLUMN IF NOT EXISTS "werkgeverslasten_pct" numeric(5,2) DEFAULT 27.00`,
+  ],
+};
+
+const ALLE_MIGRATIES: Migratie[] = [
+  MIGRATIE_0001, MIGRATIE_0002, MIGRATIE_0003, MIGRATIE_0004, MIGRATIE_0005,
+];
 
 async function voerMigratieUit(m: Migratie): Promise<DbInitResultaat> {
   const start = Date.now();

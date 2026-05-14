@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRol } from "@/lib/useRol";
 
 interface InleenRegel {
   medewerkerId: number;
@@ -53,7 +54,11 @@ const MAANDEN_NL = [
 ];
 
 export default function InleenDoorberekening({ hex, filterSlug }: Props) {
+  const { rol } = useRol();
+  const isOwner = rol === "owner";
   const [{ jaar, maand }, setPeriode] = useState(huidigeJaarMaand());
+  const [metVakantieOpslag, setMetVakantieOpslag] = useState(true);
+  const [metWerkgeverslasten, setMetWerkgeverslasten] = useState(false);
   const [data, setData] = useState<Overzicht | null>(null);
   const [laden, setLaden] = useState(true);
   const [fout, setFout] = useState<string | null>(null);
@@ -62,7 +67,11 @@ export default function InleenDoorberekening({ hex, filterSlug }: Props) {
     setLaden(true);
     setFout(null);
     try {
-      const res = await fetch(`/api/inleen/${jaar}/${maand}`, { cache: "no-store" });
+      const params = new URLSearchParams({
+        metVakantieOpslag: String(metVakantieOpslag),
+        metWerkgeverslasten: String(metWerkgeverslasten),
+      });
+      const res = await fetch(`/api/inleen/${jaar}/${maand}?${params}`, { cache: "no-store" });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
         throw new Error(j.error ?? `HTTP ${res.status}`);
@@ -73,7 +82,7 @@ export default function InleenDoorberekening({ hex, filterSlug }: Props) {
     } finally {
       setLaden(false);
     }
-  }, [jaar, maand]);
+  }, [jaar, maand, metVakantieOpslag, metWerkgeverslasten]);
 
   useEffect(() => { laad(); }, [laad]);
 
@@ -116,6 +125,31 @@ export default function InleenDoorberekening({ hex, filterSlug }: Props) {
             ›
           </button>
         </div>
+      </div>
+
+      {/* Toggle: welke opslag rekenen we mee in het te-factureren bedrag */}
+      <div className="flex flex-wrap gap-3 mb-3 p-2.5 rounded-md" style={{ background: "var(--bg)" }}>
+        <label className="inline-flex items-center gap-2 text-[11px] cursor-pointer">
+          <input
+            type="checkbox"
+            checked={metVakantieOpslag}
+            onChange={(e) => setMetVakantieOpslag(e.target.checked)}
+            className="w-3.5 h-3.5"
+          />
+          <span style={{ color: "var(--text)" }}>+ 16,33% vakantiegeld &amp; verlof-uren</span>
+        </label>
+        <label className="inline-flex items-center gap-2 text-[11px] cursor-pointer">
+          <input
+            type="checkbox"
+            checked={metWerkgeverslasten}
+            onChange={(e) => setMetWerkgeverslasten(e.target.checked)}
+            className="w-3.5 h-3.5"
+          />
+          <span style={{ color: "var(--text)" }}>+ werkgeverslasten (~27%)</span>
+        </label>
+        <span className="text-[10px] ml-auto" style={{ color: "var(--muted)" }}>
+          {metWerkgeverslasten ? "All-in" : metVakantieOpslag ? "Bruto + vakantie" : "Alleen bruto"}
+        </span>
       </div>
 
       {laden && (
@@ -180,8 +214,8 @@ export default function InleenDoorberekening({ hex, filterSlug }: Props) {
                         <tr className="text-left text-slate-400 text-[10px] uppercase tracking-wide">
                           <th className="py-1 font-medium">Medewerker</th>
                           <th className="py-1 font-medium text-right">Uren</th>
-                          <th className="py-1 font-medium text-right">Uurloon</th>
-                          <th className="py-1 font-medium text-right">Bedrag</th>
+                          {isOwner && <th className="py-1 font-medium text-right">Uurloon</th>}
+                          {isOwner && <th className="py-1 font-medium text-right">Bedrag</th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -189,12 +223,21 @@ export default function InleenDoorberekening({ hex, filterSlug }: Props) {
                           <tr key={r.medewerkerId} className="border-t border-slate-50">
                             <td className="py-1.5">{r.voornaam} {r.achternaam}</td>
                             <td className="py-1.5 text-right tabular-nums">{r.uren.toFixed(1)}u</td>
-                            <td className="py-1.5 text-right tabular-nums">{fmt(r.uurloon)}</td>
-                            <td className="py-1.5 text-right tabular-nums font-medium">{fmt(r.bedrag)}</td>
+                            {isOwner && (
+                              <td className="py-1.5 text-right tabular-nums">{fmt(r.uurloon)}</td>
+                            )}
+                            {isOwner && (
+                              <td className="py-1.5 text-right tabular-nums font-medium">{fmt(r.bedrag)}</td>
+                            )}
                           </tr>
                         ))}
                       </tbody>
                     </table>
+                    {!isOwner && (
+                      <p className="text-[10px] mt-2" style={{ color: "var(--muted)" }}>
+                        Individuele uurlonen en bedragen zijn alleen zichtbaar voor de eigenaar.
+                      </p>
+                    )}
                   </div>
                 </details>
               );

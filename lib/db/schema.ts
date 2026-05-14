@@ -11,6 +11,13 @@ export const departments = pgTable("departments", {
   slug: varchar("slug", { length: 8 }).notNull().unique(),
   naam: varchar("naam", { length: 100 }).notNull(),
   hex: varchar("hex", { length: 7 }).notNull(),
+  // Werkgeverslasten als opslag bovenop bruto loon (pensioen + AOF + WW + ZVW
+  // + opleidingsfonds + sociaal fonds). Default 27,00% horeca-typisch; eigenaar
+  // kan finetunen na een paar loonjournaal-cycli. Wordt gebruikt in:
+  //   - Loonkost-ratio in MaandPnL
+  //   - Inleen-doorberekening (toggle "Met werkgeverslasten")
+  //   - Salaris-detail (totale arbeidskost per medewerker)
+  werkgeverslastenPct: decimal("werkgeverslasten_pct", { precision: 5, scale: 2 }).default("27.00"),
   // Voor migratie van Shiftbase
   shiftbaseDepartmentId: varchar("shiftbase_department_id", { length: 32 }),
   shiftbaseTeamId:       varchar("shiftbase_team_id",       { length: 32 }),

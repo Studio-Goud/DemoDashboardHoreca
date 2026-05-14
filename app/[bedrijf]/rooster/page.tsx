@@ -13,6 +13,7 @@ import { feestdagOpDatum, vakantieOpDatum } from "@/lib/feestdagen";
 import RoosterEditor from "@/components/RoosterEditor";
 import BedrijfTabBar from "@/components/BedrijfTabBar";
 import TabHero from "@/components/TabHero";
+import { huidigeAdminSessie } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -78,7 +79,13 @@ export default async function RoosterEditorPage({ params, searchParams }: Props)
     : maandagVanWeek(new Date());
   const eindDatum = plusDagen(startDatum, 6);
 
-  const [alleDiensten, medewerkers, templates, beschikbaarheid, agg, weerData] = await Promise.all([
+  // Privacy: alleen owner krijgt uurloon/vakantie-percentages mee. Manager
+  // ziet wel namen + thuis-vestiging maar geen salaris-data — ook niet via
+  // browser DevTools want we serializen het niet over de wire.
+  const sessie = huidigeAdminSessie();
+  const isOwner = sessie?.rol === "owner";
+
+  const [alleDiensten, medewerkersRaw, templates, beschikbaarheid, agg, weerData] = await Promise.all([
     fetchDienstenInRange(startDatum, eindDatum).catch(() => []),
     medewerkersPerBedrijf(config.slug).catch(() => []),
     shiftTemplatesPerBedrijf(config.slug).catch(() => []),
@@ -94,6 +101,15 @@ export default async function RoosterEditorPage({ params, searchParams }: Props)
   ]);
 
   const diensten = alleDiensten.filter((d) => d.bedrijf === config.slug);
+
+  const medewerkers = isOwner
+    ? medewerkersRaw
+    : medewerkersRaw.map((m) => ({
+        ...m,
+        uurloon: null,
+        vakantiegeldPct: 0,
+        vakantieUrenPct: 0,
+      }));
 
   // Bouw lookups: prognose per datum, weer per datum
   const prognoseMap = new Map<string, NonNullable<DagContext["prognose"]>>();

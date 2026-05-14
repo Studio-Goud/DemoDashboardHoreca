@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { MaandSamenvatting } from "@/lib/boekhouding";
+import LoonkostRatio from "./LoonkostRatio";
 
 const MAANDEN = ["", "Januari", "Februari", "Maart", "April", "Mei", "Juni",
   "Juli", "Augustus", "September", "Oktober", "November", "December"];
@@ -109,9 +110,21 @@ export default function MaandPnL({ bedrijf, hex }: Props) {
           <div className="grid grid-cols-2 gap-3 mb-4">
             <Kaart label="Omzet (bruto)" waarde={s.omzetBruto} kleur={hex} />
             <Kaart label="Kosten totaal" waarde={s.kostenTotaal} kleur="#94A3B8" negatief />
-            <Kaart label="Salarissen" waarde={s.salarissen} kleur="#94A3B8" negatief />
+            <Kaart label="Salarissen (bruto)" waarde={s.salarissen} kleur="#94A3B8" negatief />
             <Kaart label="Contant inkomsten" waarde={s.contantInkomsten} kleur={hex} />
           </div>
+
+          {/* Loonkost-ratio: alleen tonen als er omzet én salaris is.
+              Bedrijfsinstellingen werkgeverslasten-% wordt eenmalig geladen
+              en gehecht aan dit component (zie useWerkgeverslasten hook). */}
+          {s.omzetBruto > 0 && s.salarissen > 0 && (
+            <LoonkostRatio
+              bedrijf={bedrijf}
+              omzet={s.omzetBruto}
+              brutoSalaris={s.salarissen}
+              hex={hex}
+            />
+          )}
 
           {/* DGA salaris */}
           {((s.dgaEchtRotterdams ?? 0) > 0 || (s.dgaMp5 ?? 0) > 0) && (

@@ -59,7 +59,18 @@ function urenTussen(start: string, eind: string, pauzeMin: number): number {
   return Math.max(0, minuten / 60);
 }
 
-export async function berekenInleenMaand(jaar: number, maand: number): Promise<InleenMaand> {
+export interface InleenOpties {
+  /** Tel werkgeverslasten van de uitlenende vestiging mee in het bedrag. */
+  metWerkgeverslasten?: boolean;
+  /** Tel vakantiegeld + verlof-uren (default 16,33%) mee. */
+  metVakantieOpslag?: boolean;
+}
+
+export async function berekenInleenMaand(
+  jaar: number,
+  maand: number,
+  opties: InleenOpties = {},
+): Promise<InleenMaand> {
   const startDatum = `${jaar}-${String(maand).padStart(2, "0")}-01`;
   // Laatste dag van de maand (eenvoudige berekening via volgende-maand-0)
   const eindMaand = maand === 12 ? 1 : maand + 1;
@@ -91,11 +102,28 @@ export async function berekenInleenMaand(jaar: number, maand: number): Promise<I
       isNotNull(schema.medewerkers.hoofdDepartmentId),
     ));
 
-  // Departments-lookup voor namen + slugs
+  // Departments-lookup voor namen + slugs + werkgeverslasten-percentage
   const deptRijen = await db
-    .select({ id: schema.departments.id, slug: schema.departments.slug, naam: schema.departments.naam })
+    .select({
+      id: schema.departments.id,
+      slug: schema.departments.slug,
+      naam: schema.departments.naam,
+      werkgeverslastenPct: schema.departments.werkgeverslastenPct,
+    })
     .from(schema.departments);
   const deptMap = new Map(deptRijen.map((d) => [d.id, d]));
+
+  // Opslag-factor voor bedrag-berekening:
+  //  - vakantie-opslag: 8,33% vakgeld + 8% verlof = 16,33%
+  //  - werkgeverslasten: per uitlenende-vestiging, default 27%
+  // Inlenende vestiging betaalt aan de uitlener naar gelang de toggles.
+  const vakantieFactor = opties.metVakantieOpslag ? 0.1633 : 0;
+  const werkgeverslastFactorVoor = (vanId: number): number => {
+    if (!opties.metWerkgeverslasten) return 0;
+    const dept = deptMap.get(vanId);
+    if (!dept || dept.werkgeverslastenPct === null) return 0.27;
+    return Number(dept.werkgeverslastenPct) / 100;
+  };
 
   // Groepeer per (van, naar, medewerker) en accumuleer uren
   // sleutel = `${vanId}|${naarId}|${medewerkerId}`
@@ -146,7 +174,8 @@ export async function berekenInleenMaand(jaar: number, maand: number): Promise<I
       };
       parenMap.set(paarSleutel, paar);
     }
-    const bedrag = Math.round(v.uren * v.uurloon * 100) / 100;
+    const opslagFactor = 1 + vakantieFactor + werkgeverslastFactorVoor(v.vanId);
+    const bedrag = Math.round(v.uren * v.uurloon * opslagFactor * 100) / 100;
     paar.regels.push({
       medewerkerId: v.medewerkerId,
       voornaam: v.voornaam,

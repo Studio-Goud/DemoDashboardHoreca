@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import type { Medewerker } from "@/lib/rooster";
 import type { Bedrijf } from "@/lib/sumup";
 import Icon from "./Icon";
+import { useRol } from "@/lib/useRol";
 
 interface Props {
   bedrijf: Bedrijf;
@@ -18,6 +19,8 @@ type Modus = "lijst" | "nieuw" | "bewerken";
 export default function MedewerkerBeheer({
   bedrijf, hex, medewerkers, onSluit, onWijziging,
 }: Props) {
+  const { rol } = useRol();
+  const isOwner = rol === "owner";
   const [modus, setModus] = useState<Modus>("lijst");
   const [edit, setEdit] = useState<Medewerker | null>(null);
 
@@ -75,6 +78,12 @@ export default function MedewerkerBeheer({
       const vuPct = Number(vakantieUrenPct.replace(",", ".")) || 8.00;
       const hoofdDeptId = hoofdDept ? Number(hoofdDept) : null;
 
+      // Helper: alleen owner mag salaris-velden meesturen. Manager-edits
+      // beperken zich tot naam/email/startdatum/thuis-vestiging.
+      const salarisFields = isOwner
+        ? { uurloon: uurloonNum, vakantiegeldPct: vgPct, vakantieUrenPct: vuPct }
+        : {};
+
       if (modus === "nieuw") {
         const res = await fetch("/api/shiftbase/medewerkers", {
           method: "POST",
@@ -88,17 +97,15 @@ export default function MedewerkerBeheer({
           throw new Error(j.error || "toevoegen mislukt");
         }
         // Net aangemaakt: uurloon/% en hoofd-vestiging updaten met PUT.
-        // Altijd PUT'en als één van de drie gezet is, zodat de thuis-
-        // vestiging ook bij €0-uurloon-medewerkers wordt vastgelegd.
-        if (uurloonNum !== null || hoofdDeptId !== null) {
+        // Manager mag alleen thuis-vestiging zetten (geen salaris-velden).
+        const heeftSalaris = isOwner && uurloonNum !== null;
+        if (heeftSalaris || hoofdDeptId !== null) {
           const j = await res.json();
           await fetch(`/api/shiftbase/medewerkers/${j.id}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              uurloon: uurloonNum,
-              vakantiegeldPct: vgPct,
-              vakantieUrenPct: vuPct,
+              ...salarisFields,
               hoofdDepartmentId: hoofdDeptId,
             }),
           });
@@ -110,9 +117,7 @@ export default function MedewerkerBeheer({
           body: JSON.stringify({
             voornaam, achternaam, email,
             startdatum: startdatum || undefined,
-            uurloon: uurloonNum,
-            vakantiegeldPct: vgPct,
-            vakantieUrenPct: vuPct,
+            ...salarisFields,
             hoofdDepartmentId: hoofdDeptId,
           }),
         });
@@ -313,16 +318,19 @@ export default function MedewerkerBeheer({
               />
             </Veld>
 
-            <Veld label="Uurloon (€) — leeg = nog niet ingesteld">
-              <input
-                type="text"
-                inputMode="decimal"
-                value={uurloon}
-                onChange={(e) => setUurloon(e.target.value)}
-                className="inputveld"
-                placeholder="bv. 14,50"
-              />
-            </Veld>
+            {/* Uurloon + vakantie-velden zijn salaris-data — owner-only. */}
+            {isOwner && (
+              <Veld label="Uurloon (€) — leeg = nog niet ingesteld">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={uurloon}
+                  onChange={(e) => setUurloon(e.target.value)}
+                  className="inputveld"
+                  placeholder="bv. 14,50"
+                />
+              </Veld>
+            )}
 
             <Veld label="Thuis-vestiging — gebruikt voor inleen-doorberekening tussen bedrijven">
               <select
@@ -337,31 +345,42 @@ export default function MedewerkerBeheer({
               </select>
             </Veld>
 
-            <div className="grid grid-cols-2 gap-3">
-              <Veld label="Vakantiegeld %">
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={vakantiegeldPct}
-                  onChange={(e) => setVakantiegeldPct(e.target.value)}
-                  className="inputveld"
-                />
-              </Veld>
-              <Veld label="Vakantie-uren %">
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={vakantieUrenPct}
-                  onChange={(e) => setVakantieUrenPct(e.target.value)}
-                  className="inputveld"
-                />
-              </Veld>
-            </div>
+            {isOwner && (
+              <div className="grid grid-cols-2 gap-3">
+                <Veld label="Vakantiegeld %">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={vakantiegeldPct}
+                    onChange={(e) => setVakantiegeldPct(e.target.value)}
+                    className="inputveld"
+                  />
+                </Veld>
+                <Veld label="Vakantie-uren %">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={vakantieUrenPct}
+                    onChange={(e) => setVakantieUrenPct(e.target.value)}
+                    className="inputveld"
+                  />
+                </Veld>
+              </div>
+            )}
 
-            <p className="text-[11px]" style={{ color: "var(--muted)" }}>
-              Vakantiegeld + vakantie-uren worden direct met het uurloon uitbetaald.
-              Defaults: 8,33% / 8,00%.
-            </p>
+            {!isOwner && (
+              <p className="text-[11px]" style={{ color: "var(--muted)" }}>
+                Salaris-instellingen (uurloon, vakantiegeld, vakantie-uren) zijn alleen
+                door de eigenaar in te stellen.
+              </p>
+            )}
+
+            {isOwner && (
+              <p className="text-[11px]" style={{ color: "var(--muted)" }}>
+                Vakantiegeld + vakantie-uren worden direct met het uurloon uitbetaald.
+                Defaults: 8,33% / 8,00%.
+              </p>
+            )}
 
             {fout && (
               <p className="text-[12px]" style={{ color: "#E5484D" }}>{fout}</p>

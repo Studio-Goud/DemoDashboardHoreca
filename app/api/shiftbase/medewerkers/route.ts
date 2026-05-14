@@ -4,8 +4,10 @@ import {
   medewerkersPerBedrijf,
   fetchMedewerkers,
   createMedewerker,
+  type Medewerker,
 } from "@/lib/rooster";
 import type { Bedrijf } from "@/lib/sumup";
+import { huidigeAdminSessie } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -14,16 +16,23 @@ function isBedrijf(s: string | null): s is Bedrijf {
   return s !== null && (VALID as string[]).includes(s);
 }
 
+/** Strip salaris-data uit een medewerker — voor non-owner audiences. */
+function maskSalaris(m: Medewerker): Medewerker {
+  return { ...m, uurloon: null, vakantiegeldPct: 0, vakantieUrenPct: 0 };
+}
+
 export async function GET(req: Request) {
+  const sessie = huidigeAdminSessie();
+  const isOwner = sessie?.rol === "owner";
   const url = new URL(req.url);
   const bedrijf = url.searchParams.get("bedrijf");
   try {
-    if (isBedrijf(bedrijf)) {
-      const lijst = await medewerkersPerBedrijf(bedrijf);
-      return NextResponse.json({ medewerkers: lijst });
-    }
-    const alle = await fetchMedewerkers();
-    return NextResponse.json({ medewerkers: alle });
+    const lijst = isBedrijf(bedrijf)
+      ? await medewerkersPerBedrijf(bedrijf)
+      : await fetchMedewerkers();
+    // Privacy: alleen owner ziet de uurloon-velden.
+    const veilig = isOwner ? lijst : lijst.map(maskSalaris);
+    return NextResponse.json({ medewerkers: veilig });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "onbekend";
     return NextResponse.json({ error: msg }, { status: 500 });

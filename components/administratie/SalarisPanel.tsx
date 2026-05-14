@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import ArbeidskostSamenvatting from "./ArbeidskostSamenvatting";
 
 interface MedewerkerRegel {
   medewerkerId: number;
@@ -373,6 +374,14 @@ export default function SalarisPanel({ bedrijf, hex }: Props) {
               </tbody>
             </table>
           </div>
+
+          {/* Werkgeverslasten + totale arbeidskost — context voor de echte
+              kost per medewerker, ook handig voor inleen-doorberekening. */}
+          <ArbeidskostSamenvatting
+            bedrijf={bedrijf}
+            totaalBrutoIncVakantie={rapport.totaalEur}
+            hex={hex}
+          />
 
           {/* Actie: alles afrekenen */}
           {rapport.perMedewerker.some((r) => r.dbStatus === "open") && (
