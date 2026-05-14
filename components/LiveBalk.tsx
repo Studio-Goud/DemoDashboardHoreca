@@ -440,12 +440,10 @@ const IDLE: AnimDef = { naam: "pIdle", duur: "3s", herh: "infinite", timing: "ea
 function Papegaai({
   kleur,
   startDelay,
-  tekst,
   actief,
 }: {
   kleur: string;
   startDelay: number;
-  tekst: string;
   actief: boolean;
 }) {
   const [huidig, setHuidig] = useState<AnimDef>(IDLE);
@@ -490,35 +488,10 @@ function Papegaai({
         }}
       />
 
-      {/* Speech bubble — onder de orb, Apple Liquid-stijl */}
-      <div
-        className="absolute top-full mt-1.5 px-2.5 py-1.5 rounded-[10px] text-[10.5px] text-center w-[160px] leading-snug transition-all duration-500 z-50 font-medium"
-        style={{
-          background:
-            "color-mix(in srgb, var(--bg-elev) 92%, transparent)",
-          color: "var(--text)",
-          border: `1px solid ${kleur}55`,
-          opacity: actief ? 1 : 0,
-          transform: actief ? "translateY(0) scale(1)" : "translateY(-4px) scale(0.94)",
-          pointerEvents: "none",
-          boxShadow: actief
-            ? `0 4px 16px -4px ${kleur}66, 0 1px 2px rgba(0,0,0,0.08)`
-            : "none",
-          wordBreak: "break-word",
-          overflowWrap: "break-word",
-        }}
-      >
-        <span
-          className="absolute left-1/2 -top-1 -translate-x-1/2 w-2 h-2 rotate-45"
-          style={{
-            background:
-              "color-mix(in srgb, var(--bg-elev) 92%, transparent)",
-            borderTop: `1px solid ${kleur}55`,
-            borderLeft: `1px solid ${kleur}55`,
-          }}
-        />
-        {tekst}
-      </div>
+      {/* Speech bubble verwijderd uit Papegaai-component zelf:
+          het tekstwolkje stak BUITEN de LiveBalk uit en overlapte de
+          DashboardNav-tabs eronder. Tekst staat nu als gedeelde
+          regel binnen de balk (zie hieronder bij render). */}
     </div>
   );
 }
@@ -909,35 +882,57 @@ export default function LiveBalk() {
           })}
         </div>
 
-        {/* Spreker-bubbles — verberg voor managers (geen humor, alleen data) */}
+        {/* Spreker-laag — verberg voor managers (geen humor, alleen data).
+            Volledig BINNEN de balk-container met overflow-hidden zodat
+            niets uitsteekt richting de DashboardNav-tabs eronder.
+            pointer-events: none want er valt niets te klikken. */}
         {rol !== "manager" && (
-        <>
-        {/* Spreker-orbs — onderaan de balk.
-            De rij + bubbles zijn puur decoratief (geen klik-actie); we
-            zetten pointer-events: none zodat touches doorgaan naar de
-            DashboardNav-balk eronder. Anders 'bevriezen' tab-swipes
-            terwijl een bubble zichtbaar is. */}
-        <div className="flex" style={{ pointerEvents: "none" }}>
-          {BEDRIJVEN.map((b, i) => {
-            const welkomActief = welkomOverride?.idx === i;
-            const isActief = welkomOverride ? welkomActief : spreker === i;
-            const tekst = welkomActief ? welkomOverride!.tekst : TEKSTEN[b.slug];
-            return (
-              <div
-                key={b.slug}
-                className="flex-1 flex justify-center items-center py-2.5 pb-4"
-              >
-                <Papegaai
-                  kleur={b.kleur}
-                  startDelay={DELAYS[i]}
-                  tekst={tekst}
-                  actief={isActief}
-                />
-              </div>
-            );
-          })}
-        </div>
-        </>
+          <div style={{ pointerEvents: "none" }}>
+            {/* Orb-row — compact */}
+            <div className="flex">
+              {BEDRIJVEN.map((b, i) => {
+                const welkomActief = welkomOverride?.idx === i;
+                const isActief = welkomOverride ? welkomActief : spreker === i;
+                return (
+                  <div
+                    key={b.slug}
+                    className="flex-1 flex justify-center items-center py-2"
+                  >
+                    <Papegaai
+                      kleur={b.kleur}
+                      startDelay={DELAYS[i]}
+                      actief={isActief}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Spreektekst — één regel die crossfade't tussen sprekers.
+                Vaste hoogte zodat de balk niet "ademt". Truncate met
+                ellipsis bij te lange teksten. */}
+            <div
+              className="px-4 pb-2 h-[26px] flex items-center justify-center overflow-hidden"
+              aria-hidden="true"
+            >
+              {(() => {
+                const welkomTekst = welkomOverride?.tekst;
+                const huidigeIdx = welkomOverride?.idx ?? spreker ?? 0;
+                const huidigeBedrijf = BEDRIJVEN[huidigeIdx];
+                if (!huidigeBedrijf) return null;
+                const huidigeTekst = welkomTekst ?? TEKSTEN[huidigeBedrijf.slug];
+                return (
+                  <p
+                    key={`${huidigeIdx}-${huidigeTekst}`}
+                    className="text-[11px] font-medium text-center truncate w-full transition-opacity duration-500 fade-up"
+                    style={{ color: huidigeBedrijf.kleur, opacity: 0.92 }}
+                  >
+                    {huidigeTekst}
+                  </p>
+                );
+              })()}
+            </div>
+          </div>
         )}
       </div>
     </>
