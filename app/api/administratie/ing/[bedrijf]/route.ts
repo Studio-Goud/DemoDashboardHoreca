@@ -15,6 +15,7 @@ const CATEGORIE_TARIEF: Record<string, 0 | 9 | 21> = {
   huur: 21, telecom: 21, software: 21, marketing: 21, materiaal: 21, representatie: 21,
   salaris: 0, belasting: 0, pensioen: 0, "sociale-lasten": 0, bankkosten: 0,
   verzekering: 0, vergoeding: 0, omzet: 0, overig: 0,
+  kasstorting: 0, "interne-overboeking": 0,
 };
 
 function berekenBtwUitTarief(bedrag: number, tarief: 0 | 9 | 21): { btw21: number; btw9: number } {
@@ -155,7 +156,33 @@ export async function PATCH(
     btw21?: number; btw9?: number; categorie?: string;
     /** Optioneel: omschrijving voor regel-extractie (anders skip leren) */
     omschrijving?: string;
+    /** Optioneel: splits. Totaal bedrag wordt afgedwongen door UI. */
+    splits?: Array<{ bedrag: number; categorie: string; tarief: 0 | 9 | 21; notitie?: string }>;
   };
+
+  // Splits-pad: bereken BTW per deel, sla op zonder enkele categorie.
+  if (body.splits && body.splits.length > 0) {
+    const rnd2 = (n: number) => Math.round(n * 100) / 100;
+    const splits = body.splits
+      .filter((s) => s.bedrag > 0 && s.categorie)
+      .map((s) => {
+        const { btw21, btw9 } = berekenBtwUitTarief(s.bedrag, s.tarief);
+        return {
+          bedrag: rnd2(s.bedrag),
+          btw21, btw9,
+          categorie: s.categorie,
+          notitie: s.notitie?.slice(0, 200),
+        };
+      });
+    if (splits.length === 0) {
+      return NextResponse.json({ error: "Splits leeg of ongeldig" }, { status: 400 });
+    }
+    await updateIngTransactie(bedrijf, body.jaar, body.maand, body.id, {
+      splits,
+      btwStatus: "handmatig",
+    });
+    return NextResponse.json({ ok: true, splits: splits.length });
+  }
 
   await updateIngTransactie(bedrijf, body.jaar, body.maand, body.id, {
     btw21: body.btw21,

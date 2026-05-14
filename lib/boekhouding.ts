@@ -132,13 +132,38 @@ export function berekenMaand(
   let dgaMp5 = 0;
   const catMap: Record<string, number> = {};
 
+  // Categorieën die NIET meetellen in winst/kosten (balans-bewegingen, geen
+  // echte uitgave): kasstorting (cash naar bank — al geboekt als omzet) en
+  // interne-overboeking (geld tussen eigen rekeningen, geen winst-impact).
+  const NIET_IN_PL = new Set(["omzet", "contant", "kasstorting", "interne-overboeking"]);
+
+  // Verwerk één split-deel: salaris als categorie dat aangeeft, anders kosten
+  // (of skip bij balans-bewegingen).
+  const verwerkSplit = (categorie: string, bedrag: number, btw21: number, btw9: number) => {
+    if (SALARIS_CATEGORIEEN.has(categorie)) {
+      salarissen += bedrag;
+      catMap["salaris"] = (catMap["salaris"] ?? 0) + bedrag;
+      if (categorie === "dga-er") dgaEchtRotterdams += bedrag;
+      if (categorie === "dga-mp5") dgaMp5 += bedrag;
+      return;
+    }
+    if (NIET_IN_PL.has(categorie)) return;
+    kostenIng += bedrag;
+    voorb21Ing += btw21;
+    voorb9Ing += btw9;
+    catMap[categorie] = (catMap[categorie] ?? 0) + bedrag;
+  };
+
   for (const tx of maandTxs) {
-    if (isSalaris(tx)) {
+    if (tx.splits && tx.splits.length > 0) {
+      // Gesplitst: elk deel wordt afzonderlijk verwerkt op eigen categorie.
+      for (const s of tx.splits) verwerkSplit(s.categorie, s.bedrag, s.btw21, s.btw9);
+    } else if (isSalaris(tx)) {
       salarissen += tx.bedrag;
       catMap["salaris"] = (catMap["salaris"] ?? 0) + tx.bedrag;
       if (tx.categorie === "dga-er") dgaEchtRotterdams += tx.bedrag;
       if (tx.categorie === "dga-mp5") dgaMp5 += tx.bedrag;
-    } else if (tx.categorie !== "omzet" && tx.categorie !== "contant") {
+    } else if (!NIET_IN_PL.has(tx.categorie)) {
       kostenIng += tx.bedrag;
       voorb21Ing += tx.btw21;
       voorb9Ing += tx.btw9;

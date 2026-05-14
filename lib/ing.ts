@@ -8,6 +8,19 @@ export const BEDRIJF_IBAN: Record<BedrijfSlug, string> = {
   kl: "", // wordt ingevuld zodra rekening bekend is
 };
 
+/**
+ * Eén deel van een gesplitste transactie. Bijvoorbeeld een €100 Praxis-aankoop
+ * die uit €50 materiaal (BB) en €50 interne-overboeking (naar SL) bestaat.
+ * Som van alle splits.bedrag moet gelijk zijn aan de parent bedrag.
+ */
+export interface TxSplit {
+  bedrag: number;
+  btw21: number;
+  btw9: number;
+  categorie: string;
+  notitie?: string;
+}
+
 export interface IngTransactie {
   id: string;
   datum: string; // YYYY-MM-DD
@@ -22,6 +35,8 @@ export interface IngTransactie {
   btw9: number;
   categorie: string;
   btwStatus: "auto" | "handmatig" | "review" | "nvt";
+  /** Optionele splitsing. Als gevuld: winst-berekening gebruikt splits ipv parent. */
+  splits?: TxSplit[];
 }
 
 interface BtwRegel {
@@ -91,6 +106,10 @@ const BTW_REGELS: BtwRegel[] = [
   { patroon: /uwv/i,                       tarief21: 0,  tarief9: 0, categorie: "sociale-lasten",   status: "nvt" },
   { patroon: /kosten\s*zakelijk\s*betalingsverkeer|^bankkosten$/i, tarief21: 0, tarief9: 0, categorie: "bankkosten", status: "nvt" },
   { patroon: /statiegeld/i,               tarief21: 0,  tarief9: 0, categorie: "overig",            status: "nvt" },
+
+  // Kas-storting: contant geld dat we op de bankrekening storten — was al
+  // omzet via SumUp/contante kassa, dus niet dubbel meetellen in winst.
+  { patroon: /\bstorting\b/i,              tarief21: 0,  tarief9: 0, categorie: "kasstorting",       status: "nvt" },
 
   // Omzet (credit = inkomsten, geen inkoop-BTW)
   { patroon: /sumup/i,                     tarief21: 0,  tarief9: 0, categorie: "omzet",            status: "nvt" },

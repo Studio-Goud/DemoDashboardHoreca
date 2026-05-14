@@ -71,7 +71,7 @@ export async function updateIngTransactie(
   jaar: number,
   maand: number,
   id: string,
-  update: Partial<Pick<IngTransactie, "btw21" | "btw9" | "categorie" | "btwStatus">>
+  update: Partial<Pick<IngTransactie, "btw21" | "btw9" | "categorie" | "btwStatus" | "splits">>
 ): Promise<void> {
   const key = ingKey(bedrijf, jaar, maand);
   const txs: IngTransactie[] = (await kv.get(key)) ?? [];

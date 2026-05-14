@@ -18,22 +18,24 @@ const MODEL = "claude-haiku-4-5-20251001";
 
 /** De categorieën zoals in ReviewPanel — moet sync blijven. */
 export const CATEGORIE_OPTIES = [
-  { value: "levensmiddelen",   label: "Inkoop levensmiddelen", tarief: 9  },
-  { value: "huur",             label: "Huur",                  tarief: 21 },
-  { value: "telecom",          label: "Telecom",               tarief: 21 },
-  { value: "software",         label: "Software / abonnement", tarief: 21 },
-  { value: "marketing",        label: "Marketing",             tarief: 21 },
-  { value: "materiaal",        label: "Materiaal / inrichting",tarief: 21 },
-  { value: "representatie",    label: "Representatie",         tarief: 21 },
-  { value: "salaris",          label: "Salaris / personeel",   tarief: 0  },
-  { value: "belasting",        label: "Belasting / loonheffing",tarief: 0 },
-  { value: "pensioen",         label: "Pensioen",              tarief: 0  },
-  { value: "sociale-lasten",   label: "Sociale lasten (UWV)",  tarief: 0  },
-  { value: "bankkosten",       label: "Bankkosten",            tarief: 0  },
-  { value: "verzekering",      label: "Verzekering",           tarief: 0  },
-  { value: "vergoeding",       label: "Vergoeding (OV etc.)",  tarief: 0  },
-  { value: "omzet",            label: "Omzet / inkomsten",     tarief: 0  },
-  { value: "overig",           label: "Overig (geen BTW)",     tarief: 0  },
+  { value: "levensmiddelen",      label: "Inkoop levensmiddelen", tarief: 9  },
+  { value: "huur",                label: "Huur",                  tarief: 21 },
+  { value: "telecom",             label: "Telecom",               tarief: 21 },
+  { value: "software",            label: "Software / abonnement", tarief: 21 },
+  { value: "marketing",           label: "Marketing",             tarief: 21 },
+  { value: "materiaal",           label: "Materiaal / inrichting",tarief: 21 },
+  { value: "representatie",       label: "Representatie",         tarief: 21 },
+  { value: "salaris",             label: "Salaris / personeel",   tarief: 0  },
+  { value: "belasting",           label: "Belasting / loonheffing",tarief: 0 },
+  { value: "pensioen",            label: "Pensioen",              tarief: 0  },
+  { value: "sociale-lasten",      label: "Sociale lasten (UWV)",  tarief: 0  },
+  { value: "bankkosten",          label: "Bankkosten",            tarief: 0  },
+  { value: "verzekering",         label: "Verzekering",           tarief: 0  },
+  { value: "vergoeding",          label: "Vergoeding (OV etc.)",  tarief: 0  },
+  { value: "kasstorting",         label: "Kasstorting (cash → bank)", tarief: 0 },
+  { value: "interne-overboeking", label: "Interne overboeking",   tarief: 0  },
+  { value: "omzet",               label: "Omzet / inkomsten",     tarief: 0  },
+  { value: "overig",              label: "Overig (geen BTW)",     tarief: 0  },
 ] as const;
 
 export interface AiSuggestie {
@@ -74,6 +76,8 @@ Categorie-opties met standaard BTW-tarief:
 - "bankkosten" (0%): ING-kosten, transactiekosten, rente
 - "verzekering" (0%): verzekeringen
 - "vergoeding" (0%): OV-vergoedingen, reiskosten zonder factuur
+- "kasstorting" (0%): cash dat we op de bankrekening storten (omschrijving bevat "Storting") — wordt NIET als kosten of omzet geboekt (alleen kas→bank). Hoog vertrouwen bij "Storting"-omschrijving.
+- "interne-overboeking" (0%): geld tussen onze eigen rekeningen (BB ↔ SL ↔ KL ↔ privé van Ricardo/Matthieu). Geen kosten, geen omzet.
 - "omzet" (0%): inkomsten/binnenkomende betalingen (richting=credit)
 - "overig" (0%): rest, onduidelijk, privé
 
