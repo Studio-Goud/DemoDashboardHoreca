@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Icon from "./Icon";
+import { useTaal } from "@/lib/i18n/TaalProvider";
 
 interface BedrijfRij {
   slug: "bb" | "sl" | "kl";
@@ -32,6 +33,7 @@ function fmtPct(n: number): string {
 }
 
 export default function ManagerLeaderboard({ eigen }: Props) {
+  const { t } = useTaal();
   const [data, setData] = useState<LeaderboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -48,8 +50,8 @@ export default function ManagerLeaderboard({ eigen }: Props) {
       }
     }
     laden();
-    const t = setInterval(laden, 5 * 60_000);
-    return () => clearInterval(t);
+    const id = setInterval(laden, 5 * 60_000);
+    return () => clearInterval(id);
   }, []);
 
   if (loading) {
@@ -64,7 +66,7 @@ export default function ManagerLeaderboard({ eigen }: Props) {
     return (
       <div className="card">
         <p className="text-[13px]" style={{ color: "var(--muted)" }}>
-          Leaderboard niet beschikbaar.
+          {t("manager.unavailable")}
         </p>
       </div>
     );
@@ -83,11 +85,11 @@ export default function ManagerLeaderboard({ eigen }: Props) {
         <div className="flex items-center gap-2">
           <Icon name="trending-up" size={16} className="opacity-70" />
           <h2 className="text-[13px] font-semibold" style={{ color: "var(--text-2)" }}>
-            Leaderboard · deze week
+            {t("manager.leaderboard")}
           </h2>
         </div>
         <span className="text-[11px]" style={{ color: "var(--muted)" }}>
-          Jij staat {positie === 1 ? "1ste" : positie === 2 ? "2de" : "3de"}
+          {t("manager.you_are")} {positie === 1 ? t("manager.pos_1") : positie === 2 ? t("manager.pos_2") : t("manager.pos_3")}
         </span>
       </div>
 
@@ -124,7 +126,7 @@ export default function ManagerLeaderboard({ eigen }: Props) {
                       className="text-[10px] px-1.5 py-px rounded-full font-medium"
                       style={{ background: `${b.hex}1F`, color: b.hex }}
                     >
-                      jouw vestiging
+                      {t("manager.your_branch")}
                     </span>
                   )}
                 </div>
@@ -149,7 +151,7 @@ export default function ManagerLeaderboard({ eigen }: Props) {
 
               <div className="flex items-center justify-between mt-1.5">
                 <span className="text-[11px]" style={{ color: "var(--muted)" }}>
-                  vorige week {fmtEur(b.vorigeWeek.omzet)}
+                  {t("manager.last_week")} {fmtEur(b.vorigeWeek.omzet)}
                 </span>
                 <span
                   className="inline-flex items-center gap-0.5 text-[11px] font-medium tabular-nums"

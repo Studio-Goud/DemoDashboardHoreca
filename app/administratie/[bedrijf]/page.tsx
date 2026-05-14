@@ -8,7 +8,6 @@ import ContantInvoer from "@/components/administratie/ContantInvoer";
 import MaandPnL from "@/components/administratie/MaandPnL";
 import KwartaalRapport from "@/components/administratie/KwartaalRapport";
 import ReviewPanel from "@/components/administratie/ReviewPanel";
-import SalarisPanel from "@/components/administratie/SalarisPanel";
 import SetupPanel from "@/components/administratie/SetupPanel";
 
 type BedrijfSlug = "bb" | "sl" | "kl";
@@ -32,24 +31,28 @@ export default function AdministratiePage({ params }: { params: { bedrijf: strin
   return (
     <main className="min-h-screen p-4 sm:p-6 max-w-4xl mx-auto">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex items-center gap-3 mb-6 flex-wrap">
         <a href={`/${bedrijf}`} className="text-slate-400 hover:text-slate-600 text-sm">
           ← Dashboard
         </a>
         <div className="h-4 w-px bg-slate-200" />
         <span className="text-2xl">{config.emoji}</span>
-        <div>
+        <div className="flex-1 min-w-0">
           <h1 className="text-xl font-bold text-slate-800">{config.naam}</h1>
           <p className="text-xs text-slate-400">Administratie & boekhouding {jaar}</p>
         </div>
+        <a
+          href={`/administratie/${bedrijf}/salaris`}
+          className="text-xs font-medium px-3 py-1.5 rounded text-white transition-opacity hover:opacity-90"
+          style={{ backgroundColor: config.hex }}
+        >
+          🧑‍💼 Salaris →
+        </a>
       </div>
 
       <div className="space-y-5">
         {/* Maandoverzicht met winst/verlies */}
         <MaandPnL bedrijf={bedrijf} hex={config.hex} key={`pnl-${refreshTrigger}`} />
-
-        {/* Salaris-administratie (owner: detail, manager: aggregaat) */}
-        <SalarisPanel bedrijf={bedrijf} hex={config.hex} />
 
         {/* ING bankafschrift upload */}
         <IngUpload bedrijf={bedrijf} hex={config.hex} onSuccess={refresh} />

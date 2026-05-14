@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Icon from "../Icon";
+import { useTaal } from "@/lib/i18n/TaalProvider";
+import type { Taal } from "@/lib/i18n/dictionaries";
 
 type Status = "vrij" | "beperkt" | "niet";
 
@@ -13,8 +15,16 @@ interface Item {
   reden: string;
 }
 
-const DAG_KORT = ["zo", "ma", "di", "wo", "do", "vr", "za"];
-const MAAND = ["jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
+const DAG_KORT_PER_TAAL: Record<Taal, string[]> = {
+  nl: ["zo", "ma", "di", "wo", "do", "vr", "za"],
+  en: ["sun", "mon", "tue", "wed", "thu", "fri", "sat"],
+  pt: ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"],
+};
+const MAAND_PER_TAAL: Record<Taal, string[]> = {
+  nl: ["jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"],
+  en: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+  pt: ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"],
+};
 
 function vandaagISO(): string {
   return new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Amsterdam" }).format(new Date());
@@ -30,6 +40,9 @@ function weekdag(iso: string): number {
 }
 
 export default function MedewerkerBeschikbaarheid() {
+  const { t, taal } = useTaal();
+  const DAG_KORT = DAG_KORT_PER_TAAL[taal] ?? DAG_KORT_PER_TAAL.nl;
+  const MAAND = MAAND_PER_TAAL[taal] ?? MAAND_PER_TAAL.nl;
   const vandaag = vandaagISO();
   const eind = plusDagen(vandaag, 28);
   const datums = Array.from({ length: 29 }, (_, i) => plusDagen(vandaag, i));
@@ -83,9 +96,9 @@ export default function MedewerkerBeschikbaarheid() {
   return (
     <div className="space-y-3">
       <div className="card">
-        <p className="eyebrow">Beschikbaarheid komende 4 weken</p>
+        <p className="eyebrow">{t("m.availability_title")}</p>
         <p className="text-[12px] mt-1" style={{ color: "var(--muted)" }}>
-          Tap een dag om aan te geven of je beschikbaar bent. Standaard: niet opgegeven.
+          {t("m.availability_hint")}
         </p>
       </div>
 
@@ -100,10 +113,10 @@ export default function MedewerkerBeschikbaarheid() {
 
           let statusKleur = "var(--muted)";
           let statusBg = "var(--bg)";
-          let statusLabel = "Niet opgegeven";
-          if (item?.status === "vrij")    { statusKleur = "#30B26F"; statusBg = "rgba(48,178,111,0.10)"; statusLabel = "Hele dag beschikbaar"; }
-          if (item?.status === "beperkt") { statusKleur = "#30B26F"; statusBg = "rgba(48,178,111,0.06)"; statusLabel = `Beschikbaar ${item.start ?? "?"}–${item.eind ?? "?"}`; }
-          if (item?.status === "niet")    { statusKleur = "#E5484D"; statusBg = "rgba(229,72,77,0.10)"; statusLabel = "Niet beschikbaar"; }
+          let statusLabel = t("availability.not_set");
+          if (item?.status === "vrij")    { statusKleur = "#30B26F"; statusBg = "rgba(48,178,111,0.10)"; statusLabel = t("availability.all_day"); }
+          if (item?.status === "beperkt") { statusKleur = "#30B26F"; statusBg = "rgba(48,178,111,0.06)"; statusLabel = `${t("m.available_range")} ${item.start ?? "?"}–${item.eind ?? "?"}`; }
+          if (item?.status === "niet")    { statusKleur = "#E5484D"; statusBg = "rgba(229,72,77,0.10)"; statusLabel = t("m.not_available"); }
 
           return (
             <div
@@ -121,7 +134,7 @@ export default function MedewerkerBeschikbaarheid() {
                     style={{ color: "var(--text)", minWidth: 80 }}
                   >
                     {datumLabel}
-                    {isToday && <span className="ml-1.5 text-[10px] opacity-70">vandaag</span>}
+                    {isToday && <span className="ml-1.5 text-[10px] opacity-70">{t("m.today_chip")}</span>}
                   </span>
                   <span className="text-[12px] truncate" style={{ color: statusKleur }}>
                     {statusLabel}
@@ -133,18 +146,17 @@ export default function MedewerkerBeschikbaarheid() {
               {isOpen && (
                 <div className="px-3 pb-3 pt-1 fade-up">
                   <div className="grid grid-cols-3 gap-2 mb-2">
-                    <Knop kleur="#30B26F" label="Vrij" onClick={() => zetStatus(datum, "vrij")} actief={item?.status === "vrij"} disabled={busy === datum} />
-                    <Knop kleur="#E07A1F" label="Tijden" onClick={() => {
-                      // default tijden invullen, gebruiker past aan via popup
+                    <Knop kleur="#30B26F" label={t("availability.free")} onClick={() => zetStatus(datum, "vrij")} actief={item?.status === "vrij"} disabled={busy === datum} />
+                    <Knop kleur="#E07A1F" label={t("availability.limited")} onClick={() => {
                       const start = item?.start ?? "10:00";
-                      const eind  = item?.eind  ?? "18:00";
-                      const sIn = prompt("Vanaf welk tijdstip beschikbaar? (HH:MM)", start);
+                      const eindD = item?.eind  ?? "18:00";
+                      const sIn = prompt(t("m.prompt_from"), start);
                       if (!sIn) return;
-                      const eIn = prompt("Tot welk tijdstip beschikbaar? (HH:MM)", eind);
+                      const eIn = prompt(t("m.prompt_until"), eindD);
                       if (!eIn) return;
                       zetStatus(datum, "beperkt", sIn, eIn);
                     }} actief={item?.status === "beperkt"} disabled={busy === datum} />
-                    <Knop kleur="#E5484D" label="Niet" onClick={() => zetStatus(datum, "niet")} actief={item?.status === "niet"} disabled={busy === datum} />
+                    <Knop kleur="#E5484D" label={t("availability.unavailable")} onClick={() => zetStatus(datum, "niet")} actief={item?.status === "niet"} disabled={busy === datum} />
                   </div>
                   {item && (
                     <button
@@ -153,7 +165,7 @@ export default function MedewerkerBeschikbaarheid() {
                       className="text-[12px] underline"
                       style={{ color: "var(--muted)" }}
                     >
-                      Wissen (geen voorkeur)
+                      {t("availability.clear")}
                     </button>
                   )}
                 </div>

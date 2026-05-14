@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Icon from "../Icon";
+import { useTaal } from "@/lib/i18n/TaalProvider";
 
 interface KlokEvent {
   id: number;
@@ -42,6 +43,7 @@ function duurSinds(iso: string): string {
 }
 
 export default function MedewerkerKlok() {
+  const { t } = useTaal();
   const [state, setState] = useState<State | null>(null);
   const [busy, setBusy]   = useState(false);
   const [fout, setFout]   = useState<string | null>(null);
@@ -58,8 +60,8 @@ export default function MedewerkerKlok() {
 
   useEffect(() => {
     laden();
-    const t = setInterval(() => setNu(new Date()), 30_000);
-    return () => clearInterval(t);
+    const id = setInterval(() => setNu(new Date()), 30_000);
+    return () => clearInterval(id);
   }, []);
 
   async function klok(type: "in" | "out") {
@@ -121,7 +123,7 @@ export default function MedewerkerKlok() {
         }}
       >
         <p className="eyebrow mb-1" style={{ color: state.ingeklokt ? "#30B26F" : "var(--muted)" }}>
-          {state.ingeklokt ? "Ingeklokt" : "Niet ingeklokt"}
+          {state.ingeklokt ? t("clock.in_status") : t("clock.out_status")}
         </p>
         {state.laatste && (
           <>
@@ -130,8 +132,8 @@ export default function MedewerkerKlok() {
             </p>
             <p className="text-[12px] mt-1" style={{ color: "var(--muted)" }}>
               {state.ingeklokt
-                ? `Ingeklokt om ${fmtTijd(state.laatste.tijdstempel)}`
-                : `Laatste actie: uitgeklokt om ${fmtTijd(state.laatste.tijdstempel)}`}
+                ? `${t("clock.in_at")} ${fmtTijd(state.laatste.tijdstempel)}`
+                : `${t("clock.last_action_out_at")} ${fmtTijd(state.laatste.tijdstempel)}`}
             </p>
           </>
         )}
@@ -145,7 +147,7 @@ export default function MedewerkerKlok() {
         style={{ background: state.ingeklokt ? "#E5484D" : "#30B26F" }}
       >
         <Icon name="clock" size={20} />
-        {state.ingeklokt ? "Uitklokken" : "Inklokken"}
+        {state.ingeklokt ? t("clock.out") : t("clock.in")}
       </button>
 
       {fout && (
@@ -155,7 +157,7 @@ export default function MedewerkerKlok() {
       {/* Historie */}
       {state.historie.length > 0 && (
         <div className="card">
-          <p className="eyebrow mb-2">Recente klokken</p>
+          <p className="eyebrow mb-2">{t("clock.recent")}</p>
           <div className="space-y-1.5">
             {state.historie.slice(0, 10).map((e) => (
               <div
@@ -168,11 +170,11 @@ export default function MedewerkerKlok() {
                     style={{ background: e.type === "in" ? "#30B26F" : "var(--muted)" }}
                   />
                   <span style={{ color: "var(--text)" }}>
-                    {e.type === "in" ? "Ingeklokt" : "Uitgeklokt"}
+                    {e.type === "in" ? t("clock.in_status") : t("clock.out_past")}
                   </span>
                   {e.handmatig && (
                     <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "var(--hairline)", color: "var(--muted)" }}>
-                      handmatig
+                      {t("clock.manual")}
                     </span>
                   )}
                 </span>

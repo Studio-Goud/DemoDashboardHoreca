@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useT } from "@/lib/i18n/useT";
+import { useTaal } from "@/lib/i18n/TaalProvider";
 import { TALEN, type Taal } from "@/lib/i18n/dictionaries";
 
 interface Props {
@@ -10,7 +10,7 @@ interface Props {
 }
 
 export default function TaalSwitcher({ compact }: Props) {
-  const { taal, setTaal } = useT();
+  const { taal, setTaal } = useTaal();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 

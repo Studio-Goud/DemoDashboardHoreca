@@ -9,6 +9,7 @@ import {
   Tooltip,
   XAxis,
 } from "recharts";
+import { useTaal } from "@/lib/i18n/TaalProvider";
 
 interface UurRij {
   slot: number;
@@ -82,6 +83,7 @@ export default function LiveRevenue({
   verwachtVandaag,
   weekdagCurve,
 }: Props) {
+  const { t } = useTaal();
   const [data, setData] = useState<LiveData | null>(null);
   const [loading, setLoading] = useState(true);
   const [pulse, setPulse] = useState(false);
@@ -160,13 +162,13 @@ export default function LiveRevenue({
     <div className="card relative overflow-hidden">
       <div className="absolute top-4 right-4 flex items-center gap-1.5">
         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 pulse-soft" />
-        <span className="eyebrow">Live</span>
+        <span className="eyebrow">{t("live.label")}</span>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Hoofdcijfer */}
         <div>
-          <p className="eyebrow mb-2">Omzet vandaag</p>
+          <p className="eyebrow mb-2">{t("live.today_revenue")}</p>
           <div
             className="stat-value transition-opacity duration-500 tabular-nums"
             style={{
@@ -191,7 +193,7 @@ export default function LiveRevenue({
                 className="flex justify-between text-[11px] mb-1.5"
                 style={{ color: "var(--muted)" }}
               >
-                <span>Voortgang vs verwacht nu</span>
+                <span>{t("live.progress_vs_expected")}</span>
                 <span
                   className="tabular-nums font-medium"
                   style={{ color: opSchemaPos ? "#30B26F" : "#E07A1F" }}
@@ -244,7 +246,7 @@ export default function LiveRevenue({
 
         {/* Uur verdeling */}
         <div>
-          <p className="eyebrow mb-2">Omzet per uur vandaag</p>
+          <p className="eyebrow mb-2">{t("live.hours_today")}</p>
           {data.uurVerdeling.some((u) => u.omzet > 0) ? (
             <ResponsiveContainer width="100%" height={120}>
               <AreaChart data={data.uurVerdeling}>
@@ -300,7 +302,7 @@ export default function LiveRevenue({
 
         {/* Betaalmethoden + laatste verkoop */}
         <div>
-          <p className="eyebrow mb-2">Betaalmethoden vandaag</p>
+          <p className="eyebrow mb-2">{t("live.payment_methods")}</p>
           {betaalLijst.length > 0 ? (
             <div className="space-y-2">
               {betaalLijst.map(([naam, b]) => {
@@ -343,7 +345,7 @@ export default function LiveRevenue({
 
           {data.laatsteSale && (
             <div className="mt-4 pt-3 hairline">
-              <p className="eyebrow mb-1">Laatste verkoop</p>
+              <p className="eyebrow mb-1">{t("live.last_sale")}</p>
               <div className="flex items-center justify-between">
                 <span className="font-semibold tabular-nums" style={{ color: "var(--text)" }}>
                   €{data.laatsteSale.amount.toFixed(2)}
@@ -361,7 +363,7 @@ export default function LiveRevenue({
       </div>
 
       <p className="text-[11px] mt-4" style={{ color: "var(--muted)", opacity: 0.7 }}>
-        Ververst elke 20s · laatste update:{" "}
+        {t("live.refresh_note")}{" "}
         {laatstGeupdate ? laatstGeupdate.toLocaleTimeString("nl-NL") : "—"}
       </p>
     </div>

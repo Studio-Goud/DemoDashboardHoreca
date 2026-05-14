@@ -2,6 +2,7 @@
 
 import type { KernCijfers } from "@/lib/analytics";
 import Icon from "./Icon";
+import { useTaal } from "@/lib/i18n/TaalProvider";
 
 interface Props {
   kerncijfers: KernCijfers;
@@ -77,14 +78,15 @@ function PeriodeRow({ label, huidig, vergelijking, groei }: PeriodeRowProps) {
 }
 
 export default function KerncijfersGrid({ kerncijfers: k }: Props) {
+  const { t } = useTaal();
   return (
     <div className="card">
       <div className="flex items-baseline justify-between mb-2">
         <h3 className="text-[15px] font-semibold" style={{ color: "var(--text)" }}>
-          Kerncijfers
+          {t("kerncijfers.title")}
         </h3>
         <span className="text-[11px]" style={{ color: "var(--muted)" }}>
-          bedragen incl. BTW · live
+          {t("kerncijfers.incl_btw")}
         </span>
       </div>
 
@@ -93,7 +95,7 @@ export default function KerncijfersGrid({ kerncijfers: k }: Props) {
         style={{ borderColor: "var(--hairline-2)" }}
       >
         <PeriodeRow
-          label="Vandaag tot nu"
+          label={t("kerncijfers.today_so_far")}
           huidig={{ ...k.vandaag }}
           vergelijking={{
             omzet: k.gisteren.omzet,
@@ -103,7 +105,7 @@ export default function KerncijfersGrid({ kerncijfers: k }: Props) {
           groei={k.groei.tovGisteren}
         />
         <PeriodeRow
-          label="Zelfde weekdag vorige week"
+          label={t("kerncijfers.same_weekday_last_week")}
           huidig={{ ...k.vandaag }}
           vergelijking={{
             omzet: k.zelfdeDagVorigeWeek.omzet,
@@ -113,7 +115,7 @@ export default function KerncijfersGrid({ kerncijfers: k }: Props) {
           groei={k.groei.tovZelfdeDagVorigeWeek}
         />
         <PeriodeRow
-          label="Deze week t/m nu"
+          label={t("kerncijfers.this_week_so_far")}
           huidig={{ ...k.dezeWeek }}
           vergelijking={{ ...k.vorigeWeek, label: "vorige week zelfde moment" }}
           groei={k.groei.tovVorigeWeek}
@@ -140,7 +142,7 @@ export default function KerncijfersGrid({ kerncijfers: k }: Props) {
         />
         <div className="grid grid-cols-[1fr_auto] items-center gap-3 py-3">
           <div>
-            <p className="eyebrow mb-1">Gemiddelde dag</p>
+            <p className="eyebrow mb-1">{t("kerncijfers.average_day")}</p>
             <p
               className="text-[19px] font-semibold tabular-nums"
               style={{ color: "var(--text)", letterSpacing: "-0.014em" }}

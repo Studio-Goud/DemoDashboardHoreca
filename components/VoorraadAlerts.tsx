@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Icon from "./Icon";
+import { useTaal } from "@/lib/i18n/TaalProvider";
 
 interface KritiekItem {
   id: string;
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export default function VoorraadAlerts({ bedrijf, hex }: Props) {
+  const { t } = useTaal();
   const [items, setItems] = useState<KritiekItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -38,8 +40,8 @@ export default function VoorraadAlerts({ bedrijf, hex }: Props) {
       }
     }
     laden();
-    const t = setInterval(laden, 60_000);
-    return () => { mounted = false; clearInterval(t); };
+    const id = setInterval(laden, 60_000);
+    return () => { mounted = false; clearInterval(id); };
   }, [bedrijf]);
 
   if (loading) return null;
@@ -65,13 +67,13 @@ export default function VoorraadAlerts({ bedrijf, hex }: Props) {
           </span>
           <div className="min-w-0">
             <p className="eyebrow" style={{ color: heeftDirecteAlert ? "#E5484D" : "var(--muted)" }}>
-              {heeftDirecteAlert ? "Direct bestellen" : "Voorraad — bestellijst"}
+              {heeftDirecteAlert ? t("voorraad.order_alert") : t("voorraad.order_list_alt")}
             </p>
             <p className="text-[14px] font-semibold truncate" style={{ color: "var(--text)" }}>
               {heeftDirecteAlert
                 ? kritiek.slice(0, 3).map((k) => k.naam).join(" · ")
                   + (kritiek.length > 3 ? ` +${kritiek.length - 3}` : "")
-                : `${items.length} producten moeten besteld worden`}
+                : `${items.length} ${t("voorraad.order_count")}`}
             </p>
           </div>
         </div>

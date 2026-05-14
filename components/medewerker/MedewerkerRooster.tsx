@@ -1,6 +1,8 @@
 "use client";
 
 import Icon from "../Icon";
+import { useTaal } from "@/lib/i18n/TaalProvider";
+import type { Taal } from "@/lib/i18n/dictionaries";
 
 interface Dienst {
   id: string;
@@ -19,21 +21,29 @@ interface Props {
   vandaag: string;
 }
 
-const DAG = ["Zondag", "Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag"];
-const MAAND = ["jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
+const DAG_PER_TAAL: Record<Taal, string[]> = {
+  nl: ["Zondag", "Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag"],
+  en: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+  pt: ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"],
+};
+const MAAND_PER_TAAL: Record<Taal, string[]> = {
+  nl: ["jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"],
+  en: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+  pt: ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"],
+};
 
 function weekdag(iso: string): number {
   const [y, m, d] = iso.split("-").map(Number);
   return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
 }
-function dagLabel(iso: string, vandaag: string): string {
-  if (iso === vandaag) return "Vandaag";
+function dagLabel(iso: string, vandaag: string, taal: Taal, t: (k: string) => string): string {
+  if (iso === vandaag) return t("common.today");
   const morgen = new Date(vandaag);
   morgen.setUTCDate(new Date(vandaag).getUTCDate() + 1);
   const morgenIso = new Intl.DateTimeFormat("sv-SE", { timeZone: "UTC" }).format(morgen);
-  if (iso === morgenIso) return "Morgen";
+  if (iso === morgenIso) return t("common.tomorrow");
   const [, m, d] = iso.split("-");
-  return `${DAG[weekdag(iso)]} ${parseInt(d)} ${MAAND[parseInt(m) - 1]}`;
+  return `${DAG_PER_TAAL[taal][weekdag(iso)]} ${parseInt(d)} ${MAAND_PER_TAAL[taal][parseInt(m) - 1]}`;
 }
 
 function urenVoor(d: Dienst): number {
@@ -43,6 +53,7 @@ function urenVoor(d: Dienst): number {
 }
 
 export default function MedewerkerRooster({ naam, diensten, vandaag }: Props) {
+  const { t, taal } = useTaal();
   // Groepeer per datum
   const perDag = new Map<string, Dienst[]>();
   for (const d of diensten) {
@@ -57,12 +68,12 @@ export default function MedewerkerRooster({ naam, diensten, vandaag }: Props) {
   return (
     <div className="space-y-4">
       <div className="card">
-        <p className="eyebrow">Komende 2 weken</p>
+        <p className="eyebrow">{t("m.next_2_weeks")}</p>
         <p className="text-[28px] font-semibold tabular-nums leading-tight" style={{ color: "var(--text)" }}>
           {diensten.length}
         </p>
         <p className="text-[13px]" style={{ color: "var(--muted)" }}>
-          {diensten.length === 1 ? "dienst" : "diensten"} · {totaalUren.toFixed(1)}u totaal
+          {diensten.length === 1 ? t("m.shift_singular") : t("m.shift_plural")} · {totaalUren.toFixed(1)}{t("schedule.total_hours_suffix")}
         </p>
       </div>
 
@@ -70,7 +81,7 @@ export default function MedewerkerRooster({ naam, diensten, vandaag }: Props) {
         <div className="card text-center py-8">
           <Icon name="calendar-clock" size={28} className="mx-auto opacity-30 mb-2" />
           <p className="text-[14px]" style={{ color: "var(--muted)" }}>
-            Geen diensten gepland voor de komende 2 weken
+            {t("m.no_shifts_2_weeks")}
           </p>
         </div>
       ) : (
@@ -90,7 +101,7 @@ export default function MedewerkerRooster({ naam, diensten, vandaag }: Props) {
                     className="text-[14px] font-semibold"
                     style={{ color: isToday ? dagDiensten[0].vestiging.hex : "var(--text)" }}
                   >
-                    {dagLabel(datum, vandaag)}
+                    {dagLabel(datum, vandaag, taal, t)}
                   </p>
                   <p className="text-[11px] tabular-nums" style={{ color: "var(--muted)" }}>
                     {dagDiensten.reduce((s, d) => s + urenVoor(d), 0).toFixed(1)}u

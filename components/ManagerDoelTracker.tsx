@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Icon from "./Icon";
+import { useTaal } from "@/lib/i18n/TaalProvider";
 
 interface BedrijfRij {
   slug: "bb" | "sl" | "kl";
@@ -66,6 +67,7 @@ function Ring({ pct, hex, label }: { pct: number; hex: string; label: string }) 
 }
 
 export default function ManagerDoelTracker({ eigen, hex }: Props) {
+  const { t } = useTaal();
   const [rij, setRij] = useState<BedrijfRij | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -83,8 +85,8 @@ export default function ManagerDoelTracker({ eigen, hex }: Props) {
       }
     }
     laden();
-    const t = setInterval(laden, 2 * 60_000);
-    return () => clearInterval(t);
+    const id = setInterval(laden, 2 * 60_000);
+    return () => clearInterval(id);
   }, [eigen]);
 
   if (loading) {
@@ -113,29 +115,29 @@ export default function ManagerDoelTracker({ eigen, hex }: Props) {
       <div className="flex items-center gap-2 mb-3">
         <Icon name="circle-dot" size={16} className="opacity-70" />
         <h2 className="text-[13px] font-semibold" style={{ color: "var(--text-2)" }}>
-          Doelen
+          {t("manager.goals")}
         </h2>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         {/* Dag-doel */}
         <div className="flex items-center gap-3">
-          <Ring pct={dagPct} hex={hex} label="vandaag" />
+          <Ring pct={dagPct} hex={hex} label={t("manager.target_today")} />
           <div className="min-w-0">
-            <p className="eyebrow">Dag</p>
+            <p className="eyebrow">{t("manager.goal_day")}</p>
             <p className="text-[15px] font-semibold tabular-nums" style={{ color: "var(--text)" }}>
               {fmtEur(rij.vandaag.omzet)}
             </p>
             <p className="text-[11px]" style={{ color: "var(--muted)" }}>
-              doel {fmtEur(dagDoel)}
+              {t("manager.target")} {fmtEur(dagDoel)}
             </p>
             {dagTeGaan > 0 ? (
               <p className="text-[10px] mt-0.5" style={{ color: hex }}>
-                nog {fmtEur(dagTeGaan)} te gaan
+                {t("manager.still_to_go").replace("{bedrag}", fmtEur(dagTeGaan))}
               </p>
             ) : (
               <p className="text-[10px] mt-0.5" style={{ color: "#30B26F" }}>
-                doel gehaald ✓
+                {t("manager.goal_done")}
               </p>
             )}
           </div>
@@ -143,22 +145,22 @@ export default function ManagerDoelTracker({ eigen, hex }: Props) {
 
         {/* Week-doel */}
         <div className="flex items-center gap-3">
-          <Ring pct={weekPct} hex={hex} label="deze week" />
+          <Ring pct={weekPct} hex={hex} label={t("manager.this_week_label")} />
           <div className="min-w-0">
-            <p className="eyebrow">Week</p>
+            <p className="eyebrow">{t("manager.goal_week")}</p>
             <p className="text-[15px] font-semibold tabular-nums" style={{ color: "var(--text)" }}>
               {fmtEur(rij.dezeWeek.omzet)}
             </p>
             <p className="text-[11px]" style={{ color: "var(--muted)" }}>
-              doel {fmtEur(weekDoel)} <span style={{ opacity: 0.6 }}>(+5%)</span>
+              {t("manager.target")} {fmtEur(weekDoel)} <span style={{ opacity: 0.6 }}>(+5%)</span>
             </p>
             {weekTeGaan > 0 ? (
               <p className="text-[10px] mt-0.5" style={{ color: hex }}>
-                nog {fmtEur(weekTeGaan)} te gaan
+                {t("manager.still_to_go").replace("{bedrag}", fmtEur(weekTeGaan))}
               </p>
             ) : (
               <p className="text-[10px] mt-0.5" style={{ color: "#30B26F" }}>
-                doel gehaald ✓
+                {t("manager.goal_done")}
               </p>
             )}
           </div>

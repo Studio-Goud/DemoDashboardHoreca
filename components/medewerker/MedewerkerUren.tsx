@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import Icon from "../Icon";
+import { useTaal } from "@/lib/i18n/TaalProvider";
+import type { Taal } from "@/lib/i18n/dictionaries";
 
 interface Dienst {
   id: string;
@@ -28,7 +30,11 @@ function urenVoor(d: Dienst): number {
   return Math.max(0, (eh * 60 + em - sh * 60 - sm - d.pauzeMin) / 60);
 }
 
-const DAG_KORT = ["zo", "ma", "di", "wo", "do", "vr", "za"];
+const DAG_KORT_PER_TAAL: Record<Taal, string[]> = {
+  nl: ["zo", "ma", "di", "wo", "do", "vr", "za"],
+  en: ["sun", "mon", "tue", "wed", "thu", "fri", "sat"],
+  pt: ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"],
+};
 function weekdag(iso: string): number {
   const [y, m, d] = iso.split("-").map(Number);
   return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
@@ -37,6 +43,8 @@ function weekdag(iso: string): number {
 export default function MedewerkerUren({
   maandLabel, huidigeMaandIso, vorigeMaandIso, volgendeMaandIso, diensten,
 }: Props) {
+  const { t, taal } = useTaal();
+  const DAG_KORT = DAG_KORT_PER_TAAL[taal] ?? DAG_KORT_PER_TAAL.nl;
   const totaalUren = diensten.reduce((s, d) => s + urenVoor(d), 0);
   const aantalDiensten = diensten.length;
   // Per vestiging
@@ -74,19 +82,19 @@ export default function MedewerkerUren({
 
       {/* Totaal */}
       <div className="card">
-        <p className="eyebrow">Totaal deze maand</p>
+        <p className="eyebrow">{t("m.hours_total_month")}</p>
         <p className="text-[32px] font-semibold tabular-nums" style={{ color: "var(--text)", letterSpacing: "-0.022em" }}>
           {totaalUren.toFixed(1)}u
         </p>
         <p className="text-[13px]" style={{ color: "var(--muted)" }}>
-          {aantalDiensten} {aantalDiensten === 1 ? "dienst" : "diensten"}
+          {aantalDiensten} {aantalDiensten === 1 ? t("m.shift_singular") : t("m.shift_plural")}
         </p>
       </div>
 
       {/* Per vestiging */}
       {perVestiging.size > 1 && (
         <div className="card space-y-2">
-          <p className="eyebrow mb-1">Per vestiging</p>
+          <p className="eyebrow mb-1">{t("m.hours_per_location")}</p>
           {Array.from(perVestiging.values()).map((v) => (
             <div key={v.naam} className="flex items-center justify-between">
               <span className="flex items-center gap-2">
@@ -103,10 +111,10 @@ export default function MedewerkerUren({
 
       {/* Lijst van diensten */}
       <div className="card">
-        <p className="eyebrow mb-2">Overzicht</p>
+        <p className="eyebrow mb-2">{t("m.hours_overview")}</p>
         {diensten.length === 0 ? (
           <p className="text-[13px] py-4 text-center" style={{ color: "var(--muted)" }}>
-            Geen diensten in {maandLabel.toLowerCase()}
+            {t("m.hours_none_in")} {maandLabel.toLowerCase()}
           </p>
         ) : (
           <div className="space-y-1.5">
@@ -142,8 +150,7 @@ export default function MedewerkerUren({
       </div>
 
       <p className="text-[11px] text-center" style={{ color: "var(--muted)" }}>
-        Wij betalen vakantiegeld en vakantie-uren direct uit met je uurloon — dus deze uren zijn je
-        bruto basis.
+        {t("m.hours_payroll_note")}
       </p>
     </div>
   );

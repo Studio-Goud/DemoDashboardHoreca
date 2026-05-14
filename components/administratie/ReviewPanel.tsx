@@ -69,7 +69,7 @@ export default function ReviewPanel({ bedrijf, hex, jaar }: Props) {
     try {
       const res = await fetch(`/api/administratie/ing/${bedrijf}?jaar=${jaar}`);
       const data = await res.json();
-      const review: Tx[] = (data.transacties ?? []).filter((t: Tx) => t.btwStatus === "review" && t.richting === "debit");
+      const review: Tx[] = (data.transacties ?? []).filter((t: Tx) => t.btwStatus === "review");
       setTxs(review);
     } finally {
       setLaden(false);

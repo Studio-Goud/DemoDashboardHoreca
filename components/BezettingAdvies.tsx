@@ -3,6 +3,7 @@
 import type { DagOmzet, Prognose } from "@/lib/analytics";
 import type { Bedrijf } from "@/lib/sumup";
 import Icon from "./Icon";
+import { useTaal } from "@/lib/i18n/TaalProvider";
 
 interface ShiftSlot {
   start: string;
@@ -208,7 +209,21 @@ function bepaalDrukte(
   return "normaal";
 }
 
+const LABEL_KEY: Record<string, string> = {
+  "Normaal": "bezetting.normal",
+  "Druk": "bezetting.busy",
+  "Extreem druk": "bezetting.very_busy",
+  "Zondag": "bezetting.sunday",
+};
+
+const ROL_KEY: Record<ShiftSlot["rol"], string> = {
+  opener: "bezetting.role_opener",
+  middag: "bezetting.role_middag",
+  sluiter: "bezetting.role_sluiter",
+};
+
 export default function BezettingAdvies({ hex, bedrijf, dagOmzet, prognose, geplandVandaag }: Props) {
+  const { t } = useTaal();
   const vandaagStr = new Date().toISOString().slice(0, 10);
   const vandaagPrognose = prognose.find((p) => p.datum === vandaagStr);
 
@@ -227,17 +242,19 @@ export default function BezettingAdvies({ hex, bedrijf, dagOmzet, prognose, gepl
   const status = (() => {
     if (geplandVandaag === null) return null;
     const diff = geplandVandaag - aanbevolen;
-    if (diff < 0) return { ok: false, tekst: `${Math.abs(diff)} te weinig gepland` };
-    if (diff > 0) return { ok: true,  tekst: `${diff} meer dan nodig` };
-    return { ok: true, tekst: "bezetting klopt" };
+    if (diff < 0) return { ok: false, tekst: t("bezetting.too_few").replace("{n}", String(Math.abs(diff))) };
+    if (diff > 0) return { ok: true,  tekst: t("bezetting.too_many").replace("{n}", String(diff)) };
+    return { ok: true, tekst: t("bezetting.ok") };
   })();
+
+  const templateLabel = LABEL_KEY[template.label] ? t(LABEL_KEY[template.label]) : template.label;
 
   return (
     <div className="card space-y-4">
       <div className="flex items-center gap-2">
         <Icon name="users" size={16} className="opacity-70" />
         <h2 className="text-[13px] font-semibold tracking-wide" style={{ color: "var(--text-2)" }}>
-          Personeelsadvies vandaag
+          {t("bezetting.title")}
         </h2>
       </div>
 
@@ -250,12 +267,12 @@ export default function BezettingAdvies({ hex, bedrijf, dagOmzet, prognose, gepl
         }}
       >
         <div>
-          <p className="eyebrow mb-0.5">Verwachte drukte</p>
+          <p className="eyebrow mb-0.5">{t("bezetting.expected")}</p>
           <p className="text-[15px] font-semibold" style={{ color: template.kleur }}>
-            {template.label}
+            {templateLabel}
           </p>
           <p className="text-[12px] mt-0.5" style={{ color: "var(--muted)" }}>
-            Verwacht {vandaagPrognose.verwacht > 0
+            {t("bezetting.expected_word")} {vandaagPrognose.verwacht > 0
               ? "€" + vandaagPrognose.verwacht.toLocaleString("nl-NL", { maximumFractionDigits: 0 })
               : "–"}{vandaagPrognose.feestdag ? ` · ${vandaagPrognose.feestdag}` : ""}
           </p>
@@ -280,7 +297,7 @@ export default function BezettingAdvies({ hex, bedrijf, dagOmzet, prognose, gepl
       {/* Shift-indeling */}
       <div>
         <p className="eyebrow mb-2">
-          Aanbevolen indeling — {aanbevolen} {aanbevolen === 1 ? "persoon" : "mensen"}
+          {t("bezetting.recommended")} {aanbevolen} {aanbevolen === 1 ? t("schedule.person_singular") : t("schedule.person_plural")}
         </p>
         <div className="space-y-1.5">
           {template.shifts.map((s, i) => (
@@ -292,7 +309,7 @@ export default function BezettingAdvies({ hex, bedrijf, dagOmzet, prognose, gepl
                 {s.start} – {s.eind}
               </span>
               <span className="text-[12px] capitalize" style={{ color: "var(--muted)" }}>
-                {s.rol}
+                {t(ROL_KEY[s.rol])}
               </span>
             </div>
           ))}

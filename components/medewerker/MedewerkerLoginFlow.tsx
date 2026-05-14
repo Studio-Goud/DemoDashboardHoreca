@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTaal } from "@/lib/i18n/TaalProvider";
 
 interface Props { ingevuldEmail: string }
 
 export default function MedewerkerLoginFlow({ ingevuldEmail }: Props) {
   const router = useRouter();
+  const { t } = useTaal();
   const [fase, setFase] = useState<"email" | "pin">(ingevuldEmail ? "pin" : "email");
   const [email, setEmail] = useState(ingevuldEmail);
   const [pin, setPin] = useState("");
@@ -16,7 +18,7 @@ export default function MedewerkerLoginFlow({ ingevuldEmail }: Props) {
   function emailDoor() {
     setFout(null);
     if (!/^\S+@\S+\.\S+$/.test(email)) {
-      setFout("Vul een geldig e-mailadres in");
+      setFout(t("login.email_invalid"));
       return;
     }
     setFase("pin");
@@ -46,7 +48,7 @@ export default function MedewerkerLoginFlow({ ingevuldEmail }: Props) {
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({ error: "fout" }));
-        throw new Error(j.error || "Inloggen mislukt");
+        throw new Error(j.error || t("login.failed"));
       }
       router.replace("/m");
     } catch (e) {
@@ -66,10 +68,10 @@ export default function MedewerkerLoginFlow({ ingevuldEmail }: Props) {
             className="text-[22px] font-semibold tracking-tight"
             style={{ color: "var(--text)", letterSpacing: "-0.019em" }}
           >
-            Inloggen medewerker
+            {t("login.employee_title")}
           </h1>
         </div>
-        <label className="eyebrow block mb-1.5">E-mailadres</label>
+        <label className="eyebrow block mb-1.5">{t("login.email_label")}</label>
         <input
           type="email"
           value={email}
@@ -82,7 +84,7 @@ export default function MedewerkerLoginFlow({ ingevuldEmail }: Props) {
             border: "1px solid var(--hairline)",
             color: "var(--text)",
           }}
-          placeholder="jouw@email.nl"
+          placeholder={t("login.email_placeholder")}
         />
         {fout && (
           <p className="mt-3 text-[13px]" style={{ color: "#E5484D" }}>{fout}</p>
@@ -92,7 +94,7 @@ export default function MedewerkerLoginFlow({ ingevuldEmail }: Props) {
           className="w-full mt-4 py-3 rounded-[10px] text-[15px] font-semibold text-white"
           style={{ background: "#0A84FF" }}
         >
-          Volgende
+          {t("common.next")}
         </button>
       </div>
     );
@@ -106,14 +108,14 @@ export default function MedewerkerLoginFlow({ ingevuldEmail }: Props) {
           className="text-[22px] font-semibold tracking-tight"
           style={{ color: "var(--text)", letterSpacing: "-0.019em" }}
         >
-          Voer je PIN in
+          {t("login.enter_pin")}
         </h1>
         <button
           onClick={() => { setFase("email"); setPin(""); setFout(null); }}
           className="mt-3 text-[12px]"
           style={{ color: "var(--muted)" }}
         >
-          ← ander e-mailadres
+          {t("login.other_email")}
         </button>
       </div>
 
