@@ -15,6 +15,7 @@ interface MedewerkerRij {
   achternaam: string;
   email: string;
   onboardingVoltooid: boolean;
+  goedgekeurd: boolean;
   aantalDocs: number;
   aantalGoedgekeurd: number;
 }
@@ -46,6 +47,9 @@ interface MedewerkerDetail {
     iban: string | null;
     bsn: string | null;
     onboardingVoltooid: boolean;
+    goedgekeurd: boolean;
+    goedgekeurdOp: string | null;
+    goedgekeurdDoor: string | null;
   };
   documenten: DocRij[];
 }
@@ -94,6 +98,28 @@ export default function MedewerkerDocumentenPanel({ hex }: Props) {
     setDetail(null);
     const res = await fetch(`/api/admin/medewerker-documenten?medewerkerId=${id}`, { cache: "no-store" });
     if (res.ok) setDetail(await res.json());
+  }
+
+  async function zetMedewerkerGoedgekeurd(medewerkerId: number, goedgekeurd: boolean) {
+    setFout(null);
+    if (goedgekeurd && !confirm("Medewerker goedkeuren? Hij/zij kan dan rooster zien, beschikbaarheid doorgeven en gaat meelopen in de loonadministratie.")) return;
+    if (!goedgekeurd && !confirm("Goedkeuring intrekken? Medewerker krijgt het wacht-scherm te zien tot je opnieuw goedkeurt.")) return;
+
+    const res = await fetch("/api/admin/medewerker-goedkeuren", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ medewerkerId, goedgekeurd }),
+    });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({ error: "fout" }));
+      setFout(j.error || "actie mislukt");
+      return;
+    }
+    if (openId === medewerkerId) {
+      const r2 = await fetch(`/api/admin/medewerker-documenten?medewerkerId=${medewerkerId}`, { cache: "no-store" });
+      if (r2.ok) setDetail(await r2.json());
+    }
+    laadLijst();
   }
 
   async function zetGoedgekeurd(docId: number, goedgekeurd: boolean) {
@@ -161,14 +187,19 @@ export default function MedewerkerDocumentenPanel({ hex }: Props) {
                   <p className="text-[11px]" style={{ color: "var(--muted)" }}>{r.email}</p>
                 </div>
                 <div className="text-right shrink-0">
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                    r.onboardingVoltooid ? "" : ""
-                  }`} style={{
-                    background: r.onboardingVoltooid ? "#30B26F" : "#F0B731",
-                    color: "#fff",
-                  }}>
-                    {r.onboardingVoltooid ? "✓ Compleet" : "Onboarding open"}
-                  </span>
+                  {r.goedgekeurd ? (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "#30B26F", color: "#fff" }}>
+                      ✓ Goedgekeurd
+                    </span>
+                  ) : r.onboardingVoltooid ? (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "#F0B731", color: "#fff" }}>
+                      ⏳ Wacht op goedkeuring
+                    </span>
+                  ) : (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "var(--bg-elev)", color: "var(--text-2)", border: "1px solid var(--hairline)" }}>
+                      Onboarding open
+                    </span>
+                  )}
                   <p className="text-[10px] mt-0.5" style={{ color: "var(--muted)" }}>
                     {r.aantalGoedgekeurd}/{r.aantalDocs} docs gekeurd
                   </p>
@@ -177,6 +208,43 @@ export default function MedewerkerDocumentenPanel({ hex }: Props) {
 
               {openId === r.id && detail && detail.medewerker.id === r.id && (
                 <div className="border-t p-3 space-y-3" style={{ borderColor: "var(--hairline)", background: "var(--bg)" }}>
+                  {/* Goedkeurings-actie — prominent bovenaan */}
+                  <div
+                    className="rounded-lg p-3 flex items-center justify-between gap-3 flex-wrap"
+                    style={{
+                      background: detail.medewerker.goedgekeurd ? "rgba(48,178,111,0.08)" : "rgba(240,183,49,0.10)",
+                      border: `1px solid ${detail.medewerker.goedgekeurd ? "#30B26F" : "#F0B731"}`,
+                    }}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-semibold" style={{ color: "var(--text)" }}>
+                        {detail.medewerker.goedgekeurd ? "✓ Account is goedgekeurd" : "⏳ Account wacht op goedkeuring"}
+                      </p>
+                      {detail.medewerker.goedgekeurd ? (
+                        <p className="text-[11px] mt-0.5" style={{ color: "var(--muted)" }}>
+                          Door {detail.medewerker.goedgekeurdDoor ?? "onbekend"}
+                          {detail.medewerker.goedgekeurdOp && " op " + new Date(detail.medewerker.goedgekeurdOp).toLocaleDateString("nl-NL")}
+                        </p>
+                      ) : (
+                        <p className="text-[11px] mt-0.5" style={{ color: "var(--muted)" }}>
+                          Check IBAN met bankpas-foto en BSN met ID-foto, dan goedkeuren.
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => zetMedewerkerGoedgekeurd(detail.medewerker.id, !detail.medewerker.goedgekeurd)}
+                      className="text-[12px] font-semibold px-4 py-2 rounded-md shrink-0"
+                      style={{
+                        background: detail.medewerker.goedgekeurd ? "var(--bg-elev)" : "#30B26F",
+                        color: detail.medewerker.goedgekeurd ? "var(--text)" : "#fff",
+                        border: detail.medewerker.goedgekeurd ? "1px solid var(--hairline)" : "none",
+                      }}
+                    >
+                      {detail.medewerker.goedgekeurd ? "Intrekken" : "✓ Goedkeuren"}
+                    </button>
+                  </div>
+
                   {/* NAW + IBAN + BSN */}
                   <div className="grid grid-cols-2 gap-2 text-[12px]">
                     <Kv label="Geboortedatum" v={detail.medewerker.geboortedatum} />

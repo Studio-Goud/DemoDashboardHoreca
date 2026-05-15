@@ -45,6 +45,9 @@ export async function GET(req: Request) {
       iban: schema.medewerkers.iban,
       bsnVersleuteld: schema.medewerkers.bsnVersleuteld,
       onboardingVoltooid: schema.medewerkers.onboardingVoltooid,
+      goedgekeurd: schema.medewerkers.goedgekeurd,
+      goedgekeurdOp: schema.medewerkers.goedgekeurdOp,
+      goedgekeurdDoor: schema.medewerkers.goedgekeurdDoor,
     }).from(schema.medewerkers).where(eq(schema.medewerkers.id, id));
 
     if (!m) return NextResponse.json({ error: "medewerker niet gevonden" }, { status: 404 });
@@ -81,6 +84,9 @@ export async function GET(req: Request) {
         iban: m.iban,
         bsn,
         onboardingVoltooid: m.onboardingVoltooid,
+        goedgekeurd: m.goedgekeurd,
+        goedgekeurdOp: m.goedgekeurdOp,
+        goedgekeurdDoor: m.goedgekeurdDoor,
       },
       documenten: docs,
     });
@@ -93,6 +99,7 @@ export async function GET(req: Request) {
     achternaam: schema.medewerkers.achternaam,
     email: schema.medewerkers.email,
     onboardingVoltooid: schema.medewerkers.onboardingVoltooid,
+    goedgekeurd: schema.medewerkers.goedgekeurd,
     aantalDocs: sql<number>`(
       select count(*)::int from ${schema.medewerkerDocumenten}
       where ${schema.medewerkerDocumenten.medewerkerId} = ${schema.medewerkers.id}

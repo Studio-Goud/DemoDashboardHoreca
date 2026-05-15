@@ -66,6 +66,13 @@ export const medewerkers = pgTable("medewerkers", {
   // opgeslagen. Format: <iv-hex>:<authtag-hex>:<ciphertext-hex>.
   bsnVersleuteld: text("bsn_versleuteld"),
   onboardingVoltooid: boolean("onboarding_voltooid").notNull().default(false),
+  // Pas na goedkeuring door owner krijgt de medewerker toegang tot rooster,
+  // uren, beschikbaarheid etc. Voor die tijd staat 'ie op een wacht-scherm.
+  // Owner zet dit op true vanuit MedewerkerDocumentenPanel zodra ID + IBAN
+  // gecheckt zijn.
+  goedgekeurd: boolean("goedgekeurd").notNull().default(false),
+  goedgekeurdOp: timestamp("goedgekeurd_op", { withTimezone: true }),
+  goedgekeurdDoor: varchar("goedgekeurd_door", { length: 80 }),
 
   // Thuis-vestiging — gebruikt voor doorbereken-overzicht inleen-uren.
   // Werk bij een andere vestiging telt als "uitgeleend" en wordt aan het

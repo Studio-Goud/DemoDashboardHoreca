@@ -1,7 +1,6 @@
-import { redirect } from "next/navigation";
-import { huidigeSessie } from "@/lib/auth";
 import { eq, and, gte, lte, asc } from "drizzle-orm";
 import { db, schema } from "@/lib/db/client";
+import { vereistGoedgekeurdeMedewerker } from "@/lib/medewerker-gate";
 import MedewerkerUren from "@/components/medewerker/MedewerkerUren";
 
 export const dynamic = "force-dynamic";
@@ -24,8 +23,7 @@ function maandLabel(d: Date): string {
 export default async function MedewerkerUrenPage({ searchParams }: {
   searchParams: { maand?: string }
 }) {
-  const sessie = await huidigeSessie();
-  if (!sessie || sessie.rol !== "medewerker") redirect("/m/login");
+  const sessie = await vereistGoedgekeurdeMedewerker();
 
   const peilDatum = searchParams.maand
     ? new Date(`${searchParams.maand}-15T12:00:00Z`)

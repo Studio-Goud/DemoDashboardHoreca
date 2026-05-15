@@ -93,7 +93,9 @@ export default function MedewerkerProfielFlow({ welkom }: Props) {
       if (res2.ok) setProfiel(await res2.json());
       // Als onboarding nu compleet is, ga door naar het portaal
       if (j.onboardingVoltooid && welkom) {
-        setTimeout(() => router.replace("/m"), 1200);
+        // Net klaar met onboarding — naar wachten-scherm. Server redirect
+        // verder naar /m zodra owner heeft goedgekeurd.
+        setTimeout(() => router.replace("/m/wachten"), 1200);
       }
     } catch (e) {
       setFout(e instanceof Error ? e.message : "fout");

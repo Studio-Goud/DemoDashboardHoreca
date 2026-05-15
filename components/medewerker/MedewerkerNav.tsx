@@ -36,7 +36,11 @@ export default function MedewerkerNav({ naam, vestiging }: Props) {
   // Verberg de nav op login- en registratie-routes, ook als de gebruiker
   // nog een oude sessie heeft. Dat voorkomt dat een nieuwe sollicitant op
   // /m/registreren plotseling de rooster-knoppen van een vorige sessie ziet.
-  if (pad?.startsWith("/m/login") || pad?.startsWith("/m/registreren")) {
+  if (
+    pad?.startsWith("/m/login") ||
+    pad?.startsWith("/m/registreren") ||
+    pad?.startsWith("/m/wachten")
+  ) {
     return null;
   }
 

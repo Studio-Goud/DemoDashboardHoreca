@@ -270,9 +270,31 @@ const MIGRATIE_0007: Migratie = {
   ],
 };
 
+/**
+ * Migratie 0008: medewerker goedkeuringsstatus.
+ *
+ * Pas na owner-approval mag een medewerker rooster/uren/beschikbaarheid
+ * zien. Tot die tijd staat 'ie op /m/wachten met een welkomstboodschap.
+ */
+const MIGRATIE_0008: Migratie = {
+  naam: "0008_medewerker_goedkeuring",
+  statements: [
+    `ALTER TABLE "medewerkers"
+       ADD COLUMN IF NOT EXISTS "goedgekeurd" boolean NOT NULL DEFAULT false`,
+    `ALTER TABLE "medewerkers"
+       ADD COLUMN IF NOT EXISTS "goedgekeurd_op" timestamp with time zone`,
+    `ALTER TABLE "medewerkers"
+       ADD COLUMN IF NOT EXISTS "goedgekeurd_door" varchar(80)`,
+    // Bestaande medewerkers (vóór deze migratie) zijn impliciet goedgekeurd
+    // — die zijn handmatig door owner aangemaakt en hebben al rooster-data.
+    // Alleen NIEUWE zelf-registranten beginnen op false.
+    `UPDATE "medewerkers" SET "goedgekeurd" = true WHERE "wachtwoord_hash" IS NULL`,
+  ],
+};
+
 const ALLE_MIGRATIES: Migratie[] = [
   MIGRATIE_0001, MIGRATIE_0002, MIGRATIE_0003, MIGRATIE_0004,
-  MIGRATIE_0005, MIGRATIE_0006, MIGRATIE_0007,
+  MIGRATIE_0005, MIGRATIE_0006, MIGRATIE_0007, MIGRATIE_0008,
 ];
 
 async function voerMigratieUit(m: Migratie): Promise<DbInitResultaat> {

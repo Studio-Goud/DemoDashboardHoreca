@@ -19,6 +19,15 @@ export default async function MedewerkerHome() {
   const sessie = await huidigeSessie();
   if (!sessie || sessie.rol !== "medewerker") redirect("/m/login");
 
+  // Gate-check: medewerker moet onboarding voltooid + goedgekeurd hebben.
+  const [m] = await db.select({
+    onboardingVoltooid: schema.medewerkers.onboardingVoltooid,
+    goedgekeurd: schema.medewerkers.goedgekeurd,
+  }).from(schema.medewerkers).where(eq(schema.medewerkers.id, sessie.medewerkerId));
+  if (!m) redirect("/m/login");
+  if (!m.onboardingVoltooid) redirect("/m/profiel");
+  if (!m.goedgekeurd) redirect("/m/wachten");
+
   const start = vandaagISO();
   const eind = isoPlus(14);
 
