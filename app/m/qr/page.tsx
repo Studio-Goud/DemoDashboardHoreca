@@ -26,7 +26,7 @@ export default async function MijnQrPage() {
     errorCorrectionLevel: "M",
     margin: 1,
     color: { dark: "#000000", light: "#ffffff" },
-    width: 480,
+    width: 360,
   });
 
   return (

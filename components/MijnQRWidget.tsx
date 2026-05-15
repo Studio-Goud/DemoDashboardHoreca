@@ -97,20 +97,20 @@ export default function MijnQRWidget({ voornaam, datum, url, qrSvg }: Props) {
       </div>
 
       <div
-        className="bg-white p-5 rounded-2xl mx-auto"
+        className="bg-white p-4 rounded-2xl mx-auto"
         style={{
-          maxWidth: 320,
+          maxWidth: 240,
           boxShadow: pulse
             ? "0 0 0 4px rgba(0,229,255,0.5), 0 0 32px rgba(0,229,255,0.3)"
             : "0 6px 30px rgba(0,0,0,0.3)",
           transition: "box-shadow 0.6s ease-out",
         }}
       >
-        <p className="font-mono text-[9px] tracking-[0.32em] uppercase text-center mb-3" style={{ color: "#555" }}>
+        <p className="font-mono text-[8px] tracking-[0.32em] uppercase text-center mb-2" style={{ color: "#555" }}>
           Bedankt voor je bezoek
         </p>
-        <div dangerouslySetInnerHTML={{ __html: qrSvg }} className="mx-auto" style={{ maxWidth: 260 }} />
-        <p className="font-mono text-[10px] text-center mt-2" style={{ color: "#666" }}>
+        <div dangerouslySetInnerHTML={{ __html: qrSvg }} className="mx-auto" style={{ maxWidth: 200 }} />
+        <p className="font-mono text-[9px] text-center mt-2" style={{ color: "#666" }}>
           Scan & review {voornaam} · 30 sec
         </p>
       </div>
