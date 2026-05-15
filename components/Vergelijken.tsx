@@ -18,7 +18,7 @@ import {
 } from "date-fns";
 import { nl } from "date-fns/locale";
 import type { DagOmzet, MaandOmzet } from "@/lib/analytics";
-import { feestdagOpDatum, seizoen, vakantieOpDatum } from "@/lib/feestdagen";
+import { feestdagOpDatum, seizoen, vakantieOpDatum, zoekFeestdagInJaar } from "@/lib/feestdagen";
 
 interface JaarTotaal {
   jaar: number;
@@ -141,7 +141,19 @@ export default function Vergelijken({
   const gisteren = dagIndex.get(format(subDays(dagDate, 1), "yyyy-MM-dd"));
   const vorigeWeek = dagIndex.get(format(subDays(dagDate, 7), "yyyy-MM-dd"));
   const vorigeMaand = dagIndex.get(format(subMonths(dagDate, 1), "yyyy-MM-dd"));
-  const vorigJaar = dagIndex.get(format(subYears(dagDate, 1), "yyyy-MM-dd"));
+  // VOOR FEESTDAGEN: pak NIET dezelfde kalenderdatum vorig jaar (Pasen
+  // schuift, Koningsdag schuift bij zondag), maar zoek dezelfde feestdag-
+  // NAAM op in vorig jaar. Voor gewone dagen blijft het simpele
+  // subYears(dagDate, 1) — dat valt op dezelfde maand-dag.
+  const vorigJaarDate = feest
+    ? zoekFeestdagInJaar(feest.naam, dagDate.getFullYear() - 1)?.datum
+      ?? subYears(dagDate, 1)
+    : subYears(dagDate, 1);
+  const vorigJaar = dagIndex.get(format(vorigJaarDate, "yyyy-MM-dd"));
+  // Was de vorig-jaar-vergelijking ook een feestdag? (Voor gewone dagen
+  // is dit een hint dat vorig jaar er TOEN wel een feestdag op de zelfde
+  // kalenderdatum viel — die vergelijking is dan misleidend.)
+  const vorigJaarFeest = feestdagOpDatum(vorigJaarDate);
 
   // Gem. zelfde weekdag in laatste 8 weken (exclusief zichzelf)
   const zelfdeWdGem = useMemo(() => {
@@ -322,7 +334,13 @@ export default function Vergelijken({
             />
             <VergelijkRij
               label={feest ? `${feest.naam} vorig jaar` : "Zelfde datum vorig jaar"}
-              hulpTekst={format(subYears(dagDate, 1), "EEEE dd-MM-yyyy", { locale: nl })}
+              hulpTekst={
+                feest
+                  ? `${format(vorigJaarDate, "EEEE dd-MM-yyyy", { locale: nl })} (zelfde feestdag, niet kalenderdatum)`
+                  : vorigJaarFeest
+                  ? `${format(vorigJaarDate, "EEEE dd-MM-yyyy", { locale: nl })} ⚠ was ${vorigJaarFeest.naam}`
+                  : format(vorigJaarDate, "EEEE dd-MM-yyyy", { locale: nl })
+              }
               waarde={vorigJaar?.omzet ?? null}
               referentie={dagOmzetBedrag}
             />

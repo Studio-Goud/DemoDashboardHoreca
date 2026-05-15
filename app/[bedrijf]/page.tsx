@@ -15,6 +15,8 @@ import KerncijfersGrid from "@/components/KerncijfersGrid";
 import RecenteTransacties from "@/components/RecenteTransacties";
 import FeestdagenKalender from "@/components/FeestdagenKalender";
 import Vergelijken from "@/components/Vergelijken";
+import FeestdagVergelijking, { heeftFeestdagVergelijking } from "@/components/FeestdagVergelijking";
+import Reveal from "@/components/sf/Reveal";
 import CruiseAgenda from "@/components/CruiseAgenda";
 import WeerImpact from "@/components/WeerImpact";
 import ProductCombinaties from "@/components/ProductCombinaties";
@@ -263,50 +265,75 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
       {/* Tab-navigatie staat direct onder de LiveBalk; alle hero-widgets
           zitten binnen de Omzet-tab (de default tab) */}
       <DashboardNav tabs={TABS} hex={config.hex} bedrijf={config.slug}>
-        {/* Tab 1 — Omzet (incl. hero-widgets die altijd direct zichtbaar zijn als default tab) */}
+        {/* Tab 1 — Omzet. Reveal-wrapper zorgt dat elk widget gefaseerd
+            in beeld komt na de boot — soepele transitie ipv "ploink alles
+            tegelijk". Eerste 2 widgets zonder delay (boven de fold), de
+            rest scrolled in. */}
         <>
-          {/* Manager-only: leaderboard + doel-tracker als hero */}
-          <ManagerWidgets bedrijf={config.slug} hex={config.hex} />
+          <Reveal>
+            <ManagerWidgets bedrijf={config.slug} hex={config.hex} />
+          </Reveal>
+          <Reveal delay={0.05}>
+            <VoorraadAlerts bedrijf={config.slug} hex={config.hex} />
+          </Reveal>
 
-          {/* Voorraad-alerts (zichtbaar voor iedereen, urgent als kritieke producten op zijn) */}
-          <VoorraadAlerts bedrijf={config.slug} hex={config.hex} />
-
-          {/* Live omzet + kerncijfers */}
           {heeftData && (
-            <LiveRevenue
-              bedrijf={config.slug}
-              kleur={kleurNaam}
-              hex={config.hex}
-              verwachtVandaag={kerncijfers?.verwachtVandaag ?? 0}
-              weekdagCurve={weekdagCurve}
-            />
+            <Reveal delay={0.1}>
+              <LiveRevenue
+                bedrijf={config.slug}
+                kleur={kleurNaam}
+                hex={config.hex}
+                verwachtVandaag={kerncijfers?.verwachtVandaag ?? 0}
+                weekdagCurve={weekdagCurve}
+              />
+            </Reveal>
           )}
 
-          <BezettingAdvies
-            hex={config.hex}
-            bedrijf={config.slug}
-            dagOmzet={dagOmzet}
-            prognose={prognose}
-            geplandVandaag={bezVandaag}
-          />
+          <Reveal>
+            <BezettingAdvies
+              hex={config.hex}
+              bedrijf={config.slug}
+              dagOmzet={dagOmzet}
+              prognose={prognose}
+              geplandVandaag={bezVandaag}
+            />
+          </Reveal>
 
           {kerncijfers && (
-            <KerncijfersGrid kerncijfers={kerncijfers} hex={config.hex} />
+            <Reveal>
+              <KerncijfersGrid kerncijfers={kerncijfers} hex={config.hex} />
+            </Reveal>
           )}
 
           {dagOmzet.length > 0 && (
-            <RevenueChart data={dagOmzet} kleur={kleurNaam} hex={config.hex} />
+            <Reveal>
+              <RevenueChart data={dagOmzet} kleur={kleurNaam} hex={config.hex} />
+            </Reveal>
           )}
+          {/* Feestdag-vergelijking — verschijnt ALLEEN als vandaag een
+              feestdag is EN er historische data is voor dezelfde feestdag.
+              Anders rendert 'ie null. Voor Pasen/Koningsdag enz. cruciaal
+              omdat de kalenderdatum van jaar-tot-jaar verschuift. */}
+          {dagOmzet.length > 0 && heeftFeestdagVergelijking(new Date(), dagOmzet) && (
+            <Reveal>
+              <FeestdagVergelijking dagOmzet={dagOmzet} hex={config.hex} />
+            </Reveal>
+          )}
+
           {dagOmzet.length > 0 && (
-            <Vergelijken
-              dagOmzet={dagOmzet}
-              maandOmzet={maandOmzet}
-              jaarTotalen={jaarTotalen}
-              hex={config.hex}
-            />
+            <Reveal>
+              <Vergelijken
+                dagOmzet={dagOmzet}
+                maandOmzet={maandOmzet}
+                jaarTotalen={jaarTotalen}
+                hex={config.hex}
+              />
+            </Reveal>
           )}
           {heeftData && (
-            <RecenteTransacties bedrijf={config.slug} hex={config.hex} />
+            <Reveal>
+              <RecenteTransacties bedrijf={config.slug} hex={config.hex} />
+            </Reveal>
           )}
         </>
 

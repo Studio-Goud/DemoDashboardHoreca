@@ -113,6 +113,46 @@ export function feestdagOpDatum(d: Date): Feestdag | null {
   return null;
 }
 
+/**
+ * Zoek de Feestdag met dezelfde NAAM in een ander jaar. Essentieel voor
+ * jaar-op-jaar vergelijking waar de kalenderdatum schuift (Pasen, Koningsdag
+ * verschoven naar zaterdag, etc.).
+ *
+ * Voorbeeld: zoekFeestdagInJaar("1e Paasdag", 2024) → Date 31 maart 2024.
+ *
+ * Returnt null als de naam in dat jaar niet bestaat (zou alleen gebeuren
+ * voor toekomstige nieuwe feestdagen of historische die we niet meer
+ * tracken).
+ */
+export function zoekFeestdagInJaar(naam: string, jaar: number): Feestdag | null {
+  for (const f of feestdagenVoorJaar(jaar)) {
+    if (f.naam === naam) return f;
+  }
+  return null;
+}
+
+/**
+ * Bouw een mapping van een feestdag naar dezelfde feestdag in vorig +
+ * voorvorig jaar. Geeft direct de Date-objecten terug zodat callers ze
+ * kunnen gebruiken om omzet-data van die dag op te halen.
+ *
+ * Returnt null als input geen feestdag is.
+ */
+export function vergelijkbareFeestdagen(d: Date): {
+  huidig: Feestdag;
+  vorigJaar: Feestdag | null;
+  voorvorigJaar: Feestdag | null;
+} | null {
+  const huidig = feestdagOpDatum(d);
+  if (!huidig) return null;
+  const jaar = d.getFullYear();
+  return {
+    huidig,
+    vorigJaar:    zoekFeestdagInJaar(huidig.naam, jaar - 1),
+    voorvorigJaar: zoekFeestdagInJaar(huidig.naam, jaar - 2),
+  };
+}
+
 export function vakantieOpDatum(d: Date): Vakantie | null {
   const dag = startOfDay(d).getTime();
   for (const v of alleVakanties()) {
