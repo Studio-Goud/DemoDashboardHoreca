@@ -27,8 +27,12 @@ export const viewport: Viewport = {
   ],
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  // viewportFit: "cover" is verplicht voor iOS Safari om env(safe-area-inset-*)
+  // values bloot te leggen. Zonder dit evalueren alle safe-area-padding-bottom
+  // hints (bottom-nav medewerker, foto-modals) naar 0 — nav valt over de
+  // home-indicator. NIET userScalable=false zetten (WCAG 1.4.4: blokkeert
+  // pinch-zoom voor slechtziende gebruikers).
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

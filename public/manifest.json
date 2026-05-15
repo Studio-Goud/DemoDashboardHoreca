@@ -1,7 +1,7 @@
 {
   "name": "Markthal HQ",
   "short_name": "Markthal HQ",
-  "description": "Live omzet en analytics voor Brunch & Brew, Sat\u00e9 Lounge en Het Kroket Loket",
+  "description": "Live omzet en analytics voor Brunch & Brew, Saté Lounge en Het Kroket Loket",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
@@ -13,18 +13,6 @@
       "src": "/icon.svg",
       "type": "image/svg+xml",
       "sizes": "any",
-      "purpose": "any"
-    },
-    {
-      "src": "/icon-192.png",
-      "type": "image/png",
-      "sizes": "192x192",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icon-512.png",
-      "type": "image/png",
-      "sizes": "512x512",
       "purpose": "any maskable"
     }
   ]
