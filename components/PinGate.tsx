@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import Icon from "./Icon";
 import { useT } from "@/lib/i18n/useT";
 import { startAuthentication } from "@simplewebauthn/browser";
+import FaceIDPromptModal from "./FaceIDPromptModal";
 
 // 4-cijferige PIN → identiteit + rol
 // - owners hebben een vaste vestiging
@@ -62,36 +63,53 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
     vestiging: "bb" | "sl" | "kl",
     pin: string,
   ) {
-    // Server-side admin-cookie zetten zodat API-endpoints (db-init,
-    // salaris, etc.) de owner/manager kunnen autoriseren. Niet-blokkerend:
-    // bij netwerkfout gaan we toch door op basis van sessionStorage.
+    // Bepaal effectieve rol — owner kan de Management-knop drukken om de
+    // manager-UI te testen; in dat geval is verwachteRol="manager" terwijl
+    // het profiel een owner is. Server lost het exact zo op.
+    const gewensteRol = verwachteRol ?? profiel.rol;
+    const effectieveRol: "owner" | "manager" =
+      profiel.rol === "owner" && gewensteRol === "manager" ? "manager" : profiel.rol;
+    const effectieveNaam =
+      profiel.rol === "owner" && effectieveRol === "manager"
+        ? `${profiel.naam} (eigenaar)`
+        : profiel.naam;
+
     try {
       await fetch("/api/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pin, vestiging }),
+        body: JSON.stringify({ pin, vestiging, gewensteRol }),
       });
     } catch {
       // niet kritiek voor de UI-flow
     }
-    sessieAfronden(profiel.naam, profiel.rol, vestiging);
+    sessieAfronden(effectieveNaam, effectieveRol, vestiging, true);
   }
 
   /**
    * Zet sessionStorage + redirect — zónder /api/admin/login te roepen.
    * Gebruikt na een succesvolle Face ID auth, waar de cookie al
    * server-side is gezet door /api/auth/webauthn/auth/complete.
+   *
+   * `viaPin` = true → de FaceIDPromptModal mag aan deze gebruiker vragen
+   * of 'ie Face ID wil instellen (eerste-keer-aanbieden flow).
    */
   function sessieAfronden(
     naam: string,
     rol: "owner" | "manager",
     vestiging: "bb" | "sl" | "kl",
+    viaPin = false,
   ) {
     sessionStorage.setItem(STORAGE_KEY, "1");
     sessionStorage.setItem(USER_KEY, naam);
     sessionStorage.setItem(ROL_KEY, rol);
     sessionStorage.setItem(VESTIGING_KEY, vestiging);
     sessionStorage.setItem("sg_welkom_pending", naam);
+    if (viaPin) {
+      sessionStorage.setItem("sg_via_pin", "1");
+    } else {
+      sessionStorage.removeItem("sg_via_pin");
+    }
     window.dispatchEvent(new CustomEvent("sg:welkom", { detail: { naam } }));
     setUnlocked(true);
     router.replace(`/${vestiging}`);
@@ -166,19 +184,28 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
 
     if (nieuw.length === 4) {
       const profiel = PIN_PROFIEL[nieuw];
-      // PIN moet bestaan EN moet matchen met de gekozen rol-knop op het
-      // vorige scherm. Eigenaar-knop accepteert dus geen manager-PIN.
-      if (!profiel || (verwachteRol && profiel.rol !== verwachteRol)) {
+      // PIN moet bestaan. Voor de rol-check:
+      //   - Manager-PIN op Eigenaar-knop = WEIGEREN (manager mag nooit
+      //     owner-rechten claimen)
+      //   - Owner-PIN op Management-knop = TOEGESTAAN (owner mag manager-
+      //     view testen). De sessie krijgt rol="manager" met naam-suffix.
+      const ongeldigeRolCombi =
+        verwachteRol === "owner" && profiel && profiel.rol !== "owner";
+      if (!profiel || ongeldigeRolCombi) {
         setFout(true);
         setTimeout(() => setInput(""), 600);
         return;
       }
-      if (profiel.rol === "manager") {
-        // Manager moet nog vestiging kiezen
+      // Bepaal of het een manager-flow is (vestiging-keuze nodig):
+      // - echte manager-PIN
+      // - OF owner die op de Management-knop drukte
+      const isManagerFlow =
+        profiel.rol === "manager" || verwachteRol === "manager";
+      if (isManagerFlow) {
         setFase("vestigingKiezen");
         return;
       }
-      // Owner: meteen door (vaste vestiging gekoppeld aan PIN)
+      // Owner via Eigenaar-knop: meteen door met vaste vestiging.
       voltooidInloggen(profiel, profiel.vestiging ?? "bb", nieuw);
     }
   }
@@ -222,7 +249,19 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  if (unlocked) return <>{children}</>;
+  if (unlocked) {
+    // Accent op basis van geselecteerde vestiging — modal pakt 'm op
+    const vestiging = typeof window !== "undefined" ? sessionStorage.getItem(VESTIGING_KEY) : null;
+    const modalHex = vestiging === "sl" ? "#30B26F"
+      : vestiging === "kl" ? "#E07A1F"
+      : "#0A84FF";
+    return (
+      <>
+        {children}
+        <FaceIDPromptModal hex={modalHex} />
+      </>
+    );
+  }
   // Medewerker-routes: PinGate niet tonen — die hebben eigen sessie via cookie
   if (isMedewerkerRoute) return <>{children}</>;
 

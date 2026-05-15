@@ -84,17 +84,39 @@ function leesToken(token: string): AdminSessie | null {
  * Owners hebben hun vaste vestiging mee. Manager-vestiging wordt
  * later via een aparte cookie-update gezet (na de vestiging-keuze in
  * PinGate).
+ *
+ * `gewensteRol` is een optionele "view-as" parameter — owners mogen
+ * ook als manager inloggen om de manager-UI te testen. In dat geval
+ * krijgt de sessie rol="manager" maar blijft de naam de owner-naam met
+ * "(eigenaar)" suffix zodat audit-logs traceerbaar blijven.
  */
 export function verifieerAdminPin(
   pin: string,
   vestiging?: "bb" | "sl" | "kl",
+  gewensteRol?: "owner" | "manager",
 ): AdminSessie | null {
   const profiel = ADMIN_PIN_PROFIEL[pin];
   if (!profiel) return null;
+
+  // Standaard: rol uit profiel. Manager-PIN's mogen NOOIT als owner inloggen.
+  let effectieveRol: "owner" | "manager" = profiel.rol;
+  let naam = profiel.naam;
+
+  if (gewensteRol && gewensteRol !== profiel.rol) {
+    if (profiel.rol === "owner" && gewensteRol === "manager") {
+      // Owner test de manager-view — toegestaan, met audit-suffix.
+      effectieveRol = "manager";
+      naam = `${profiel.naam} (eigenaar)`;
+    } else {
+      // Manager-PIN voor owner-knop → geweigerd.
+      return null;
+    }
+  }
+
   return {
-    rol: profiel.rol,
-    naam: profiel.naam,
-    vestiging: profiel.rol === "owner"
+    rol: effectieveRol,
+    naam,
+    vestiging: profiel.rol === "owner" && effectieveRol === "owner"
       ? (profiel.vestiging ?? null)
       : (vestiging ?? null),
   };

@@ -17,13 +17,14 @@ export async function POST(req: Request) {
   const body = (await req.json().catch(() => ({}))) as {
     pin?: string;
     vestiging?: "bb" | "sl" | "kl";
+    gewensteRol?: "owner" | "manager";
   };
 
   if (!body.pin || !/^\d{4}$/.test(body.pin)) {
     return NextResponse.json({ error: "ongeldig PIN-formaat" }, { status: 400 });
   }
 
-  const sessie = verifieerAdminPin(body.pin, body.vestiging);
+  const sessie = verifieerAdminPin(body.pin, body.vestiging, body.gewensteRol);
   if (!sessie) {
     return NextResponse.json({ error: "onjuiste PIN" }, { status: 401 });
   }
