@@ -11,6 +11,7 @@ import { db } from "@/lib/db/client";
 import { medewerkers, departments, rosters, reviewReferrals, sumupTransacties, zettleTransacties } from "@/lib/db/schema";
 import { and, eq, gte, lte, sql } from "drizzle-orm";
 import { format, subDays } from "date-fns";
+import { unstable_cache } from "next/cache";
 
 export interface CombiRij {
   aId: number;
@@ -35,8 +36,16 @@ interface BerekenOpties {
 /**
  * Returnt alle paren met ≥ minShifts gezamenlijke shifts, gesorteerd op
  * zScore (slechtste eerst — daar zit de actionable info).
+ *
+ * Gecached 10 min — paar-analyse hoeft écht niet realtime.
  */
-export async function berekenCombinaties(opts: BerekenOpties): Promise<CombiRij[]> {
+export const berekenCombinaties = unstable_cache(
+  berekenCombinatiesUncached,
+  ["team-combinaties-v1"],
+  { revalidate: 600, tags: ["leaderboard"] },
+);
+
+async function berekenCombinatiesUncached(opts: BerekenOpties): Promise<CombiRij[]> {
   const venster = opts.venster ?? 60;
   const minShifts = opts.minShifts ?? 3;
   const tot = new Date();

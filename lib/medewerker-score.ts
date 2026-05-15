@@ -16,6 +16,7 @@ import { db } from "@/lib/db/client";
 import { medewerkers, medewerkerDepartments, departments, rosters, reviewReferrals, sumupTransacties, zettleTransacties } from "@/lib/db/schema";
 import { and, eq, gte, lte, sql } from "drizzle-orm";
 import { format, subDays } from "date-fns";
+import { unstable_cache } from "next/cache";
 
 export interface ScoreRij {
   medewerkerId: number;
@@ -44,8 +45,16 @@ interface BerekenOpties {
  * Berekent leaderboard voor één bedrijf. Returnt rijen gesorteerd op
  * totaalScore (hoog → laag). Medewerkers zonder enige activiteit (geen
  * shifts en geen reviews-coverage) worden uitgefilterd.
+ *
+ * Gecached 5 min — leaderboard hoeft niet realtime te zijn.
  */
-export async function berekenLeaderboard(opts: BerekenOpties): Promise<ScoreRij[]> {
+export const berekenLeaderboard = unstable_cache(
+  berekenLeaderboardUncached,
+  ["medewerker-leaderboard-v1"],
+  { revalidate: 300, tags: ["leaderboard"] },
+);
+
+async function berekenLeaderboardUncached(opts: BerekenOpties): Promise<ScoreRij[]> {
   const venster = opts.venster ?? 30;
   const tot = opts.tot ?? new Date();
   const van = subDays(tot, venster);

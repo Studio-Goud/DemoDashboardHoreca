@@ -30,6 +30,11 @@ export default function MijnQRWidget({ voornaam, datum, url, qrSvg }: Props) {
     let actief = true;
 
     async function pol() {
+      if (!actief) return;
+      // Skip polling als de tab niet zichtbaar is — bespaart enorm veel
+      // DB-transfer voor medewerkers die de pagina open laten in een
+      // achtergrond-tab.
+      if (typeof document !== "undefined" && document.hidden) return;
       try {
         const r = await fetch("/api/m/mijn-vandaag", { cache: "no-store" });
         if (!r.ok) return;
@@ -50,8 +55,20 @@ export default function MijnQRWidget({ voornaam, datum, url, qrSvg }: Props) {
     }
 
     pol();
-    const iv = setInterval(pol, 5000);
-    return () => { actief = false; clearInterval(iv); };
+    // 30s polling i.p.v. 5s — bespaart ~83% queries terwijl de gebruiker
+    // nog steeds binnen 30 sec ziet dat 'r een review binnen is.
+    const iv = setInterval(pol, 30_000);
+    // Direct ververs bij focus/visibility-change zodat 't toch reactief
+    // voelt zonder constant te pollen.
+    const onVisible = () => { if (!document.hidden) pol(); };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      actief = false;
+      clearInterval(iv);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
   }, []);
 
   async function deel() {
