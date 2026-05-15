@@ -143,6 +143,16 @@ export async function PUT(req: Request) {
   if (!huidig) return NextResponse.json({ error: "medewerker niet gevonden" }, { status: 404 });
 
   const samengevoegd = { ...huidig, ...updates };
+
+  // Documenten-check: 3 verplichte types moeten allemaal aanwezig zijn.
+  const aanwezigeTypes = await db.select({
+    type: schema.medewerkerDocumenten.type,
+  })
+    .from(schema.medewerkerDocumenten)
+    .where(eq(schema.medewerkerDocumenten.medewerkerId, sessie.medewerkerId));
+  const types = new Set(aanwezigeTypes.map((r) => r.type));
+  const documentenCompleet = types.has("id-voor") && types.has("id-achter") && types.has("bankpas");
+
   const compleet = !!(
     samengevoegd.geboortedatum &&
     samengevoegd.straat &&
@@ -150,7 +160,8 @@ export async function PUT(req: Request) {
     samengevoegd.postcode &&
     samengevoegd.woonplaats &&
     samengevoegd.iban &&
-    samengevoegd.bsnVersleuteld
+    samengevoegd.bsnVersleuteld &&
+    documentenCompleet
   );
   updates.onboardingVoltooid = compleet;
   updates.updatedAt = new Date();

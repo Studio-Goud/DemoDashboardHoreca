@@ -17,8 +17,12 @@ import { versleutelBestand } from "@/lib/documenten";
 
 export const dynamic = "force-dynamic";
 
-const TOEGESTANE_TYPES = new Set(["id-voor", "id-achter", "paspoort", "bankpas"]);
-const TOEGESTANE_MIMES = new Set(["image/jpeg", "image/png", "image/webp", "image/heic"]);
+// Drie verplichte slots — ID-kaart OF paspoort mag voor #1 en #2.
+const TOEGESTANE_TYPES = new Set(["id-voor", "id-achter", "bankpas"]);
+const TOEGESTANE_MIMES = new Set([
+  "image/jpeg", "image/jpg", "image/png", "image/webp",
+  "image/heic", "image/heif",
+]);
 const MAX_BYTES = 5 * 1024 * 1024;
 
 export async function GET() {
@@ -43,52 +47,83 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const sessie = await huidigeSessie();
-  if (!sessie) return NextResponse.json({ error: "niet ingelogd" }, { status: 401 });
+  try {
+    const sessie = await huidigeSessie();
+    if (!sessie) return NextResponse.json({ error: "niet ingelogd" }, { status: 401 });
 
-  const formData = await req.formData();
-  const file = formData.get("file");
-  const type = formData.get("type");
+    let formData: FormData;
+    try {
+      formData = await req.formData();
+    } catch (e) {
+      console.error("[document/POST] formData parse fail:", e);
+      return NextResponse.json(
+        { error: "Kan formulier-data niet lezen — probeer een kleinere foto" },
+        { status: 400 },
+      );
+    }
 
-  if (!(file instanceof File)) {
-    return NextResponse.json({ error: "file ontbreekt" }, { status: 400 });
-  }
-  if (typeof type !== "string" || !TOEGESTANE_TYPES.has(type)) {
-    return NextResponse.json({ error: "type ongeldig" }, { status: 400 });
-  }
-  if (!TOEGESTANE_MIMES.has(file.type)) {
+    const file = formData.get("file");
+    const type = formData.get("type");
+
+    if (!(file instanceof File)) {
+      return NextResponse.json({ error: "file ontbreekt of niet als File ontvangen" }, { status: 400 });
+    }
+    if (typeof type !== "string" || !TOEGESTANE_TYPES.has(type)) {
+      return NextResponse.json({ error: `type "${type}" ongeldig` }, { status: 400 });
+    }
+    if (file.size === 0) {
+      return NextResponse.json({ error: "Bestand is leeg" }, { status: 400 });
+    }
+    if (!TOEGESTANE_MIMES.has(file.type)) {
+      return NextResponse.json(
+        { error: `Bestandstype ${file.type || "(onbekend)"} niet ondersteund — gebruik JPEG/PNG/WebP/HEIC` },
+        { status: 400 },
+      );
+    }
+    if (file.size > MAX_BYTES) {
+      return NextResponse.json(
+        { error: `Bestand te groot (${(file.size / 1024 / 1024).toFixed(1)}MB, max 5MB)` },
+        { status: 413 },
+      );
+    }
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+
+    let versleuteld;
+    try {
+      versleuteld = versleutelBestand(buffer);
+    } catch (e) {
+      console.error("[document/POST] encryptie mislukt:", e);
+      return NextResponse.json(
+        { error: e instanceof Error ? e.message : "encryptie mislukt — DOCUMENTEN_ENCRYPTIE_KEY niet gezet?" },
+        { status: 500 },
+      );
+    }
+
+    // Verwijder eerdere upload van hetzelfde type (idempotent — herupload
+    // overschrijft de oude versie). Goedgekeurd-status wordt gereset.
+    await db.delete(schema.medewerkerDocumenten).where(and(
+      eq(schema.medewerkerDocumenten.medewerkerId, sessie.medewerkerId),
+      eq(schema.medewerkerDocumenten.type, type),
+    ));
+
+    const [nieuw] = await db.insert(schema.medewerkerDocumenten).values({
+      medewerkerId: sessie.medewerkerId,
+      type,
+      mimetype: file.type,
+      bestandsnaam: file.name?.slice(0, 200) ?? null,
+      iv: versleuteld.iv,
+      authtag: versleuteld.authtag,
+      ciphertext: versleuteld.ciphertext,
+      grootteBytes: buffer.length,
+    }).returning({ id: schema.medewerkerDocumenten.id });
+
+    return NextResponse.json({ ok: true, id: nieuw.id });
+  } catch (e) {
+    console.error("[document/POST] onverwachte fout:", e);
     return NextResponse.json(
-      { error: `bestandstype ${file.type} niet ondersteund (gebruik JPEG/PNG/WebP/HEIC)` },
-      { status: 400 },
+      { error: e instanceof Error ? e.message : "Onbekende fout bij upload" },
+      { status: 500 },
     );
   }
-  if (file.size > MAX_BYTES) {
-    return NextResponse.json(
-      { error: `bestand te groot (${Math.round(file.size / 1024 / 1024)}MB, max 5MB)` },
-      { status: 413 },
-    );
-  }
-
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const versleuteld = versleutelBestand(buffer);
-
-  // Verwijder eerdere upload van hetzelfde type (idempotent — herupload
-  // overschrijft de oude versie). Goedgekeurd-status wordt gereset.
-  await db.delete(schema.medewerkerDocumenten).where(and(
-    eq(schema.medewerkerDocumenten.medewerkerId, sessie.medewerkerId),
-    eq(schema.medewerkerDocumenten.type, type),
-  ));
-
-  const [nieuw] = await db.insert(schema.medewerkerDocumenten).values({
-    medewerkerId: sessie.medewerkerId,
-    type,
-    mimetype: file.type,
-    bestandsnaam: file.name?.slice(0, 200) ?? null,
-    iv: versleuteld.iv,
-    authtag: versleuteld.authtag,
-    ciphertext: versleuteld.ciphertext,
-    grootteBytes: buffer.length,
-  }).returning({ id: schema.medewerkerDocumenten.id });
-
-  return NextResponse.json({ ok: true, id: nieuw.id });
 }

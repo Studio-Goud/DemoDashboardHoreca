@@ -9,7 +9,7 @@ interface Props { ingevuldEmail: string }
 export default function MedewerkerLoginFlow({ ingevuldEmail }: Props) {
   const router = useRouter();
   const { t } = useTaal();
-  const [fase, setFase] = useState<"email" | "pin">(ingevuldEmail ? "pin" : "email");
+  const [fase, setFase] = useState<"welkom" | "email" | "pin">(ingevuldEmail ? "pin" : "welkom");
   const [email, setEmail] = useState(ingevuldEmail);
   const [pin, setPin] = useState("");
   const [fout, setFout] = useState<string | null>(null);
@@ -59,10 +59,63 @@ export default function MedewerkerLoginFlow({ ingevuldEmail }: Props) {
     }
   }
 
+  if (fase === "welkom") {
+    return (
+      <div className="max-w-sm w-full">
+        <div className="text-center mb-8">
+          <p className="eyebrow mb-2">Markthal HQ</p>
+          <h1
+            className="text-[22px] font-semibold tracking-tight"
+            style={{ color: "var(--text)", letterSpacing: "-0.019em" }}
+          >
+            {t("login.welcome_choice_title")}
+          </h1>
+          <p className="text-[13px] mt-2" style={{ color: "var(--muted)" }}>
+            {t("login.welcome_choice_intro")}
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-3">
+          <button
+            onClick={() => setFase("email")}
+            className="w-full py-4 rounded-[12px] text-left px-4 transition-all"
+            style={{
+              background: "var(--bg-elev)",
+              border: "1px solid var(--hairline)",
+              color: "var(--text)",
+            }}
+          >
+            <p className="text-[15px] font-semibold">{t("login.welcome_signin")}</p>
+            <p className="text-[12px] mt-0.5" style={{ color: "var(--muted)" }}>
+              {t("login.welcome_signin_sub")}
+            </p>
+          </button>
+          <button
+            onClick={() => router.push("/m/registreren")}
+            className="w-full py-4 rounded-[12px] text-left px-4 text-white"
+            style={{ background: "#30B26F" }}
+          >
+            <p className="text-[15px] font-semibold">{t("login.welcome_signup")}</p>
+            <p className="text-[12px] mt-0.5 opacity-90">
+              {t("login.welcome_signup_sub")}
+            </p>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (fase === "email") {
     return (
       <div className="max-w-sm w-full">
         <div className="text-center mb-8">
+          <button
+            onClick={() => setFase("welkom")}
+            className="mb-3 text-[12px] inline-flex"
+            style={{ color: "var(--muted)" }}
+          >
+            {t("login.back")}
+          </button>
           <p className="eyebrow mb-2">Markthal HQ</p>
           <h1
             className="text-[22px] font-semibold tracking-tight"

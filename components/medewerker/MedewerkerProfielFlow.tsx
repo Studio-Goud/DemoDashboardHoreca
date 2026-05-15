@@ -37,6 +37,7 @@ export default function MedewerkerProfielFlow({ welkom }: Props) {
 
   const [telefoon, setTelefoon] = useState("");
   const [geboortedatum, setGeboortedatum] = useState("");
+  const [documentenCompleet, setDocumentenCompleet] = useState(false);
   const [straat, setStraat] = useState("");
   const [huisnummer, setHuisnummer] = useState("");
   const [postcode, setPostcode] = useState("");
@@ -205,6 +206,11 @@ export default function MedewerkerProfielFlow({ welkom }: Props) {
           </p>
         </section>
 
+        {/* Documenten — verplicht voor onboarding */}
+        <section>
+          <DocumentenUploaden onCompletheid={setDocumentenCompleet} />
+        </section>
+
         {fout && (
           <p className="text-[13px]" style={{ color: "#E5484D" }}>{fout}</p>
         )}
@@ -216,17 +222,20 @@ export default function MedewerkerProfielFlow({ welkom }: Props) {
 
         <button
           type="submit"
-          disabled={bezig}
-          className="w-full py-3 rounded-xl text-[15px] font-semibold text-white disabled:opacity-60"
+          disabled={bezig || !documentenCompleet}
+          className="w-full py-3 rounded-xl text-[15px] font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed"
           style={{ background: "#30B26F" }}
+          title={!documentenCompleet ? "Eerst alle 3 foto's uploaden" : ""}
         >
-          {bezig ? "Bezig…" : welkom ? "Opslaan & naar portaal" : "Opslaan"}
+          {bezig
+            ? "Bezig…"
+            : !documentenCompleet
+            ? "Upload eerst alle 3 foto's"
+            : welkom
+            ? "Opslaan & naar portaal"
+            : "Opslaan"}
         </button>
       </form>
-
-      <section className="mt-8">
-        <DocumentenUploaden />
-      </section>
     </main>
   );
 }
