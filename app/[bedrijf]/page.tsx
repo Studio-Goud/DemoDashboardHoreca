@@ -15,7 +15,7 @@ import KerncijfersGrid from "@/components/KerncijfersGrid";
 import RecenteTransacties from "@/components/RecenteTransacties";
 import FeestdagenKalender from "@/components/FeestdagenKalender";
 import Vergelijken from "@/components/Vergelijken";
-import FeestdagVergelijking, { heeftFeestdagVergelijking } from "@/components/FeestdagVergelijking";
+import FeestdagVergelijking from "@/components/FeestdagVergelijking";
 import KomendeFeestdagAlert from "@/components/KomendeFeestdagAlert";
 import Reveal from "@/components/sf/Reveal";
 import CruiseAgenda from "@/components/CruiseAgenda";
@@ -319,11 +319,10 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
               <RevenueChart data={dagOmzet} kleur={kleurNaam} hex={config.hex} />
             </Reveal>
           )}
-          {/* Feestdag-vergelijking — verschijnt ALLEEN als vandaag een
-              feestdag is EN er historische data is voor dezelfde feestdag.
-              Anders rendert 'ie null. Voor Pasen/Koningsdag enz. cruciaal
-              omdat de kalenderdatum van jaar-tot-jaar verschuift. */}
-          {dagOmzet.length > 0 && heeftFeestdagVergelijking(new Date(), dagOmzet) && (
+          {/* Feestdag-vergelijking — component beslist zelf of 'ie zichtbaar
+              is: alleen als vandaag een feestdag is EN er historische data
+              is. Geen ruis op gewone dagen. */}
+          {dagOmzet.length > 0 && (
             <Reveal>
               <FeestdagVergelijking dagOmzet={dagOmzet} hex={config.hex} />
             </Reveal>
