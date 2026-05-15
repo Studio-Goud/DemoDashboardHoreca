@@ -8,6 +8,7 @@
  * + foto's. Per foto: bekijken / goedkeuren / verwijderen.
  */
 import { useEffect, useState } from "react";
+import FotoViewer from "@/components/FotoViewer";
 
 interface MedewerkerRij {
   id: number;
@@ -319,45 +320,24 @@ export default function MedewerkerDocumentenPanel({ hex }: Props) {
         <p className="text-[12px] mt-3" style={{ color: "#E5484D" }}>Fout: {fout}</p>
       )}
 
-      {/* Fullscreen viewer binnen de app — geen target=_blank naar Safari */}
-      {bekijkId !== null && (
-        <div
-          className="fixed inset-0 z-50 flex flex-col"
-          style={{ background: "rgba(0,0,0,0.92)" }}
-          onClick={() => setBekijkId(null)}
-        >
-          <div
-            className="flex items-center justify-between px-4 py-3"
-            style={{ paddingTop: "calc(0.75rem + env(safe-area-inset-top))" }}
-          >
-            <span className="text-[13px] font-medium" style={{ color: "rgba(255,255,255,0.85)" }}>
-              Document #{bekijkId}
-            </span>
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); setBekijkId(null); }}
-              className="w-10 h-10 rounded-full flex items-center justify-center text-[20px]"
-              style={{ background: "rgba(255,255,255,0.15)", color: "#fff" }}
-              aria-label="Sluiten"
-            >
-              ✕
-            </button>
-          </div>
-          <div className="flex-1 flex items-center justify-center p-4 overflow-auto" onClick={(e) => e.stopPropagation()}>
-            <img
-              src={`/api/medewerker/document/${bekijkId}/inhoud`}
-              alt="Document"
-              className="max-w-full max-h-full object-contain rounded-lg"
-            />
-          </div>
-          <p
-            className="text-center pb-4 text-[11px]"
-            style={{ color: "rgba(255,255,255,0.5)", paddingBottom: "calc(1rem + env(safe-area-inset-bottom))" }}
-          >
-            Tik buiten de foto of op ✕ om te sluiten
-          </p>
-        </div>
-      )}
+      {/* Shared fullscreen viewer — pinch-zoom + ESC + sci-fi styling. */}
+      <FotoViewer
+        documentId={bekijkId}
+        onClose={() => setBekijkId(null)}
+        meta={(() => {
+          if (bekijkId === null || !detail) return undefined;
+          const doc = detail.documenten.find((d) => d.id === bekijkId);
+          if (!doc) return undefined;
+          return {
+            type: doc.type,
+            medewerker: `${detail.medewerker.voornaam} ${detail.medewerker.achternaam}`,
+            uploadDatum: new Date(doc.geuploadOp).toLocaleString("nl-NL", {
+              dateStyle: "medium",
+              timeStyle: "short",
+            }),
+          };
+        })()}
+      />
     </div>
   );
 }

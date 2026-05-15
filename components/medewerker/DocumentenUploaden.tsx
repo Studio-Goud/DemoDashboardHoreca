@@ -15,6 +15,7 @@
  * blokkeert daarop de "Opslaan & naar portaal" knop.
  */
 import { useCallback, useEffect, useState } from "react";
+import FotoViewer from "@/components/FotoViewer";
 
 type DocType = "id-voor" | "id-achter" | "bankpas";
 
@@ -238,51 +239,22 @@ export default function DocumentenUploaden({ onCompletheid }: Props) {
         </p>
       )}
 
-      {/* Fullscreen viewer — blijft binnen de PWA, sluit-knop bovenaan.
-          Voorkomt dat 'Bekijken' de gebruiker naar Safari schiet zonder
-          terug-knop. */}
-      {bekijkId !== null && (
-        <div
-          className="fixed inset-0 z-50 flex flex-col"
-          style={{ background: "rgba(0,0,0,0.92)" }}
-          onClick={() => setBekijkId(null)}
-        >
-          <div
-            className="flex items-center justify-between px-4 py-3"
-            style={{ paddingTop: "calc(0.75rem + env(safe-area-inset-top))" }}
-          >
-            <span className="text-[13px] font-medium" style={{ color: "rgba(255,255,255,0.85)" }}>
-              Document #{bekijkId}
-            </span>
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); setBekijkId(null); }}
-              className="w-10 h-10 rounded-full flex items-center justify-center text-[20px]"
-              style={{ background: "rgba(255,255,255,0.15)", color: "#fff" }}
-              aria-label="Sluiten"
-            >
-              ✕
-            </button>
-          </div>
-          <div
-            className="flex-1 flex items-center justify-center p-4 overflow-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <img
-              src={`/api/medewerker/document/${bekijkId}/inhoud`}
-              alt="Document"
-              className="max-w-full max-h-full object-contain rounded-lg"
-              style={{ touchAction: "manipulation" }}
-            />
-          </div>
-          <p
-            className="text-center pb-4 text-[11px]"
-            style={{ color: "rgba(255,255,255,0.5)", paddingBottom: "calc(1rem + env(safe-area-inset-bottom))" }}
-          >
-            Tik buiten de foto of op ✕ om te sluiten
-          </p>
-        </div>
-      )}
+      {/* Fullscreen viewer — shared sci-fi component met pinch-zoom + ESC. */}
+      <FotoViewer
+        documentId={bekijkId}
+        onClose={() => setBekijkId(null)}
+        meta={(() => {
+          const doc = docs.find((d) => d.id === bekijkId);
+          if (!doc) return undefined;
+          return {
+            type: doc.type,
+            uploadDatum: new Date(doc.geuploadOp).toLocaleString("nl-NL", {
+              dateStyle: "medium",
+              timeStyle: "short",
+            }),
+          };
+        })()}
+      />
     </div>
   );
 }
