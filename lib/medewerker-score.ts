@@ -2,18 +2,18 @@
  * Medewerker-leaderboard scoring.
  *
  * Score per medewerker over een venster (default: laatste 30 dagen):
- *   - Reviews-component: som van sterren van reviews op dagen waarop de
- *     medewerker op rooster stond in dat bedrijf. Eén review op een dag
- *     met 3 mensen telt voor alle 3. "Hele team wint."
- *   - Omzet-component: omzet/uur tijdens shifts, vergeleken met team-gemiddelde
- *     in datzelfde bedrijf in dezelfde periode. Beloont productieve uren.
+ *   - Reviews-component: persoonlijke review-referrals via eigen QR.
+ *     Status 'scan' = 1 punt, 'google'|'tripadvisor' (doorklik) = 5 punten.
+ *     Volledig persoonlijk — geen team-attributie.
+ *   - Omzet-component: omzet/uur tijdens shifts, vergeleken met team-
+ *     gemiddelde in datzelfde bedrijf in dezelfde periode.
  *
  * Eindscore = reviews-bijdrage (0-50) + omzet-bijdrage (0-50). 0-100 totaal.
- * Normalisatie tov de beste in het team — dus iemand is "100" alleen
- * als ze in beide componenten bovenaan staan.
+ * Normalisatie tov de beste in het team — iemand is "100" alleen als ze
+ * in beide componenten bovenaan staan.
  */
 import { db } from "@/lib/db/client";
-import { medewerkers, medewerkerDepartments, departments, rosters, feedbackReviews, sumupTransacties, zettleTransacties } from "@/lib/db/schema";
+import { medewerkers, medewerkerDepartments, departments, rosters, reviewReferrals, sumupTransacties, zettleTransacties } from "@/lib/db/schema";
 import { and, eq, gte, lte, sql } from "drizzle-orm";
 import { format, subDays } from "date-fns";
 
@@ -101,56 +101,55 @@ export async function berekenLeaderboard(opts: BerekenOpties): Promise<ScoreRij[
     set.add(s.datum);
   }
 
-  // 4) Reviews in venster, niet-verborgen, per datum
-  const reviewRijen = await db
-    .select({ datum: feedbackReviews.datum, sterren: feedbackReviews.sterren })
-    .from(feedbackReviews)
+  // 4) Persoonlijke review-referrals per medewerker in venster
+  const referralRijen = await db
+    .select({
+      medewerkerId: reviewReferrals.medewerkerId,
+      status: reviewReferrals.status,
+    })
+    .from(reviewReferrals)
     .where(
       and(
-        eq(feedbackReviews.bedrijfSlug, opts.bedrijfSlug),
-        eq(feedbackReviews.verborgen, false),
-        gte(feedbackReviews.datum, vanStr),
-        lte(feedbackReviews.datum, totStr),
+        eq(reviewReferrals.bedrijfSlug, opts.bedrijfSlug),
+        gte(reviewReferrals.datum, vanStr),
+        lte(reviewReferrals.datum, totStr),
       ),
     );
 
-  const reviewsPerDatum = new Map<string, number[]>();
-  for (const r of reviewRijen) {
-    let arr = reviewsPerDatum.get(r.datum);
-    if (!arr) { arr = []; reviewsPerDatum.set(r.datum, arr); }
-    arr.push(r.sterren);
+  // Per medewerker: aantal scans + doorkliks naar Google/Trip
+  const referralsPerMedewerker = new Map<number, { scans: number; klikken: number }>();
+  for (const r of referralRijen) {
+    let s = referralsPerMedewerker.get(r.medewerkerId);
+    if (!s) { s = { scans: 0, klikken: 0 }; referralsPerMedewerker.set(r.medewerkerId, s); }
+    s.scans += 1;
+    if (r.status !== "scan") s.klikken += 1;
   }
 
   // 5) Omzet per datum (SumUp + Zettle, alleen non-refunds, gesommeerd)
   const omzetPerDatum = await omzetPerDag(opts.bedrijfSlug, vanStr, totStr);
 
-  // 6) Voor elke medewerker: aggregeer reviews + omzet over hun shift-dagen
+  // 6) Voor elke medewerker: aggregeer referrals + omzet/uur
   const ruw: Array<Omit<ScoreRij, "reviewsBijdrage" | "omzetBijdrage" | "totaalScore" | "rang">> = [];
   for (const m of team) {
     const dagen = dagenPerMedewerker.get(m.id) ?? new Set<string>();
     const uren = urenPerMedewerker.get(m.id) ?? 0;
-    let reviewsPunten = 0;
-    let reviewsAantal = 0;
-    let sterrenSom = 0;
     let omzetSom = 0;
     dagen.forEach((d) => {
-      const reviews = reviewsPerDatum.get(d) ?? [];
-      reviewsAantal += reviews.length;
-      for (const s of reviews) { reviewsPunten += s; sterrenSom += s; }
       omzetSom += omzetPerDatum.get(d) ?? 0;
     });
+    const refs = referralsPerMedewerker.get(m.id) ?? { scans: 0, klikken: 0 };
+    // Klik telt 5x zoveel als kale scan (klant ging écht reviewen)
+    const reviewsPunten = refs.scans + refs.klikken * 4;
     const omzetPerUur = uren > 0 ? omzetSom / uren : 0;
-    const gemSterren = reviewsAantal > 0 ? sterrenSom / reviewsAantal : null;
     ruw.push({
       medewerkerId: m.id,
       voornaam: m.voornaam,
       achternaam: m.achternaam,
       reviewsPunten,
-      reviewsAantal,
-      gemSterren,
+      reviewsAantal: refs.scans,
+      gemSterren: null,
       omzetPerUur,
       gewerkteUren: uren,
-      // Iemand zonder shifts heeft geen attributie — behouden voor zichtbaarheid
     });
   }
 

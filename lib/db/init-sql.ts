@@ -316,10 +316,41 @@ const MIGRATIE_0009: Migratie = {
   ],
 };
 
+/**
+ * Migratie 0010: review_referrals tabel + review-deeplinks per
+ * department. Vervangt de team-attributie via feedback_reviews door
+ * persoonlijke QR's per medewerker.
+ */
+const MIGRATIE_0010: Migratie = {
+  naam: "0010_review_referrals",
+  statements: [
+    `ALTER TABLE "departments"
+       ADD COLUMN IF NOT EXISTS "google_review_url" text`,
+    `ALTER TABLE "departments"
+       ADD COLUMN IF NOT EXISTS "tripadvisor_review_url" text`,
+    `CREATE TABLE IF NOT EXISTS "review_referrals" (
+       "id"              serial PRIMARY KEY,
+       "medewerker_id"   integer NOT NULL REFERENCES "medewerkers"("id") ON DELETE CASCADE,
+       "bedrijf_slug"    varchar(8) NOT NULL,
+       "datum"           date NOT NULL,
+       "status"          varchar(16) NOT NULL DEFAULT 'scan',
+       "ip_hash"         varchar(64),
+       "user_agent"      varchar(200),
+       "geregistreerd_op" timestamptz NOT NULL DEFAULT now()
+     )`,
+    `CREATE INDEX IF NOT EXISTS "review_referrals_medewerker_datum_idx"
+       ON "review_referrals" ("medewerker_id", "datum")`,
+    `CREATE INDEX IF NOT EXISTS "review_referrals_bedrijf_datum_idx"
+       ON "review_referrals" ("bedrijf_slug", "datum")`,
+    `CREATE INDEX IF NOT EXISTS "review_referrals_recent_idx"
+       ON "review_referrals" ("geregistreerd_op")`,
+  ],
+};
+
 const ALLE_MIGRATIES: Migratie[] = [
   MIGRATIE_0001, MIGRATIE_0002, MIGRATIE_0003, MIGRATIE_0004,
   MIGRATIE_0005, MIGRATIE_0006, MIGRATIE_0007, MIGRATIE_0008,
-  MIGRATIE_0009,
+  MIGRATIE_0009, MIGRATIE_0010,
 ];
 
 async function voerMigratieUit(m: Migratie): Promise<DbInitResultaat> {

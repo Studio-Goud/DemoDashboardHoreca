@@ -26,6 +26,12 @@ export const departments = pgTable("departments", {
   // Voor migratie van Shiftbase
   shiftbaseDepartmentId: varchar("shiftbase_department_id", { length: 32 }),
   shiftbaseTeamId:       varchar("shiftbase_team_id",       { length: 32 }),
+  // Review-deeplinks per platform — owner vult in via /[bedrijf]/instellingen.
+  // Voorbeelden:
+  //   googleReviewUrl: "https://search.google.com/local/writereview?placeid=ChIJ..."
+  //   tripadvisorReviewUrl: "https://www.tripadvisor.com/UserReviewEdit-g188590-d..."
+  googleReviewUrl:      text("google_review_url"),
+  tripadvisorReviewUrl: text("tripadvisor_review_url"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -465,12 +471,33 @@ export const voorraadProductenRelations = relations(voorraadProducten, ({ one })
   status: one(voorraadStatus, { fields: [voorraadProducten.id], references: [voorraadStatus.productId] }),
 }));
 
+// ─── Review-referrals ────────────────────────────────────────────────────────
+// Elke medewerker heeft een persoonlijke roterende QR (HMAC over
+// medewerker-id + datum). Klant scant → /r/{token} → wij loggen 1 referral
+// + redirect naar Google/TripAdvisor review-URL. Score-leaderboard telt
+// referrals per medewerker.
+//
+// Twee rijen per scan: één "scan" (klant landde op interstitial) en
+// optioneel één "click" (klant klikte daadwerkelijk door naar Google/Trip).
+// Status = 'scan' bij landing, 'google'|'tripadvisor' bij doorklik.
+export const reviewReferrals = pgTable("review_referrals", {
+  id: serial("id").primaryKey(),
+  medewerkerId: integer("medewerker_id").notNull().references(() => medewerkers.id, { onDelete: "cascade" }),
+  bedrijfSlug: varchar("bedrijf_slug", { length: 8 }).notNull(),
+  datum: date("datum").notNull(),                // datum van de QR-token (UTC)
+  status: varchar("status", { length: 16 }).notNull().default("scan"), // 'scan' | 'google' | 'tripadvisor'
+  ipHash: varchar("ip_hash", { length: 64 }),
+  userAgent: varchar("user_agent", { length: 200 }),
+  geregistreerdOp: timestamp("geregistreerd_op", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  medewerkerDatumIdx: index("review_referrals_medewerker_datum_idx").on(t.medewerkerId, t.datum),
+  bedrijfDatumIdx: index("review_referrals_bedrijf_datum_idx").on(t.bedrijfSlug, t.datum),
+  recentIdx: index("review_referrals_recent_idx").on(t.geregistreerdOp),
+}));
+
 // ─── Feedback reviews ────────────────────────────────────────────────────────
-// Klanten scannen een dag-QR aan tafel/op de bon → invullen op
-// /feedback/[bedrijf]?d=YYYY-MM-DD. Review krijgt geen medewerker-FK; de
-// score-berekening attribueert reviews aan het hele team dat die datum op
-// rooster stond (rosters.datum). Rate-limit op ipHash om review-spam tegen
-// te gaan.
+// (Deprecated — gebruikt door eerste experimentele team-QR aanpak. Tabel
+// blijft staan voor historische data; nieuwe flow gebruikt reviewReferrals.)
 export const feedbackReviews = pgTable("feedback_reviews", {
   id: serial("id").primaryKey(),
   bedrijfSlug: varchar("bedrijf_slug", { length: 8 }).notNull(),
@@ -504,3 +531,5 @@ export type VoorraadProduct = typeof voorraadProducten.$inferSelect;
 export type VoorraadStatus  = typeof voorraadStatus.$inferSelect;
 export type FeedbackReview  = typeof feedbackReviews.$inferSelect;
 export type NieuweFeedbackReview = typeof feedbackReviews.$inferInsert;
+export type ReviewReferral = typeof reviewReferrals.$inferSelect;
+export type NieuweReviewReferral = typeof reviewReferrals.$inferInsert;

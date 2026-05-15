@@ -31,7 +31,8 @@ type IconName =
   | "circle-dot"
   | "lock"
   | "log-out"
-  | "globe";
+  | "globe"
+  | "qr-code";
 
 interface Props {
   name: IconName;
@@ -221,6 +222,18 @@ const PATHS: Record<IconName, React.ReactNode> = {
       <circle cx="12" cy="12" r="10" />
       <line x1="2" y1="12" x2="22" y2="12" />
       <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+    </>
+  ),
+  "qr-code": (
+    <>
+      <rect x="3" y="3" width="7" height="7" />
+      <rect x="14" y="3" width="7" height="7" />
+      <rect x="3" y="14" width="7" height="7" />
+      <line x1="14" y1="14" x2="14" y2="17" />
+      <line x1="17" y1="14" x2="17" y2="14" />
+      <line x1="20" y1="14" x2="20" y2="20" />
+      <line x1="14" y1="20" x2="20" y2="20" />
+      <line x1="14" y1="17" x2="17" y2="17" />
     </>
   ),
 };

@@ -8,7 +8,7 @@
  * Phase A: alleen tonen. Phase C (toekomst): rooster-auto.ts gewicht.
  */
 import { db } from "@/lib/db/client";
-import { medewerkers, medewerkerDepartments, departments, rosters, feedbackReviews, sumupTransacties, zettleTransacties } from "@/lib/db/schema";
+import { medewerkers, departments, rosters, reviewReferrals, sumupTransacties, zettleTransacties } from "@/lib/db/schema";
 import { and, eq, gte, lte, sql } from "drizzle-orm";
 import { format, subDays } from "date-fns";
 
@@ -75,36 +75,40 @@ export async function berekenCombinaties(opts: BerekenOpties): Promise<CombiRij[
     arr.push(s);
   }
 
-  // Reviews per datum
-  const reviewRijen = await db
-    .select({ datum: feedbackReviews.datum, sterren: feedbackReviews.sterren })
-    .from(feedbackReviews)
+  // Review-referrals per (medewerker, datum) — persoonlijk
+  const refRijen = await db
+    .select({
+      medewerkerId: reviewReferrals.medewerkerId,
+      datum: reviewReferrals.datum,
+      status: reviewReferrals.status,
+    })
+    .from(reviewReferrals)
     .where(and(
-      eq(feedbackReviews.bedrijfSlug, opts.bedrijfSlug),
-      eq(feedbackReviews.verborgen, false),
-      gte(feedbackReviews.datum, vanStr),
-      lte(feedbackReviews.datum, totStr),
+      eq(reviewReferrals.bedrijfSlug, opts.bedrijfSlug),
+      gte(reviewReferrals.datum, vanStr),
+      lte(reviewReferrals.datum, totStr),
     ));
-  const reviewsPerDatum = new Map<string, number[]>();
-  for (const r of reviewRijen) {
-    let arr = reviewsPerDatum.get(r.datum);
-    if (!arr) { arr = []; reviewsPerDatum.set(r.datum, arr); }
-    arr.push(r.sterren);
+  // Per (medewerker, datum) → punten (scan=1, klik=5)
+  const puntenPerMD = new Map<string, number>();
+  for (const r of refRijen) {
+    const key = `${r.medewerkerId}|${r.datum}`;
+    const punten = r.status === "scan" ? 1 : 5;
+    puntenPerMD.set(key, (puntenPerMD.get(key) ?? 0) + punten);
   }
 
   // Omzet per dag
   const omzetPerDatum = await omzetPerDag(opts.bedrijfSlug, vanStr, totStr);
 
-  // Voor elk paar in elke dag: accumuleer shifts, reviews, omzet
+  // Voor elk paar in elke dag: accumuleer shifts, review-punten, omzet
   type PaarKey = string; // "aId-bId" met aId < bId
   const paarStats = new Map<PaarKey, {
     aId: number; bId: number; aNaam: string; bNaam: string;
-    shifts: number; reviews: number[]; omzet: number; uren: number;
+    shifts: number; reviewPunten: number; reviewAantal: number;
+    omzet: number; uren: number;
   }>();
 
   shiftsPerDatum.forEach((dagShifts, datum) => {
     if (dagShifts.length < 2) return;
-    const dagReviews = reviewsPerDatum.get(datum) ?? [];
     const dagOmzet = omzetPerDatum.get(datum) ?? 0;
     const teamUrenDag = dagShifts.reduce(
       (s: number, sh: typeof dagShifts[number]) => s + berekenShiftUren(sh.start, sh.eind, sh.pauzeMin),
@@ -122,12 +126,17 @@ export async function berekenCombinaties(opts: BerekenOpties): Promise<CombiRij[
             bId: b.medewerkerId,
             aNaam: `${a.voornaam} ${a.achternaam}`,
             bNaam: `${b.voornaam} ${b.achternaam}`,
-            shifts: 0, reviews: [], omzet: 0, uren: 0,
+            shifts: 0, reviewPunten: 0, reviewAantal: 0, omzet: 0, uren: 0,
           };
           paarStats.set(key, stat);
         }
         stat.shifts += 1;
-        stat.reviews.push(...dagReviews);
+        // Som review-punten van beide medewerkers op deze datum
+        const punA = puntenPerMD.get(`${a.medewerkerId}|${datum}`) ?? 0;
+        const punB = puntenPerMD.get(`${b.medewerkerId}|${datum}`) ?? 0;
+        stat.reviewPunten += punA + punB;
+        if (punA > 0) stat.reviewAantal += 1;
+        if (punB > 0) stat.reviewAantal += 1;
         const aUren = berekenShiftUren(a.start, a.eind, a.pauzeMin);
         const bUren = berekenShiftUren(b.start, b.eind, b.pauzeMin);
         const overlap = Math.min(aUren, bUren);
@@ -143,27 +152,25 @@ export async function berekenCombinaties(opts: BerekenOpties): Promise<CombiRij[
 
   // Compose CombiRij + z-scores
   const omzetUur = rijenRuw.map((s) => s.uren > 0 ? s.omzet / s.uren : 0);
-  const sterren = rijenRuw.map((s) => s.reviews.length > 0
-    ? s.reviews.reduce((a, b) => a + b, 0) / s.reviews.length
-    : 0);
+  const reviewsPerShift = rijenRuw.map((s) => s.shifts > 0 ? s.reviewPunten / s.shifts : 0);
   const meanOmzet = mean(omzetUur);
   const sdOmzet = stdDev(omzetUur, meanOmzet);
-  const meanSterren = mean(sterren);
-  const sdSterren = stdDev(sterren, meanSterren);
+  const meanReviews = mean(reviewsPerShift);
+  const sdReviews = stdDev(reviewsPerShift, meanReviews);
 
   const rijen: CombiRij[] = rijenRuw.map((s, i) => {
     const zOmzet = sdOmzet > 0 ? (omzetUur[i] - meanOmzet) / sdOmzet : 0;
-    const zSterren = sdSterren > 0 && s.reviews.length > 0 ? (sterren[i] - meanSterren) / sdSterren : 0;
+    const zReviews = sdReviews > 0 ? (reviewsPerShift[i] - meanReviews) / sdReviews : 0;
     // Combinatie-z: 60% reviews, 40% omzet (klant-signaal weegt zwaarder)
-    const zScore = (zSterren * 0.6) + (zOmzet * 0.4);
+    const zScore = (zReviews * 0.6) + (zOmzet * 0.4);
     return {
       aId: s.aId,
       bId: s.bId,
       aNaam: s.aNaam,
       bNaam: s.bNaam,
       shiftsSamen: s.shifts,
-      reviewsAantal: s.reviews.length,
-      gemSterren: s.reviews.length > 0 ? sterren[i] : null,
+      reviewsAantal: s.reviewAantal,
+      gemSterren: null,
       omzetPerUur: omzetUur[i],
       zScore,
     };

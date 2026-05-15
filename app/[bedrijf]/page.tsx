@@ -19,7 +19,7 @@ import FeestdagVergelijking from "@/components/FeestdagVergelijking";
 import KomendeFeestdagAlert from "@/components/KomendeFeestdagAlert";
 import MedewerkerLeaderboard from "@/components/MedewerkerLeaderboard";
 import TeamCombinaties from "@/components/TeamCombinaties";
-import ReviewsBeheer from "@/components/ReviewsBeheer";
+import ReviewKanalenConfig from "@/components/ReviewKanalenConfig";
 import Reveal from "@/components/sf/Reveal";
 import CruiseAgenda from "@/components/CruiseAgenda";
 import WeerImpact from "@/components/WeerImpact";
@@ -405,7 +405,7 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
           <SalarisPanel bedrijf={config.slug} hex={config.hex} />
           <PersoneelPrestaties bedrijf={config.slug} hex={config.hex} />
           <TeamCombinaties bedrijfSlug={config.slug} hex={config.hex} />
-          <ReviewsBeheer bedrijfSlug={config.slug} hex={config.hex} />
+          <ReviewKanalenConfig bedrijfSlug={config.slug} hex={config.hex} />
           <BedrijfsInstellingen bedrijf={config.slug} hex={config.hex} />
           <InleenDoorberekening hex={config.hex} filterSlug={config.slug} />
           <VoorraadAfrekening hex={config.hex} filterSlug={config.slug} />

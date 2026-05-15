@@ -14,6 +14,7 @@ interface Props {
 const TABS = [
   { href: "/m",                 tKey: "tab.schedule",   icon: "calendar-clock" as const },
   { href: "/m/klok",            tKey: "clock.in",       icon: "clock"          as const },
+  { href: "/m/qr",              tKey: "tab.qr",         icon: "qr-code"        as const },
   { href: "/m/beschikbaarheid", tKey: "availability.free", icon: "calendar"    as const },
   { href: "/m/uren",            tKey: "tab.hours",      icon: "wallet"         as const },
 ];
