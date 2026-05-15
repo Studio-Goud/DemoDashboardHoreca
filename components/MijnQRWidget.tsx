@@ -6,7 +6,8 @@
  * pulse-animatie. Motiverend: zie direct dat je scan werkt.
  */
 import { useEffect, useRef, useState } from "react";
-import { Heart, Star, Share2 } from "lucide-react";
+import { Heart, Star, Share2, ExternalLink, MousePointerClick, ChevronRight } from "lucide-react";
+import DetailSheet from "./sf/DetailSheet";
 
 interface Props {
   voornaam: string;
@@ -15,15 +16,37 @@ interface Props {
   qrSvg: string;
 }
 
+interface ReviewEvent {
+  id: number;
+  status: string;
+  geregistreerdOp: string;
+}
+
 interface ClickInfo {
   scans: number;
   klikken: number;
   laatste: { status: string; geregistreerdOp: string } | null;
+  events?: ReviewEvent[];
+}
+
+function relTijd(iso: string): string {
+  const sec = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
+  if (sec < 60) return "zojuist";
+  if (sec < 3600) return `${Math.floor(sec / 60)} min geleden`;
+  return `${Math.floor(sec / 3600)}u ${Math.floor((sec % 3600) / 60)}m geleden`;
+}
+
+function statusLabel(status: string): { label: string; kleur: string; icon: typeof Share2 } {
+  if (status === "scan") return { label: "Gescand", kleur: "var(--muted)", icon: Share2 };
+  if (status === "klik") return { label: "Doorgeklikt naar Google", kleur: "var(--sf-accent)", icon: MousePointerClick };
+  if (status === "review_bevestigd") return { label: "Review geplaatst", kleur: "var(--sf-success)", icon: Star };
+  return { label: status, kleur: "var(--muted)", icon: ExternalLink };
 }
 
 export default function MijnQRWidget({ voornaam, datum, url, qrSvg }: Props) {
   const [info, setInfo] = useState<ClickInfo>({ scans: 0, klikken: 0, laatste: null });
   const [pulse, setPulse] = useState(false);
+  const [sheet, setSheet] = useState<null | "scans" | "klikken">(null);
   const laatsteIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -116,7 +139,12 @@ export default function MijnQRWidget({ voornaam, datum, url, qrSvg }: Props) {
       </div>
 
       <div className="grid grid-cols-2 gap-3 max-w-sm mx-auto w-full">
-        <div className="card text-center">
+        <button
+          type="button"
+          onClick={() => info.scans > 0 && setSheet("scans")}
+          disabled={info.scans === 0}
+          className="card text-center transition-transform active:scale-[0.98] enabled:hover:brightness-110 disabled:cursor-default relative"
+        >
           <div className="flex items-center justify-center gap-1 mb-1">
             <Share2 size={11} style={{ color: "var(--muted)" }} />
             <p className="font-mono text-[9px] tracking-wider uppercase" style={{ color: "var(--muted)" }}>
@@ -129,12 +157,18 @@ export default function MijnQRWidget({ voornaam, datum, url, qrSvg }: Props) {
           >
             {info.scans}
           </p>
-        </div>
-        <div
-          className="card text-center"
+          {info.scans > 0 && (
+            <ChevronRight size={12} className="absolute top-2 right-2 opacity-40" />
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={() => info.klikken > 0 && setSheet("klikken")}
+          disabled={info.klikken === 0}
+          className="card text-center transition-transform active:scale-[0.98] enabled:hover:brightness-110 disabled:cursor-default relative"
           style={{
             background: pulse ? "rgba(0,229,255,0.1)" : undefined,
-            transition: "background 0.6s ease-out",
+            transition: "background 0.6s ease-out, transform 0.15s",
           }}
         >
           <div className="flex items-center justify-center gap-1 mb-1">
@@ -153,8 +187,68 @@ export default function MijnQRWidget({ voornaam, datum, url, qrSvg }: Props) {
           >
             {info.klikken}
           </p>
-        </div>
+          {info.klikken > 0 && (
+            <ChevronRight size={12} className="absolute top-2 right-2 opacity-40" />
+          )}
+        </button>
       </div>
+
+      <DetailSheet
+        open={sheet !== null}
+        onClose={() => setSheet(null)}
+        titel={sheet === "scans" ? "Alle scans vandaag" : "Reviews onderweg"}
+        subtitel={sheet === "scans"
+          ? `${info.scans} klant${info.scans === 1 ? "" : "en"} scanden je QR · ${datum}`
+          : `${info.klikken} klant${info.klikken === 1 ? "" : "en"} klikte${info.klikken === 1 ? "" : "n"} door naar Google · ${datum}`}
+        hex="var(--sf-accent, #00E5FF)"
+      >
+        {(() => {
+          const lijst = (info.events ?? []).filter(
+            (e) => sheet === "scans" || e.status !== "scan"
+          );
+          if (lijst.length === 0) {
+            return (
+              <p className="text-[13px] text-center py-8" style={{ color: "var(--muted)" }}>
+                Nog niets om te tonen. Houd de QR aan tafel — zodra er gescand wordt zie je 't hier.
+              </p>
+            );
+          }
+          return (
+            <div className="space-y-2">
+              {lijst.map((e) => {
+                const meta = statusLabel(e.status);
+                const Icon = meta.icon;
+                return (
+                  <div
+                    key={e.id}
+                    className="flex items-center gap-3 p-3 rounded-xl"
+                    style={{ border: "1px solid var(--sf-hairline)" }}
+                  >
+                    <div
+                      className="w-9 h-9 shrink-0 rounded-full flex items-center justify-center"
+                      style={{ background: `${meta.kleur}15`, color: meta.kleur }}
+                    >
+                      <Icon size={14} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-medium" style={{ color: "var(--text)" }}>
+                        {meta.label}
+                      </p>
+                      <p className="font-mono text-[10px]" style={{ color: "var(--muted)" }}>
+                        {relTijd(e.geregistreerdOp)}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+              <p className="text-[11px] mt-3 text-center" style={{ color: "var(--muted)" }}>
+                We zien niet de inhoud van reviews — alleen dat er doorgeklikt is naar Google.
+                Of de klant daadwerkelijk een review achterlaat ligt buiten onze meting.
+              </p>
+            </div>
+          );
+        })()}
+      </DetailSheet>
 
       <div className="max-w-sm mx-auto w-full">
         <button

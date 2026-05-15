@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Icon from "./Icon";
 import { useTaal } from "@/lib/i18n/TaalProvider";
+import DetailSheet from "./sf/DetailSheet";
 
 interface BedrijfRij {
   slug: "bb" | "sl" | "kl";
@@ -70,6 +71,7 @@ export default function ManagerDoelTracker({ eigen, hex }: Props) {
   const { t } = useTaal();
   const [rij, setRij] = useState<BedrijfRij | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sheet, setSheet] = useState<null | "dag" | "week">(null);
 
   useEffect(() => {
     async function laden() {
@@ -121,7 +123,11 @@ export default function ManagerDoelTracker({ eigen, hex }: Props) {
 
       <div className="grid grid-cols-2 gap-4">
         {/* Dag-doel */}
-        <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => setSheet("dag")}
+          className="flex items-center gap-3 hover:bg-white/[0.02] transition-colors -mx-2 px-2 py-1 rounded-lg text-left"
+        >
           <Ring pct={dagPct} hex={hex} label={t("manager.target_today")} />
           <div className="min-w-0">
             <p className="eyebrow">{t("manager.goal_day")}</p>
@@ -141,10 +147,14 @@ export default function ManagerDoelTracker({ eigen, hex }: Props) {
               </p>
             )}
           </div>
-        </div>
+        </button>
 
         {/* Week-doel */}
-        <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => setSheet("week")}
+          className="flex items-center gap-3 hover:bg-white/[0.02] transition-colors -mx-2 px-2 py-1 rounded-lg text-left"
+        >
           <Ring pct={weekPct} hex={hex} label={t("manager.this_week_label")} />
           <div className="min-w-0">
             <p className="eyebrow">{t("manager.goal_week")}</p>
@@ -164,8 +174,122 @@ export default function ManagerDoelTracker({ eigen, hex }: Props) {
               </p>
             )}
           </div>
+        </button>
+      </div>
+
+      <DetailSheet
+        open={sheet !== null}
+        onClose={() => setSheet(null)}
+        titel={sheet === "dag" ? "Dagdoel" : "Weekdoel"}
+        subtitel={sheet === "dag" ? "Verwachte omzet op basis van historische curve" : "Vorige week + 5% groei-ambitie"}
+        hex={hex}
+      >
+        {sheet === "dag" ? (
+          <DoelDetail
+            hex={hex}
+            label="Vandaag"
+            huidig={rij.vandaag.omzet}
+            doel={dagDoel}
+            pct={dagPct}
+            teGaan={dagTeGaan}
+            extra={`Verwacht is gebaseerd op gem. omzet van dezelfde weekdag in de laatste 8 weken (exclusief feestdagen).`}
+            txs={rij.vandaag.txs}
+          />
+        ) : sheet === "week" ? (
+          <DoelDetail
+            hex={hex}
+            label="Deze week"
+            huidig={rij.dezeWeek.omzet}
+            doel={weekDoel}
+            pct={weekPct}
+            teGaan={weekTeGaan}
+            extra={`Doel = vorige week (${fmtEur(rij.vorigeWeek.omzet)}) × 1.05 — ambitie om elke week 5% beter te doen.`}
+            txs={rij.dezeWeek.txs}
+            vergelijking={{ label: "vorige week", waarde: rij.vorigeWeek.omzet, groei: rij.groei.tovVorigeWeek }}
+          />
+        ) : null}
+      </DetailSheet>
+    </div>
+  );
+}
+
+function DoelDetail({
+  hex,
+  label,
+  huidig,
+  doel,
+  pct,
+  teGaan,
+  extra,
+  txs,
+  vergelijking,
+}: {
+  hex: string;
+  label: string;
+  huidig: number;
+  doel: number;
+  pct: number;
+  teGaan: number;
+  extra: string;
+  txs: number;
+  vergelijking?: { label: string; waarde: number; groei: number };
+}) {
+  const haald = pct >= 1;
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl p-4" style={{ background: `${hex}10`, border: `1px solid ${hex}30` }}>
+        <p className="font-mono text-[9px] tracking-[0.18em] uppercase mb-1" style={{ color: hex }}>
+          {label}
+        </p>
+        <p
+          className="font-display text-[36px] font-semibold tabular-nums leading-none"
+          style={{ color: haald ? "#30B26F" : hex, letterSpacing: "-0.018em" }}
+        >
+          {Math.round(pct * 100)}%
+        </p>
+        <p className="font-mono text-[11px] mt-2" style={{ color: "var(--muted)" }}>
+          {fmtEur(huidig)} / {fmtEur(doel)} · {txs.toLocaleString("nl-NL")} transacties
+        </p>
+        <div className="mt-3 h-2 rounded-full overflow-hidden" style={{ background: "var(--sf-hairline)" }}>
+          <div
+            className="h-full rounded-full transition-all"
+            style={{ width: `${Math.min(100, pct * 100)}%`, background: haald ? "#30B26F" : hex }}
+          />
         </div>
       </div>
+
+      <div className="rounded-xl p-3" style={{ border: "1px solid var(--sf-hairline)" }}>
+        <p className="font-mono text-[9px] tracking-wider uppercase mb-1" style={{ color: "var(--muted)" }}>
+          Status
+        </p>
+        {haald ? (
+          <p className="text-[13px]" style={{ color: "#30B26F" }}>
+            ✓ Doel behaald — overschreden met {fmtEur(huidig - doel)}.
+          </p>
+        ) : (
+          <p className="text-[13px]" style={{ color: "var(--text)" }}>
+            Nog <strong style={{ color: hex }}>{fmtEur(teGaan)}</strong> tot het doel.
+          </p>
+        )}
+      </div>
+
+      {vergelijking && (
+        <div className="rounded-xl p-3" style={{ border: "1px solid var(--sf-hairline)" }}>
+          <p className="font-mono text-[9px] tracking-wider uppercase mb-1" style={{ color: "var(--muted)" }}>
+            Vergelijking
+          </p>
+          <p className="text-[13px]" style={{ color: "var(--text)" }}>
+            T.o.v. <strong>{vergelijking.label}</strong> ({fmtEur(vergelijking.waarde)}):{" "}
+            <span style={{ color: vergelijking.groei > 0 ? "var(--sf-success)" : vergelijking.groei < 0 ? "var(--sf-danger)" : "var(--muted)" }}>
+              {vergelijking.groei > 0 ? "+" : ""}{vergelijking.groei}%
+            </span>
+          </p>
+        </div>
+      )}
+
+      <p className="text-[11px]" style={{ color: "var(--muted)" }}>
+        {extra}
+      </p>
     </div>
   );
 }

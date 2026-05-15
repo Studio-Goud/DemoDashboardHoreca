@@ -7,8 +7,9 @@
  * op aangepast — dat is bewust een handmatige beslissing (Phase A).
  */
 import { useEffect, useState } from "react";
-import { Users, TrendingUp, TrendingDown, Star, Loader2 } from "lucide-react";
+import { Users, TrendingUp, TrendingDown, Star, Loader2, ChevronRight } from "lucide-react";
 import type { CombiRij } from "@/lib/team-combinaties";
+import DetailSheet from "./sf/DetailSheet";
 
 interface Props {
   bedrijfSlug: string;
@@ -18,6 +19,7 @@ interface Props {
 export default function TeamCombinaties({ bedrijfSlug, hex }: Props) {
   const [rijen, setRijen] = useState<CombiRij[] | null>(null);
   const [fout, setFout] = useState<string | null>(null);
+  const [actief, setActief] = useState<{ rij: CombiRij; kleur: string } | null>(null);
 
   useEffect(() => {
     let actief = true;
@@ -83,7 +85,14 @@ export default function TeamCombinaties({ bedrijfSlug, hex }: Props) {
             </p>
           </div>
           <div className="space-y-1.5">
-            {beste.map((r) => <Rij key={`${r.aId}-${r.bId}`} r={r} hex="var(--sf-accent, #00E5FF)" />)}
+            {beste.map((r) => (
+              <Rij
+                key={`${r.aId}-${r.bId}`}
+                r={r}
+                hex="var(--sf-accent, #00E5FF)"
+                onClick={() => setActief({ rij: r, kleur: "var(--sf-accent, #00E5FF)" })}
+              />
+            ))}
           </div>
         </section>
       )}
@@ -97,20 +106,41 @@ export default function TeamCombinaties({ bedrijfSlug, hex }: Props) {
             </p>
           </div>
           <div className="space-y-1.5">
-            {slechtste.map((r) => <Rij key={`${r.aId}-${r.bId}`} r={r} hex="var(--sf-danger, #FF3D5C)" />)}
+            {slechtste.map((r) => (
+              <Rij
+                key={`${r.aId}-${r.bId}`}
+                r={r}
+                hex="var(--sf-danger, #FF3D5C)"
+                onClick={() => setActief({ rij: r, kleur: "var(--sf-danger, #FF3D5C)" })}
+              />
+            ))}
           </div>
           <p className="text-[11px] mt-2" style={{ color: "var(--muted)" }}>
             Tip: overweeg om deze duo's minder vaak samen in te roosteren — splitsen kan een nieuwe dynamiek geven.
           </p>
         </section>
       )}
+
+      <DetailSheet
+        open={actief !== null}
+        onClose={() => setActief(null)}
+        titel={actief ? `${actief.rij.aNaam} + ${actief.rij.bNaam}` : ""}
+        subtitel={actief ? `${actief.rij.shiftsSamen} gezamenlijke shifts · laatste 60 dagen` : ""}
+        hex={actief?.kleur ?? hex}
+      >
+        {actief && <CombiDetail rij={actief.rij} kleur={actief.kleur} />}
+      </DetailSheet>
     </div>
   );
 }
 
-function Rij({ r, hex }: { r: CombiRij; hex: string }) {
+function Rij({ r, hex, onClick }: { r: CombiRij; hex: string; onClick: () => void }) {
   return (
-    <div className="flex items-center gap-3 py-1.5">
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center gap-3 py-1.5 w-full text-left hover:bg-white/[0.02] transition-colors -mx-2 px-2 rounded-lg cursor-pointer"
+    >
       <div className="flex-1 min-w-0">
         <p className="text-[13px] truncate" style={{ color: "var(--text)" }}>
           {r.aNaam} <span style={{ color: "var(--muted)" }}>+</span> {r.bNaam}
@@ -135,6 +165,78 @@ function Rij({ r, hex }: { r: CombiRij; hex: string }) {
       >
         {r.zScore > 0 ? "+" : ""}{r.zScore.toFixed(1)}σ
       </div>
+      <ChevronRight size={12} className="shrink-0 opacity-40" />
+    </button>
+  );
+}
+
+function CombiDetail({ rij, kleur }: { rij: CombiRij; kleur: string }) {
+  const isOndergemiddeld = rij.zScore < 0;
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl p-4" style={{ background: `${kleur === "var(--sf-danger, #FF3D5C)" ? "rgba(255,61,92,0.1)" : "rgba(0,229,255,0.1)"}`, border: `1px solid ${kleur}40` }}>
+        <p className="font-mono text-[9px] tracking-[0.18em] uppercase mb-1" style={{ color: kleur }}>
+          Performance vs team-gemiddelde
+        </p>
+        <p
+          className="font-display text-[36px] font-semibold tabular-nums leading-none"
+          style={{ color: kleur, letterSpacing: "-0.018em" }}
+        >
+          {rij.zScore > 0 ? "+" : ""}{rij.zScore.toFixed(2)}σ
+        </p>
+        <p className="font-mono text-[11px] mt-2" style={{ color: "var(--muted)" }}>
+          Z-score: hoe veel standaarddeviaties dit duo afwijkt van het bedrijfsgemiddelde
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-xl p-3" style={{ border: "1px solid var(--sf-hairline)" }}>
+          <div className="flex items-center gap-1.5 mb-1">
+            <Star size={11} style={{ color: kleur }} />
+            <p className="font-mono text-[9px] tracking-wider uppercase" style={{ color: "var(--muted)" }}>
+              Reviews
+            </p>
+          </div>
+          <p className="font-display text-[22px] font-semibold tabular-nums" style={{ color: "var(--text)" }}>
+            {rij.reviewsAantal}
+          </p>
+          <p className="font-mono text-[10px] mt-1" style={{ color: "var(--muted)" }}>
+            gemiddeld {rij.gemSterren?.toFixed(1) ?? "—"}★
+          </p>
+        </div>
+        <div className="rounded-xl p-3" style={{ border: "1px solid var(--sf-hairline)" }}>
+          <div className="flex items-center gap-1.5 mb-1">
+            <TrendingUp size={11} style={{ color: kleur }} />
+            <p className="font-mono text-[9px] tracking-wider uppercase" style={{ color: "var(--muted)" }}>
+              Omzet/uur
+            </p>
+          </div>
+          <p className="font-display text-[22px] font-semibold tabular-nums" style={{ color: "var(--text)" }}>
+            €{Math.round(rij.omzetPerUur)}
+          </p>
+          <p className="font-mono text-[10px] mt-1" style={{ color: "var(--muted)" }}>
+            tijdens shared shifts
+          </p>
+        </div>
+      </div>
+
+      <div className="rounded-xl p-3" style={{ border: "1px solid var(--sf-hairline)" }}>
+        <div className="flex items-center gap-1.5 mb-1">
+          <Users size={11} style={{ color: kleur }} />
+          <p className="font-mono text-[9px] tracking-wider uppercase" style={{ color: "var(--muted)" }}>
+            Samen gewerkt
+          </p>
+        </div>
+        <p className="text-[13px]" style={{ color: "var(--text)" }}>
+          <strong>{rij.shiftsSamen} shifts</strong> in de laatste 60 dagen.
+        </p>
+      </div>
+
+      <p className="text-[11px]" style={{ color: "var(--muted)" }}>
+        {isOndergemiddeld
+          ? "Dit duo scoort onder het team-gemiddelde. Mogelijke oorzaken: verschillende werkstijlen, gebrek aan synergie, of toeval (60 dagen kan te kort zijn). Overweeg om ze minder vaak samen in te roosteren of geef de combinatie meer tijd."
+          : "Dit duo presteert boven gemiddeld — ze versterken elkaar duidelijk. Roostere ze regelmatig samen op drukke dagen voor maximaal effect."}
+      </p>
     </div>
   );
 }

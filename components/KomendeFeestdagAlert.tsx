@@ -14,10 +14,12 @@
  *     historische omzet hebben
  *   - Impact = "hoog" of "dicht" (anders te veel ruis)
  */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { format, addDays, startOfDay, subYears, subDays } from "date-fns";
 import { nl } from "date-fns/locale";
-import { feestdagenVoorJaar, zoekFeestdagInJaar } from "@/lib/feestdagen";
+import { feestdagenVoorJaar, zoekFeestdagInJaar, feestdagOpDatum } from "@/lib/feestdagen";
+import DetailSheet from "./sf/DetailSheet";
+import { ChevronRight } from "lucide-react";
 
 interface DagOmzet {
   datum: string;
@@ -67,7 +69,47 @@ function schatYoYGroei(dagIndex: Map<string, DagOmzet>): number | null {
 }
 
 export default function KomendeFeestdagAlert({ dagOmzet, hex, binnenDagen = 14 }: Props) {
+  const [open, setOpen] = useState(false);
   const dagIndex = useMemo(() => new Map(dagOmzet.map((d) => [d.datum, d])), [dagOmzet]);
+
+  const forecast14 = useMemo(() => {
+    const nu = startOfDay(new Date());
+    const groei = schatYoYGroei(dagIndex);
+    const rows: Array<{
+      datum: Date;
+      vorigOmzet: number | null;
+      verwacht: number | null;
+      feestdag: string | null;
+      feestdagImpact: "hoog" | "middel" | "laag" | "dicht" | null;
+    }> = [];
+    for (let i = 0; i < 14; i++) {
+      const d = addDays(nu, i);
+      const vorigZelfde = subYears(d, 1);
+      const vorig = dagIndex.get(format(vorigZelfde, "yyyy-MM-dd"))?.omzet ?? null;
+      const f = feestdagOpDatum(d);
+      // Als 't een feestdag is en wij hebben dezelfde feestdag in vorig
+      // jaar staan → die referentie is preciezer dan "zelfde datum vorig
+      // jaar" (1e Pinksterdag verschuift bv. tussen 19 mei en 9 juni).
+      let basis = vorig;
+      if (f) {
+        const v = zoekFeestdagInJaar(f.naam, d.getFullYear() - 1);
+        if (v) {
+          const fdOmzet = dagIndex.get(format(v.datum, "yyyy-MM-dd"))?.omzet;
+          if (fdOmzet !== undefined) basis = fdOmzet;
+        }
+      }
+      const verwacht = basis !== null ? basis * (groei ?? 1) : null;
+      rows.push({
+        datum: d,
+        vorigOmzet: basis,
+        verwacht,
+        feestdag: f?.naam ?? null,
+        feestdagImpact: f?.impact ?? null,
+      });
+    }
+    const totaal = rows.reduce((s, r) => s + (r.verwacht ?? 0), 0);
+    return { rows, totaal, groei };
+  }, [dagIndex]);
   const alert = useMemo(() => {
     const nu = startOfDay(new Date());
     const grens = addDays(nu, binnenDagen);
@@ -134,8 +176,11 @@ export default function KomendeFeestdagAlert({ dagOmzet, hex, binnenDagen = 14 }
       : `${alert.basisJaar === 1 ? "vorig jaar" : "2 jaar terug"} als basis`;
 
   return (
-    <div
-      className="card relative overflow-hidden"
+    <>
+    <button
+      type="button"
+      onClick={() => setOpen(true)}
+      className="card relative overflow-hidden text-left w-full transition-transform active:scale-[0.99] hover:brightness-110 cursor-pointer"
       style={{
         background: `linear-gradient(135deg, ${hex}10 0%, transparent 60%)`,
         border: `1px solid ${hex}40`,
@@ -215,12 +260,114 @@ export default function KomendeFeestdagAlert({ dagOmzet, hex, binnenDagen = 14 }
         </div>
       </div>
 
-      <p className="text-[11px] mt-3" style={{ color: "var(--muted)" }}>
-        Tip: check je rooster voor {format(alert.datum, "d MMM", { locale: nl })} —
-        {alert.impact === "dicht"
-          ? " sluit op tijd, geen open-uren plannen."
-          : " plan extra capaciteit voor de drukte."}
-      </p>
-    </div>
+      <div className="flex items-center justify-between mt-3 gap-3">
+        <p className="text-[11px]" style={{ color: "var(--muted)" }}>
+          Tip: check je rooster voor {format(alert.datum, "d MMM", { locale: nl })} —
+          {alert.impact === "dicht"
+            ? " sluit op tijd, geen open-uren plannen."
+            : " plan extra capaciteit voor de drukte."}
+        </p>
+        <span className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-wider shrink-0" style={{ color: hex }}>
+          14-d
+          <ChevronRight size={12} />
+        </span>
+      </div>
+    </button>
+
+    <DetailSheet
+      open={open}
+      onClose={() => setOpen(false)}
+      titel={`Forecast · komende 14 dagen`}
+      subtitel={
+        forecast14.groei !== null
+          ? `Projectie met +${Math.round((forecast14.groei - 1) * 100)}% YoY-groei toegepast`
+          : "Projectie op basis van zelfde-datum vorig jaar"
+      }
+      hex={hex}
+    >
+      <div className="space-y-3">
+        <div className="rounded-2xl p-4" style={{ background: `${hex}10`, border: `1px solid ${hex}30` }}>
+          <p className="font-mono text-[9px] tracking-[0.18em] uppercase mb-1" style={{ color: hex }}>
+            Totaal verwacht
+          </p>
+          <p
+            className="font-display text-[28px] font-semibold tabular-nums leading-tight"
+            style={{ color: hex, letterSpacing: "-0.018em" }}
+          >
+            {fmtEur(forecast14.totaal)}
+          </p>
+          <p className="text-[11px] mt-1" style={{ color: "var(--muted)" }}>
+            Som van alle dagen hieronder · feestdagen krijgen automatisch de feestdag-vergelijking
+          </p>
+        </div>
+
+        <div className="rounded-xl overflow-hidden" style={{ border: "1px solid var(--sf-hairline)" }}>
+          {forecast14.rows.map((r, i) => {
+            const isFeestdag = r.feestdag !== null;
+            const isDicht = r.feestdagImpact === "dicht";
+            return (
+              <div
+                key={i}
+                className="flex items-center gap-3 px-3 py-2.5"
+                style={{
+                  borderTop: i === 0 ? "none" : "1px solid var(--sf-hairline)",
+                  background: isFeestdag ? `${hex}08` : "transparent",
+                }}
+              >
+                <div className="w-14 shrink-0">
+                  <p className="font-mono text-[9px] uppercase tracking-wider" style={{ color: "var(--muted)" }}>
+                    {format(r.datum, "EEE", { locale: nl })}
+                  </p>
+                  <p className="font-display text-[14px] font-semibold tabular-nums" style={{ color: "var(--text)" }}>
+                    {format(r.datum, "d MMM", { locale: nl })}
+                  </p>
+                </div>
+                <div className="flex-1 min-w-0">
+                  {isFeestdag && (
+                    <span
+                      className="inline-block font-mono text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded mb-0.5"
+                      style={{
+                        background: isDicht ? "rgba(255,61,92,0.15)" : `${hex}25`,
+                        color: isDicht ? "var(--sf-danger)" : hex,
+                      }}
+                    >
+                      {r.feestdag}
+                    </span>
+                  )}
+                  <p className="font-mono text-[10px]" style={{ color: "var(--muted)" }}>
+                    {r.vorigOmzet !== null
+                      ? `vorig jaar: ${fmtEur(r.vorigOmzet)}`
+                      : "geen referentie"}
+                  </p>
+                </div>
+                <div className="text-right shrink-0">
+                  {r.verwacht !== null ? (
+                    <>
+                      <p
+                        className="font-display text-[16px] font-semibold tabular-nums leading-tight"
+                        style={{ color: isDicht ? "var(--sf-danger)" : hex, letterSpacing: "-0.018em" }}
+                      >
+                        {isDicht ? "—" : fmtEur(r.verwacht)}
+                      </p>
+                      <p className="font-mono text-[9px]" style={{ color: "var(--muted)" }}>
+                        {isDicht ? "dicht" : "verwacht"}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="font-mono text-[11px]" style={{ color: "var(--muted)" }}>—</p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <p className="text-[11px]" style={{ color: "var(--muted)" }}>
+          Verwachte waarden zijn een schatting op basis van historische data.
+          Echte cijfers kunnen afwijken door weer, evenementen of toeristenstromen.
+        </p>
+      </div>
+    </DetailSheet>
+    </>
   );
 }

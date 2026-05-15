@@ -31,6 +31,13 @@ export async function GET() {
   const laatste = rijen[0]
     ? { status: rijen[0].status, geregistreerdOp: rijen[0].geregistreerdOp.toISOString() }
     : null;
+  // Volledige lijst voor de drill-down (max 50 — meer dan dat is sowieso
+  // ongebruikelijk voor één medewerker op één dag).
+  const events = rijen.slice(0, 50).map((r) => ({
+    id: r.id,
+    status: r.status,
+    geregistreerdOp: r.geregistreerdOp.toISOString(),
+  }));
 
-  return NextResponse.json({ scans, klikken, laatste });
+  return NextResponse.json({ scans, klikken, laatste, events });
 }

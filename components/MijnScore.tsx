@@ -6,8 +6,9 @@
  * Geen details van andere medewerkers buiten degene direct boven.
  */
 import { useEffect, useState } from "react";
-import { Trophy, Star, TrendingUp, Loader2, ChevronUp } from "lucide-react";
+import { Trophy, Star, TrendingUp, Loader2, ChevronUp, ChevronRight, Clock } from "lucide-react";
 import type { ScoreRij } from "@/lib/medewerker-score";
+import DetailSheet from "./sf/DetailSheet";
 
 interface BedrijfScore {
   bedrijfSlug: string;
@@ -21,6 +22,7 @@ interface BedrijfScore {
 export default function MijnScore() {
   const [data, setData] = useState<BedrijfScore[] | null>(null);
   const [fout, setFout] = useState<string | null>(null);
+  const [actief, setActief] = useState<BedrijfScore | null>(null);
 
   useEffect(() => {
     let actief = true;
@@ -48,7 +50,12 @@ export default function MijnScore() {
   return (
     <div className="space-y-3">
       {data.map((b) => (
-        <div key={b.bedrijfSlug} className="card">
+        <button
+          type="button"
+          key={b.bedrijfSlug}
+          onClick={() => b.score && setActief(b)}
+          disabled={!b.score}
+          className="card text-left w-full transition-transform active:scale-[0.99] enabled:hover:brightness-110 disabled:cursor-default relative">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Trophy size={14} style={{ color: b.hex }} />
@@ -131,8 +138,129 @@ export default function MijnScore() {
               )}
             </>
           )}
-        </div>
+          {b.score && (
+            <ChevronRight size={14} className="absolute top-3 right-3 opacity-40" />
+          )}
+        </button>
       ))}
+
+      <DetailSheet
+        open={actief !== null}
+        onClose={() => setActief(null)}
+        titel={actief ? `Score · ${actief.bedrijfNaam}` : ""}
+        subtitel={
+          actief?.score
+            ? `Rang #${actief.score.rang} van ${actief.totaalDeelnemers} · laatste 30 dagen`
+            : ""
+        }
+        hex={actief?.hex}
+      >
+        {actief?.score && <ScoreDetail bedrijf={actief} />}
+      </DetailSheet>
+    </div>
+  );
+}
+
+function ScoreDetail({ bedrijf }: { bedrijf: BedrijfScore }) {
+  const s = bedrijf.score!;
+  const reviewsPct = (s.reviewsBijdrage / 50) * 100;
+  const omzetPct = (s.omzetBijdrage / 50) * 100;
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl p-4" style={{ background: `${bedrijf.hex}10`, border: `1px solid ${bedrijf.hex}30` }}>
+        <p className="font-mono text-[9px] tracking-[0.18em] uppercase mb-1" style={{ color: bedrijf.hex }}>
+          Mijn score
+        </p>
+        <div className="flex items-baseline gap-2">
+          <p
+            className="font-display text-[40px] font-semibold tabular-nums leading-none"
+            style={{ color: bedrijf.hex, letterSpacing: "-0.018em" }}
+          >
+            {Math.round(s.totaalScore)}
+          </p>
+          <p className="font-mono text-[12px]" style={{ color: "var(--muted)" }}>/ 100</p>
+        </div>
+        <div className="mt-3 h-2 rounded-full overflow-hidden" style={{ background: "var(--sf-hairline)" }}>
+          <div
+            className="h-full rounded-full transition-all"
+            style={{ width: `${Math.min(100, s.totaalScore)}%`, background: bedrijf.hex }}
+          />
+        </div>
+      </div>
+
+      <div className="rounded-xl p-3" style={{ border: "1px solid var(--sf-hairline)" }}>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-1.5">
+            <Star size={11} style={{ color: bedrijf.hex }} />
+            <p className="font-mono text-[10px] tracking-wider uppercase" style={{ color: "var(--muted)" }}>
+              Reviews-component
+            </p>
+          </div>
+          <p className="font-display text-[14px] font-semibold tabular-nums" style={{ color: "var(--text)" }}>
+            {Math.round(s.reviewsBijdrage)}<span className="font-mono text-[10px] font-normal" style={{ color: "var(--muted)" }}> /50</span>
+          </p>
+        </div>
+        <div className="h-1.5 rounded-full overflow-hidden mb-2" style={{ background: "var(--sf-hairline)" }}>
+          <div className="h-full rounded-full" style={{ width: `${reviewsPct}%`, background: bedrijf.hex }} />
+        </div>
+        <p className="font-mono text-[10px]" style={{ color: "var(--muted)" }}>
+          {s.reviewsAantal} reviews · gemiddeld {s.gemSterren?.toFixed(1) ?? "—"}★ — meer reviews + hogere sterren = meer punten
+        </p>
+      </div>
+
+      <div className="rounded-xl p-3" style={{ border: "1px solid var(--sf-hairline)" }}>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-1.5">
+            <TrendingUp size={11} style={{ color: bedrijf.hex }} />
+            <p className="font-mono text-[10px] tracking-wider uppercase" style={{ color: "var(--muted)" }}>
+              Omzet-component
+            </p>
+          </div>
+          <p className="font-display text-[14px] font-semibold tabular-nums" style={{ color: "var(--text)" }}>
+            {Math.round(s.omzetBijdrage)}<span className="font-mono text-[10px] font-normal" style={{ color: "var(--muted)" }}> /50</span>
+          </p>
+        </div>
+        <div className="h-1.5 rounded-full overflow-hidden mb-2" style={{ background: "var(--sf-hairline)" }}>
+          <div className="h-full rounded-full" style={{ width: `${omzetPct}%`, background: bedrijf.hex }} />
+        </div>
+        <p className="font-mono text-[10px]" style={{ color: "var(--muted)" }}>
+          €{Math.round(s.omzetPerUur)}/uur — totaalomzet tijdens jouw shifts ÷ gewerkte uren
+        </p>
+      </div>
+
+      <div className="rounded-xl p-3" style={{ border: "1px solid var(--sf-hairline)" }}>
+        <div className="flex items-center gap-1.5 mb-1">
+          <Clock size={11} style={{ color: "var(--muted)" }} />
+          <p className="font-mono text-[10px] tracking-wider uppercase" style={{ color: "var(--muted)" }}>
+            Activiteit
+          </p>
+        </div>
+        <p className="text-[13px]" style={{ color: "var(--text)" }}>
+          Je hebt <strong>{Math.round(s.gewerkteUren)} uur</strong> gewerkt in de laatste 30 dagen.
+        </p>
+      </div>
+
+      {bedrijf.bovenMij && (
+        <div className="rounded-xl p-3" style={{ background: `${bedrijf.hex}10`, border: `1px solid ${bedrijf.hex}30` }}>
+          <div className="flex items-center gap-1.5 mb-1">
+            <ChevronUp size={11} style={{ color: bedrijf.hex }} />
+            <p className="font-mono text-[10px] tracking-wider uppercase" style={{ color: bedrijf.hex }}>
+              Volgende plek
+            </p>
+          </div>
+          <p className="text-[13px]" style={{ color: "var(--text)" }}>
+            Nog <strong>{Math.round(bedrijf.bovenMij.totaalScore - s.totaalScore)} punten</strong> tot {bedrijf.bovenMij.voornaam} op plek #{bedrijf.bovenMij.rang}.
+          </p>
+          <p className="font-mono text-[10px] mt-1" style={{ color: "var(--muted)" }}>
+            Tip: meer reviews verzamelen of een drukke shift met hogere omzet/uur kan dat verschil overbruggen.
+          </p>
+        </div>
+      )}
+
+      <p className="text-[11px]" style={{ color: "var(--muted)" }}>
+        Score = reviews-bijdrage (max 50) + omzet-bijdrage (max 50). Eerlijke vergelijking
+        binnen je bedrijf — niet tussen vestigingen.
+      </p>
     </div>
   );
 }

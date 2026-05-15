@@ -1,9 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import type { DagOmzet, Prognose } from "@/lib/analytics";
 import type { Bedrijf } from "@/lib/sumup";
 import Icon from "./Icon";
 import { useTaal } from "@/lib/i18n/TaalProvider";
+import DetailSheet from "./sf/DetailSheet";
 
 interface ShiftSlot {
   start: string;
@@ -224,6 +226,7 @@ const ROL_KEY: Record<ShiftSlot["rol"], string> = {
 
 export default function BezettingAdvies({ hex, bedrijf, dagOmzet, prognose, geplandVandaag }: Props) {
   const { t } = useTaal();
+  const [open, setOpen] = useState(false);
   const vandaagStr = new Date().toISOString().slice(0, 10);
   const vandaagPrognose = prognose.find((p) => p.datum === vandaagStr);
 
@@ -258,9 +261,11 @@ export default function BezettingAdvies({ hex, bedrijf, dagOmzet, prognose, gepl
         </h2>
       </div>
 
-      {/* Drukte-banner */}
-      <div
-        className="rounded-[10px] px-4 py-3 flex items-center justify-between gap-4"
+      {/* Drukte-banner — klikbaar voor uitleg */}
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="rounded-[10px] px-4 py-3 flex items-center justify-between gap-4 w-full text-left transition-transform active:scale-[0.99] hover:brightness-110 cursor-pointer"
         style={{
           background: template.kleur + "12",
           borderLeft: `2px solid ${template.kleur}`,
@@ -278,21 +283,24 @@ export default function BezettingAdvies({ hex, bedrijf, dagOmzet, prognose, gepl
           </p>
         </div>
 
-        {status && (
-          <div className="text-right shrink-0 flex items-center gap-2">
-            <span
-              className="inline-flex items-center justify-center w-7 h-7 rounded-full"
-              style={{
-                background: status.ok ? "#30B26F22" : "#E07A1F22",
-                color: status.ok ? "#30B26F" : "#E07A1F",
-              }}
-            >
-              <Icon name={status.ok ? "check" : "alert"} size={16} strokeWidth={2.2} />
-            </span>
-            <p className="text-[11px]" style={{ color: "var(--muted)" }}>{status.tekst}</p>
-          </div>
-        )}
-      </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {status && (
+            <div className="text-right flex items-center gap-2">
+              <span
+                className="inline-flex items-center justify-center w-7 h-7 rounded-full"
+                style={{
+                  background: status.ok ? "#30B26F22" : "#E07A1F22",
+                  color: status.ok ? "#30B26F" : "#E07A1F",
+                }}
+              >
+                <Icon name={status.ok ? "check" : "alert"} size={16} strokeWidth={2.2} />
+              </span>
+              <p className="text-[11px]" style={{ color: "var(--muted)" }}>{status.tekst}</p>
+            </div>
+          )}
+          <Icon name="chevron-right" size={14} className="opacity-40" />
+        </div>
+      </button>
 
       {/* Shift-indeling */}
       <div>
@@ -315,6 +323,101 @@ export default function BezettingAdvies({ hex, bedrijf, dagOmzet, prognose, gepl
           ))}
         </div>
       </div>
+
+      <DetailSheet
+        open={open}
+        onClose={() => setOpen(false)}
+        titel={`Vandaag: ${templateLabel}`}
+        subtitel={`Verwachte omzet €${vandaagPrognose.verwacht.toLocaleString("nl-NL", { maximumFractionDigits: 0 })}`}
+        hex={template.kleur}
+      >
+        <div className="space-y-4">
+          <div className="rounded-2xl p-4" style={{ background: `${template.kleur}15`, border: `1px solid ${template.kleur}40` }}>
+            <p className="font-mono text-[9px] tracking-[0.18em] uppercase mb-1" style={{ color: template.kleur }}>
+              Aanbevolen bezetting
+            </p>
+            <p
+              className="font-display text-[40px] font-semibold tabular-nums leading-none"
+              style={{ color: template.kleur, letterSpacing: "-0.018em" }}
+            >
+              {aanbevolen}
+            </p>
+            <p className="font-mono text-[11px] mt-2" style={{ color: "var(--muted)" }}>
+              {aanbevolen === 1 ? t("schedule.person_singular") : t("schedule.person_plural")}
+              {geplandVandaag !== null && ` · ingepland: ${geplandVandaag}`}
+            </p>
+          </div>
+
+          <div>
+            <p className="font-mono text-[9px] tracking-[0.18em] uppercase mb-2" style={{ color: "var(--muted)" }}>
+              Waarom {templateLabel.toLowerCase()}?
+            </p>
+            <div className="rounded-xl p-3 space-y-2" style={{ border: "1px solid var(--sf-hairline)" }}>
+              {isMarathon ? (
+                <p className="text-[12px]" style={{ color: "var(--text)" }}>
+                  🏃 Vandaag is er een marathon — historisch is dat een uitzonderlijk drukke dag.
+                  Speciale marathon-template wordt toegepast.
+                </p>
+              ) : isZondag ? (
+                <p className="text-[12px]" style={{ color: "var(--text)" }}>
+                  📅 Zondagen hebben een afwijkend patroon — andere openingstijden en/of
+                  drukteverdeling. Speciale zondag-template wordt toegepast.
+                </p>
+              ) : (
+                <>
+                  <p className="text-[12px]" style={{ color: "var(--text)" }}>
+                    Drukte wordt bepaald door de verwachte omzet voor vandaag (€{vandaagPrognose.verwacht.toLocaleString("nl-NL", { maximumFractionDigits: 0 })})
+                    af te zetten tegen vergelijkbare dagen in de historie.
+                  </p>
+                  <p className="text-[11px]" style={{ color: "var(--muted)" }}>
+                    Boven de 80e percentiel = extreem druk · 60–80% = druk · daaronder = normaal.
+                  </p>
+                </>
+              )}
+              {vandaagPrognose.feestdag && (
+                <p className="text-[12px]" style={{ color: "var(--sf-accent)" }}>
+                  🎉 Feestdag: <strong>{vandaagPrognose.feestdag}</strong>
+                </p>
+              )}
+              {vandaagPrognose.vakantie && (
+                <p className="text-[12px]" style={{ color: "var(--sf-accent)" }}>
+                  🏖 Schoolvakantie: <strong>{vandaagPrognose.vakantie}</strong>
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <p className="font-mono text-[9px] tracking-[0.18em] uppercase mb-2" style={{ color: "var(--muted)" }}>
+              Volledige shift-indeling
+            </p>
+            <div className="space-y-1.5">
+              {template.shifts.map((s, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-3 px-3 py-2 rounded-lg"
+                  style={{ border: "1px solid var(--sf-hairline)" }}
+                >
+                  <span
+                    className="text-[11px] font-medium tabular-nums px-2 py-0.5 rounded-md shrink-0"
+                    style={{ background: ROL_KLEUR[s.rol] + "1A", color: ROL_KLEUR[s.rol] }}
+                  >
+                    {s.start} – {s.eind}
+                  </span>
+                  <span className="text-[12px] capitalize" style={{ color: "var(--text)" }}>
+                    {t(ROL_KEY[s.rol])}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <p className="text-[11px]" style={{ color: "var(--muted)" }}>
+            Deze template is geen automatisch rooster — gebruik het als richtlijn naast je
+            eigen kennis van personeel-beschikbaarheid en specifieke dagdetails.
+          </p>
+        </div>
+      </DetailSheet>
     </div>
   );
 }

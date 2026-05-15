@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { ProductLevens } from "@/lib/zettle-excel";
+import DetailSheet from "./sf/DetailSheet";
 
 interface Props {
   data: ProductLevens[];
@@ -20,6 +21,7 @@ export default function ProductenLevenslang({
   const [sort, setSort] = useState<SortKey>("omzetInclBtw");
   const [categorie, setCategorie] = useState<string>("");
   const [toonAll, setToonAll] = useState(false);
+  const [actief, setActief] = useState<{ p: ProductLevens; rang: number } | null>(null);
 
   const categorieen = useMemo(() => {
     const s = new Set<string>();
@@ -141,7 +143,8 @@ export default function ProductenLevenslang({
               return (
                 <tr
                   key={`${p.naam}-${p.variant}-${i}`}
-                  className="border-b border-slate-100 hover:bg-slate-50"
+                  onClick={() => setActief({ p, rang: i + 1 })}
+                  className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer"
                 >
                   <td className="py-2 pr-2 text-slate-400 tabular-nums">
                     {i + 1}
@@ -225,6 +228,99 @@ export default function ProductenLevenslang({
             : `Toon alle ${gefilterd.length} producten →`}
         </button>
       )}
+
+      <DetailSheet
+        open={actief !== null}
+        onClose={() => setActief(null)}
+        titel={actief ? `${actief.p.naam}${actief.p.variant ? ` · ${actief.p.variant}` : ""}` : ""}
+        subtitel={actief ? `Rang #${actief.rang} · ${actief.p.categorie || "geen categorie"}` : ""}
+        hex={hex}
+      >
+        {actief && (() => {
+          const p = actief.p;
+          const gem = p.aantalVerkocht > 0 ? p.omzetInclBtw / p.aantalVerkocht : 0;
+          const aandeel = (p.omzetInclBtw / Math.max(totaalOmzet, 1)) * 100;
+          return (
+            <div className="space-y-4">
+              <div className="rounded-2xl p-4" style={{ background: `${hex}10`, border: `1px solid ${hex}30` }}>
+                <p className="font-mono text-[9px] tracking-[0.18em] uppercase mb-1" style={{ color: hex }}>
+                  Lifetime omzet (incl. btw)
+                </p>
+                <p
+                  className="font-display text-[32px] font-semibold tabular-nums leading-none"
+                  style={{ color: hex, letterSpacing: "-0.018em" }}
+                >
+                  €{p.omzetInclBtw.toLocaleString("nl-NL", { maximumFractionDigits: 0 })}
+                </p>
+                <p className="font-mono text-[11px] mt-2" style={{ color: "var(--muted)" }}>
+                  {aandeel.toFixed(1)}% van de totale productomzet
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl p-3" style={{ border: "1px solid var(--sf-hairline)" }}>
+                  <p className="font-mono text-[9px] tracking-wider uppercase mb-1" style={{ color: "var(--muted)" }}>
+                    Aantal verkocht
+                  </p>
+                  <p className="font-display text-[22px] font-semibold tabular-nums" style={{ color: "var(--text)" }}>
+                    {p.aantalVerkocht.toLocaleString("nl-NL")}
+                  </p>
+                </div>
+                <div className="rounded-xl p-3" style={{ border: "1px solid var(--sf-hairline)" }}>
+                  <p className="font-mono text-[9px] tracking-wider uppercase mb-1" style={{ color: "var(--muted)" }}>
+                    Gem. prijs
+                  </p>
+                  <p className="font-display text-[22px] font-semibold tabular-nums" style={{ color: "var(--text)" }}>
+                    €{gem.toFixed(2)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-xl p-3 space-y-2" style={{ border: "1px solid var(--sf-hairline)" }}>
+                <p className="font-mono text-[9px] tracking-wider uppercase mb-1" style={{ color: "var(--muted)" }}>
+                  Btw & netto
+                </p>
+                <Regel label="Omzet excl. btw" waarde={`€${p.omzetExclBtw.toLocaleString("nl-NL", { maximumFractionDigits: 2 })}`} />
+                <Regel label="Btw bedrag" waarde={`€${p.btw.toLocaleString("nl-NL", { maximumFractionDigits: 2 })}`} />
+                {p.kortingen > 0 && (
+                  <Regel label="Kortingen gegeven" waarde={`€${p.kortingen.toLocaleString("nl-NL", { maximumFractionDigits: 2 })}`} kleur="var(--sf-danger)" />
+                )}
+              </div>
+
+              {(p.winst !== null || p.winstmarge !== null) && (
+                <div className="rounded-xl p-3 space-y-2" style={{ background: `${hex}08`, border: `1px solid ${hex}30` }}>
+                  <p className="font-mono text-[9px] tracking-wider uppercase mb-1" style={{ color: hex }}>
+                    Winst-indicatie
+                  </p>
+                  {p.winst !== null && (
+                    <Regel label="Geschatte winst" waarde={`€${p.winst.toLocaleString("nl-NL", { maximumFractionDigits: 0 })}`} kleur={p.winst > 0 ? "var(--sf-success)" : "var(--sf-danger)"} />
+                  )}
+                  {p.winstmarge !== null && (
+                    <Regel label="Winstmarge" waarde={`${(p.winstmarge * 100).toFixed(0)}%`} kleur={p.winstmarge > 0 ? "var(--sf-success)" : "var(--sf-danger)"} />
+                  )}
+                </div>
+              )}
+
+              <p className="text-[11px]" style={{ color: "var(--muted)" }}>
+                Lifetime-data over de hele beschikbare periode. Gebruik dit voor strategische
+                beslissingen (assortiment, kostprijs, prijsstrategie) — voor live-trends zie
+                de Producten-tabel.
+              </p>
+            </div>
+          );
+        })()}
+      </DetailSheet>
+    </div>
+  );
+}
+
+function Regel({ label, waarde, kleur }: { label: string; waarde: string; kleur?: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-[12px]" style={{ color: "var(--muted)" }}>{label}</span>
+      <span className="font-mono text-[12px] font-medium tabular-nums" style={{ color: kleur ?? "var(--text)" }}>
+        {waarde}
+      </span>
     </div>
   );
 }

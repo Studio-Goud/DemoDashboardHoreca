@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { format, parseISO, differenceInDays } from "date-fns";
 import { nl } from "date-fns/locale";
 import type { ProductData } from "@/lib/analytics";
+import DetailSheet from "./sf/DetailSheet";
 
 interface Props {
   data: ProductData[];
@@ -16,6 +17,7 @@ export default function ProductsTable({ data, hex }: Props) {
   const [zoek, setZoek] = useState("");
   const [sort, setSort] = useState<SortKey>("omzet");
   const [toonAll, setToonAll] = useState(false);
+  const [actief, setActief] = useState<{ p: ProductData; rang: number } | null>(null);
 
   const gefilterd = useMemo(() => {
     const q = zoek.toLowerCase().trim();
@@ -102,7 +104,8 @@ export default function ProductsTable({ data, hex }: Props) {
               return (
                 <tr
                   key={p.naam}
-                  className="border-b border-slate-100 hover:bg-slate-50 transition-colors"
+                  onClick={() => setActief({ p, rang: i + 1 })}
+                  className="border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer"
                 >
                   <td className="py-2 pr-2 text-slate-400 tabular-nums">
                     {i + 1}
@@ -180,6 +183,98 @@ export default function ProductsTable({ data, hex }: Props) {
             : `Toon alle ${gefilterd.length} producten →`}
         </button>
       )}
+
+      <DetailSheet
+        open={actief !== null}
+        onClose={() => setActief(null)}
+        titel={actief?.p.naam ?? ""}
+        subtitel={actief ? `Rang #${actief.rang} van ${data.length} producten` : ""}
+        hex={hex}
+      >
+        {actief && (() => {
+          const p = actief.p;
+          const dagenTerug = p.laatstVerkocht
+            ? differenceInDays(new Date(), parseISO(p.laatstVerkocht))
+            : null;
+          const trendKleur = p.trend > 10 ? "var(--sf-success)" : p.trend < -10 ? "var(--sf-danger)" : "var(--muted)";
+          return (
+            <div className="space-y-4">
+              <div className="rounded-2xl p-4" style={{ background: `${hex}10`, border: `1px solid ${hex}30` }}>
+                <p className="font-mono text-[9px] tracking-[0.18em] uppercase mb-1" style={{ color: hex }}>
+                  Totaal-omzet
+                </p>
+                <p
+                  className="font-display text-[32px] font-semibold tabular-nums leading-none"
+                  style={{ color: hex, letterSpacing: "-0.018em" }}
+                >
+                  €{p.omzet.toLocaleString("nl-NL", { maximumFractionDigits: 0 })}
+                </p>
+                <p className="font-mono text-[11px] mt-2" style={{ color: "var(--muted)" }}>
+                  {p.aandeel.toFixed(1)}% van de totale productomzet
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl p-3" style={{ border: "1px solid var(--sf-hairline)" }}>
+                  <p className="font-mono text-[9px] tracking-wider uppercase mb-1" style={{ color: "var(--muted)" }}>
+                    Aantal verkocht
+                  </p>
+                  <p className="font-display text-[22px] font-semibold tabular-nums" style={{ color: "var(--text)" }}>
+                    {p.aantal.toLocaleString("nl-NL")}
+                  </p>
+                  <p className="font-mono text-[10px] mt-1" style={{ color: "var(--muted)" }}>
+                    stuks
+                  </p>
+                </div>
+                <div className="rounded-xl p-3" style={{ border: "1px solid var(--sf-hairline)" }}>
+                  <p className="font-mono text-[9px] tracking-wider uppercase mb-1" style={{ color: "var(--muted)" }}>
+                    Gem. prijs
+                  </p>
+                  <p className="font-display text-[22px] font-semibold tabular-nums" style={{ color: "var(--text)" }}>
+                    €{p.gemPrijs.toFixed(2)}
+                  </p>
+                  <p className="font-mono text-[10px] mt-1" style={{ color: "var(--muted)" }}>
+                    per stuk
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-xl p-3" style={{ border: "1px solid var(--sf-hairline)" }}>
+                <p className="font-mono text-[9px] tracking-wider uppercase mb-1" style={{ color: "var(--muted)" }}>
+                  Trend 30 dagen
+                </p>
+                <p className="font-display text-[22px] font-semibold tabular-nums" style={{ color: trendKleur }}>
+                  {p.trend > 0 ? "+" : ""}{p.trend}%
+                </p>
+                <p className="font-mono text-[10px] mt-1" style={{ color: "var(--muted)" }}>
+                  Laatste 30 dagen vs. de 30 dagen daarvoor
+                </p>
+              </div>
+
+              <div className="rounded-xl p-3" style={{ border: "1px solid var(--sf-hairline)" }}>
+                <p className="font-mono text-[9px] tracking-wider uppercase mb-1" style={{ color: "var(--muted)" }}>
+                  Laatst verkocht
+                </p>
+                <p className="text-[13px]" style={{ color: "var(--text)" }}>
+                  {p.laatstVerkocht
+                    ? `${format(parseISO(p.laatstVerkocht), "EEEE d MMM yyyy", { locale: nl })} — ${
+                        dagenTerug === 0 ? "vandaag" : dagenTerug === 1 ? "gisteren" : `${dagenTerug} dagen geleden`
+                      }`
+                    : "Nog niet verkocht in de periode"}
+                </p>
+              </div>
+
+              <p className="text-[11px]" style={{ color: "var(--muted)" }}>
+                {p.trend > 20
+                  ? "Stevige stijger — overweeg meer voorraad, een betere positie op de menukaart, of een bundle-actie."
+                  : p.trend < -20
+                  ? "Sterke daling — check voorraad, prijs, of seizoens-effect. Misschien een actie nodig of uit het assortiment halen?"
+                  : "Stabiel patroon. Vergelijk met soortgelijke producten om kansen te zien."}
+              </p>
+            </div>
+          );
+        })()}
+      </DetailSheet>
     </div>
   );
 }

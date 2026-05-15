@@ -12,10 +12,12 @@
  *
  * Anders rendert 'ie null — geen ruis op het dashboard.
  */
-import { useMemo } from "react";
-import { format, parseISO } from "date-fns";
+import { useMemo, useState } from "react";
+import { format, parseISO, subYears } from "date-fns";
 import { nl } from "date-fns/locale";
-import { vergelijkbareFeestdagen } from "@/lib/feestdagen";
+import { vergelijkbareFeestdagen, zoekFeestdagInJaar } from "@/lib/feestdagen";
+import DetailSheet from "./sf/DetailSheet";
+import { ChevronRight } from "lucide-react";
 
 interface DagOmzet {
   datum: string;        // YYYY-MM-DD
@@ -41,6 +43,7 @@ function deltaPct(huidig: number, vorig: number): number {
 }
 
 export default function FeestdagVergelijking({ peilDatum, dagOmzet, hex }: Props) {
+  const [open, setOpen] = useState(false);
   const datum = peilDatum ?? new Date();
   const dagIndex = useMemo(() => new Map(dagOmzet.map((d) => [d.datum, d])), [dagOmzet]);
 
@@ -58,9 +61,27 @@ export default function FeestdagVergelijking({ peilDatum, dagOmzet, hex }: Props
   // Niets tonen als we GEEN historische vergelijking kunnen maken
   if (vorigOmzet === null && voorvorigOmzet === null) return null;
 
+  // Bouw uitgebreide historische rij voor de drill-down: tot 5 jaar terug.
+  const langereHistorie: Array<{ jaar: number; datum: Date | null; omzet: number | null }> = [];
+  for (let jr = huidig.datum.getFullYear() - 1; jr >= huidig.datum.getFullYear() - 5; jr--) {
+    const f = zoekFeestdagInJaar(huidig.naam, jr);
+    if (!f) {
+      langereHistorie.push({ jaar: jr, datum: null, omzet: null });
+      continue;
+    }
+    const omz = dagIndex.get(format(f.datum, "yyyy-MM-dd"))?.omzet ?? null;
+    langereHistorie.push({ jaar: jr, datum: f.datum, omzet: omz });
+  }
+  const beschikbareHist = langereHistorie.filter((h) => h.omzet !== null).map((h) => h.omzet as number);
+  const gemHist = beschikbareHist.length > 0 ? beschikbareHist.reduce((s, v) => s + v, 0) / beschikbareHist.length : 0;
+  const maxOmzet = Math.max(huidigOmzet ?? 0, ...beschikbareHist, 1);
+
   return (
-    <div
-      className="card relative overflow-hidden"
+    <>
+    <button
+      type="button"
+      onClick={() => setOpen(true)}
+      className="card relative overflow-hidden text-left w-full transition-transform active:scale-[0.99] hover:brightness-110 cursor-pointer"
       style={{
         background: `linear-gradient(135deg, ${hex}10 0%, transparent 100%)`,
         border: `1px solid ${hex}30`,
@@ -128,15 +149,101 @@ export default function FeestdagVergelijking({ peilDatum, dagOmzet, hex }: Props
         />
       </div>
 
-      <p className="text-[11px] mt-3" style={{ color: "var(--muted)" }}>
-        Vergelijkt met dezelfde feestdag in eerdere jaren (niet dezelfde
-        kalenderdatum). {huidig.naam} viel vorig jaar op{" "}
-        {vorigJaar ? format(vorigJaar.datum, "EEEE d MMM", { locale: nl }) : "—"},
-        {voorvorigJaar
-          ? ` voorvorig jaar op ${format(voorvorigJaar.datum, "EEEE d MMM", { locale: nl })}.`
-          : "."}
-      </p>
-    </div>
+      <div className="flex items-center justify-between gap-3 mt-3">
+        <p className="text-[11px]" style={{ color: "var(--muted)" }}>
+          Vergelijkt met dezelfde feestdag in eerdere jaren (niet dezelfde
+          kalenderdatum). {huidig.naam} viel vorig jaar op{" "}
+          {vorigJaar ? format(vorigJaar.datum, "EEEE d MMM", { locale: nl }) : "—"}.
+        </p>
+        <span className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-wider shrink-0" style={{ color: hex }}>
+          5 jr
+          <ChevronRight size={12} />
+        </span>
+      </div>
+    </button>
+
+    <DetailSheet
+      open={open}
+      onClose={() => setOpen(false)}
+      titel={huidig.naam}
+      subtitel={`Vergelijking 5 jaar terug · impact ${huidig.impact}`}
+      hex={hex}
+    >
+      <div className="space-y-4">
+        <div className="rounded-2xl p-4" style={{ background: `${hex}10`, border: `1px solid ${hex}30` }}>
+          <p className="font-mono text-[9px] tracking-[0.18em] uppercase mb-1" style={{ color: hex }}>
+            Vandaag
+          </p>
+          <p
+            className="font-display text-[28px] font-semibold tabular-nums leading-tight"
+            style={{ color: hex, letterSpacing: "-0.018em" }}
+          >
+            {huidigOmzet !== null ? fmtEur(huidigOmzet) : "—"}
+          </p>
+          {huidigOmzet !== null && beschikbareHist.length >= 2 && (
+            <p className="font-mono text-[11px] mt-1" style={{ color: "var(--muted)" }}>
+              {huidigOmzet > gemHist ? "+" : ""}
+              {Math.round(((huidigOmzet - gemHist) / gemHist) * 100)}% t.o.v. 5-jaars gemiddelde van {fmtEur(gemHist)}
+            </p>
+          )}
+        </div>
+
+        <div>
+          <p className="font-mono text-[9px] tracking-[0.18em] uppercase mb-2" style={{ color: "var(--muted)" }}>
+            Historie
+          </p>
+          <div className="space-y-1.5">
+            {[{ jaar: huidig.datum.getFullYear(), datum: huidig.datum, omzet: huidigOmzet }, ...langereHistorie].map((h, i) => {
+              const isHuidig = i === 0;
+              const pct = h.omzet !== null ? (h.omzet / maxOmzet) * 100 : 0;
+              return (
+                <div key={h.jaar} className="flex items-center gap-3">
+                  <div className="w-12 shrink-0">
+                    <p
+                      className="font-mono text-[11px] tabular-nums"
+                      style={{ color: isHuidig ? hex : "var(--muted)" }}
+                    >
+                      {h.jaar}
+                    </p>
+                  </div>
+                  <div className="flex-1 h-7 rounded-md overflow-hidden relative" style={{ background: "var(--sf-hairline)" }}>
+                    {h.omzet !== null && (
+                      <div
+                        className="h-full transition-all"
+                        style={{
+                          width: `${pct}%`,
+                          background: isHuidig ? hex : `${hex}55`,
+                        }}
+                      />
+                    )}
+                    <div className="absolute inset-0 flex items-center justify-end pr-2">
+                      <span
+                        className="font-mono text-[11px] tabular-nums"
+                        style={{ color: h.omzet !== null ? "var(--text)" : "var(--muted)" }}
+                      >
+                        {h.omzet !== null ? fmtEur(h.omzet) : "—"}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="w-20 shrink-0 text-right">
+                    <p className="font-mono text-[10px]" style={{ color: "var(--muted)" }}>
+                      {h.datum ? format(h.datum, "d MMM", { locale: nl }) : "—"}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <p className="text-[11px]" style={{ color: "var(--muted)" }}>
+          Omdat {huidig.naam} elk jaar op een andere kalenderdatum kan vallen
+          (Pasen/Pinksteren schuiven, Koningsdag bij zondag → 26 april), vergelijken
+          we op naam — niet op datum. Zo blijft de vergelijking eerlijk.
+        </p>
+      </div>
+    </DetailSheet>
+    </>
   );
 }
 
