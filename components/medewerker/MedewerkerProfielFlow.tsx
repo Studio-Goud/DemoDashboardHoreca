@@ -9,6 +9,7 @@
  */
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import DocumentenUploaden from "./DocumentenUploaden";
 
 interface Profiel {
   voornaam: string;
@@ -222,6 +223,10 @@ export default function MedewerkerProfielFlow({ welkom }: Props) {
           {bezig ? "Bezig…" : welkom ? "Opslaan & naar portaal" : "Opslaan"}
         </button>
       </form>
+
+      <section className="mt-8">
+        <DocumentenUploaden />
+      </section>
     </main>
   );
 }

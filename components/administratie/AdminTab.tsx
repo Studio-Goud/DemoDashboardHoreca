@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import IngUpload from "@/components/administratie/IngUpload";
 import FacturenPanel from "@/components/administratie/FacturenPanel";
 import ContantInvoer from "@/components/administratie/ContantInvoer";
@@ -10,6 +10,7 @@ import ReviewPanel from "@/components/administratie/ReviewPanel";
 import SetupPanel from "@/components/administratie/SetupPanel";
 import DgaEnergiePanel from "@/components/administratie/DgaEnergiePanel";
 import CashflowProjectie from "@/components/administratie/CashflowProjectie";
+import MedewerkerDocumentenPanel from "@/components/administratie/MedewerkerDocumentenPanel";
 
 interface Props {
   bedrijf: "bb" | "sl" | "kl";
@@ -37,6 +38,7 @@ export default function AdminTab({ bedrijf, hex }: Props) {
       <FacturenPanel bedrijf={bedrijf} hex={hex} jaar={jaar} />
       <ContantInvoer bedrijf={bedrijf} hex={hex} jaar={jaar} onWijziging={refresh} />
       <KwartaalRapport bedrijf={bedrijf} hex={hex} />
+      <MedewerkerDocumentenPanel hex={hex} />
       <SetupPanel hex={hex} />
     </div>
   );

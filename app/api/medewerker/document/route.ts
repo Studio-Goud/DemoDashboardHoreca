@@ -1,0 +1,94 @@
+/**
+ * Documenten van de ingelogde medewerker.
+ *
+ * GET  → lijst van eigen documenten (id, type, status, geupload op)
+ *        Bevat GEEN binary; gebruik /document/[id]/inhoud voor de bytes.
+ *
+ * POST → upload nieuwe foto (multipart form: file + type)
+ *        Versleuteld met AES-256-GCM voor opslag in Postgres.
+ *        Max grootte: 5 MB rauw input (na client-compressie zou < 2 MB
+ *        moeten zijn).
+ */
+import { NextResponse } from "next/server";
+import { and, eq, desc } from "drizzle-orm";
+import { huidigeSessie } from "@/lib/auth";
+import { db, schema } from "@/lib/db/client";
+import { versleutelBestand } from "@/lib/documenten";
+
+export const dynamic = "force-dynamic";
+
+const TOEGESTANE_TYPES = new Set(["id-voor", "id-achter", "paspoort", "bankpas"]);
+const TOEGESTANE_MIMES = new Set(["image/jpeg", "image/png", "image/webp", "image/heic"]);
+const MAX_BYTES = 5 * 1024 * 1024;
+
+export async function GET() {
+  const sessie = await huidigeSessie();
+  if (!sessie) return NextResponse.json({ error: "niet ingelogd" }, { status: 401 });
+
+  const rijen = await db.select({
+    id: schema.medewerkerDocumenten.id,
+    type: schema.medewerkerDocumenten.type,
+    mimetype: schema.medewerkerDocumenten.mimetype,
+    bestandsnaam: schema.medewerkerDocumenten.bestandsnaam,
+    grootteBytes: schema.medewerkerDocumenten.grootteBytes,
+    geuploadOp: schema.medewerkerDocumenten.geuploadOp,
+    goedgekeurd: schema.medewerkerDocumenten.goedgekeurd,
+    goedgekeurdOp: schema.medewerkerDocumenten.goedgekeurdOp,
+  })
+    .from(schema.medewerkerDocumenten)
+    .where(eq(schema.medewerkerDocumenten.medewerkerId, sessie.medewerkerId))
+    .orderBy(desc(schema.medewerkerDocumenten.geuploadOp));
+
+  return NextResponse.json({ documenten: rijen });
+}
+
+export async function POST(req: Request) {
+  const sessie = await huidigeSessie();
+  if (!sessie) return NextResponse.json({ error: "niet ingelogd" }, { status: 401 });
+
+  const formData = await req.formData();
+  const file = formData.get("file");
+  const type = formData.get("type");
+
+  if (!(file instanceof File)) {
+    return NextResponse.json({ error: "file ontbreekt" }, { status: 400 });
+  }
+  if (typeof type !== "string" || !TOEGESTANE_TYPES.has(type)) {
+    return NextResponse.json({ error: "type ongeldig" }, { status: 400 });
+  }
+  if (!TOEGESTANE_MIMES.has(file.type)) {
+    return NextResponse.json(
+      { error: `bestandstype ${file.type} niet ondersteund (gebruik JPEG/PNG/WebP/HEIC)` },
+      { status: 400 },
+    );
+  }
+  if (file.size > MAX_BYTES) {
+    return NextResponse.json(
+      { error: `bestand te groot (${Math.round(file.size / 1024 / 1024)}MB, max 5MB)` },
+      { status: 413 },
+    );
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const versleuteld = versleutelBestand(buffer);
+
+  // Verwijder eerdere upload van hetzelfde type (idempotent — herupload
+  // overschrijft de oude versie). Goedgekeurd-status wordt gereset.
+  await db.delete(schema.medewerkerDocumenten).where(and(
+    eq(schema.medewerkerDocumenten.medewerkerId, sessie.medewerkerId),
+    eq(schema.medewerkerDocumenten.type, type),
+  ));
+
+  const [nieuw] = await db.insert(schema.medewerkerDocumenten).values({
+    medewerkerId: sessie.medewerkerId,
+    type,
+    mimetype: file.type,
+    bestandsnaam: file.name?.slice(0, 200) ?? null,
+    iv: versleuteld.iv,
+    authtag: versleuteld.authtag,
+    ciphertext: versleuteld.ciphertext,
+    grootteBytes: buffer.length,
+  }).returning({ id: schema.medewerkerDocumenten.id });
+
+  return NextResponse.json({ ok: true, id: nieuw.id });
+}
