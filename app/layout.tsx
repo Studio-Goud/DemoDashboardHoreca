@@ -3,6 +3,7 @@ import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import PinGate from "@/components/PinGate";
 import LiveBalk from "@/components/LiveBalk";
+import BootSequence from "@/components/BootSequence";
 import { TaalProvider } from "@/lib/i18n/TaalProvider";
 import { getTaal, htmlLang } from "@/lib/i18n/server";
 
@@ -62,6 +63,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang={htmlLang(taal)} className={`${grotesk.variable} ${mono.variable}`}>
       <body className="min-h-screen antialiased">
         <TaalProvider initieelTaal={taal}>
+          {/* Boot-sequence sit als fixed overlay (z-100). Speelt elke
+              keer dat de app fresh mount (hard refresh, nieuwe tab,
+              cold open). Skipt op /dev/*, /m/*, /welkom*. Soft-nav
+              triggert niet — children mount maar 1x. */}
+          <BootSequence />
           <PinGate>
             <LiveBalk />
             {children}
