@@ -22,14 +22,26 @@ const IV_BYTES = 12;
 const KEY_BYTES = 32;
 
 function getKey(): Buffer {
-  const hex = process.env.DOCUMENTEN_ENCRYPTIE_KEY;
-  if (hex) {
-    if (hex.length !== KEY_BYTES * 2) {
-      throw new Error(
-        `DOCUMENTEN_ENCRYPTIE_KEY moet ${KEY_BYTES * 2} hex-chars zijn (= ${KEY_BYTES} bytes)`,
-      );
+  const raw = process.env.DOCUMENTEN_ENCRYPTIE_KEY;
+  if (raw) {
+    // Strip whitespace/newlines die soms meekomen bij copy-paste in
+    // Vercel env-var UI. Accepteer ook 64-char base64 (44 chars met "="
+    // of 43 zonder padding) als alternatief formaat.
+    const trimmed = raw.trim().replace(/\s+/g, "");
+    if (trimmed.length === KEY_BYTES * 2 && /^[0-9a-fA-F]+$/.test(trimmed)) {
+      return Buffer.from(trimmed, "hex");
     }
-    return Buffer.from(hex, "hex");
+    if (
+      (trimmed.length === 44 || trimmed.length === 43) &&
+      /^[A-Za-z0-9+/=_-]+$/.test(trimmed)
+    ) {
+      const buf = Buffer.from(trimmed.replace(/-/g, "+").replace(/_/g, "/"), "base64");
+      if (buf.length === KEY_BYTES) return buf;
+    }
+    throw new Error(
+      `DOCUMENTEN_ENCRYPTIE_KEY ongeldig formaat — verwacht ${KEY_BYTES * 2} hex-chars (32 bytes), ` +
+      `kreeg ${trimmed.length} tekens. Genereer met: openssl rand -hex 32`,
+    );
   }
   if (process.env.NODE_ENV === "production") {
     throw new Error("DOCUMENTEN_ENCRYPTIE_KEY ontbreekt in productie");
