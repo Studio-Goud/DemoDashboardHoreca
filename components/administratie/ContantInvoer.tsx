@@ -56,6 +56,7 @@ export default function ContantInvoer({ bedrijf, hex, jaar, onWijziging }: Props
       setCategorie("kosten");
       setToonFormulier(false);
       await laad();
+      window.dispatchEvent(new CustomEvent("contant-gewijzigd"));
       onWijziging?.();
     } finally {
       setBezig(false);
@@ -78,6 +79,8 @@ export default function ContantInvoer({ bedrijf, hex, jaar, onWijziging }: Props
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ categorie: nieuweCategorie }),
     });
+    // Zegt andere panelen (DGA YTD) dat ze opnieuw moeten fetchen.
+    window.dispatchEvent(new CustomEvent("contant-gewijzigd"));
     onWijziging?.();
   }
 

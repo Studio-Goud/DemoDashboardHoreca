@@ -68,6 +68,22 @@ export default function DgaEnergiePanel({ bedrijf, hex }: Props) {
 
   useEffect(() => { laad(); }, [laad]);
 
+  // Herlaad zodra het venster weer focus krijgt (bv. na PWA-tab-switch of na
+  // het wijzigen van een contant-categorie in de Administratie-tab). Anders
+  // toont de DGA-kaart stale data tot een full page-refresh.
+  useEffect(() => {
+    function refresh() { laad(); }
+    function onVisibility() { if (!document.hidden) laad(); }
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("contant-gewijzigd", refresh);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("contant-gewijzigd", refresh);
+    };
+  }, [laad]);
+
   if (laden && !dga) {
     return (
       <div className="card">
