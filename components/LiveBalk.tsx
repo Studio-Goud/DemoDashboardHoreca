@@ -237,8 +237,8 @@ function BedrijfKolom({
     <div
       className="relative px-3 sm:px-4 py-2.5 overflow-hidden transition-colors"
       style={{
-        borderRight: "1px solid rgba(255,255,255,0.06)",
-        background: isActief ? `${kleur}0F` : "transparent",
+        borderRight: "1px solid var(--sf-hairline)",
+        background: isActief ? `${kleur}14` : "transparent",
       }}
     >
       {/* Sparkline-achtergrond */}
@@ -275,21 +275,21 @@ function BedrijfKolom({
             className="w-1.5 h-1.5 rounded-full"
             style={{
               background: kleur,
-              boxShadow: isActief ? `0 0 6px ${kleur}` : "none",
-              opacity: isActief ? 1 : 0.6,
+              boxShadow: isActief ? `0 0 8px ${kleur}, 0 0 2px ${kleur}` : "none",
+              opacity: isActief ? 1 : 0.55,
             }}
           />
           <span
-            className="text-[10px] sm:text-[11px] font-semibold tracking-tight truncate"
-            style={{ color: "#e5e7eb", opacity: isActief ? 1 : 0.75, letterSpacing: "-0.005em" }}
+            className="font-display text-[10px] sm:text-[11px] font-medium tracking-[0.04em] uppercase truncate"
+            style={{ color: "var(--sf-fg-muted)", opacity: isActief ? 1 : 0.75 }}
           >
             {naam}
           </span>
         </div>
 
         <p
-          className="text-[15px] sm:text-[17px] font-semibold tabular-nums leading-tight"
-          style={{ color: "#f5f5f7", letterSpacing: "-0.014em" }}
+          className="font-display text-[15px] sm:text-[17px] font-semibold tabular-nums leading-tight"
+          style={{ color: "var(--sf-fg)", letterSpacing: "-0.014em" }}
         >
           {data ? <AnimatedAmount value={omzet} format={fmt} duurMs={650} /> : "€–"}
         </p>
@@ -297,8 +297,8 @@ function BedrijfKolom({
         <div className="flex items-center gap-2 mt-0.5">
           {heeftSchema ? (
             <span
-              className="text-[10px] tabular-nums font-medium"
-              style={{ color: voorOp ? "#34D399" : "#FB923C" }}
+              className="font-mono text-[10px] tabular-nums tracking-tight"
+              style={{ color: voorOp ? "var(--sf-success)" : "var(--sf-warning)" }}
             >
               {voorOp ? "+" : "−"}
               <AnimatedAmount
@@ -308,12 +308,12 @@ function BedrijfKolom({
               />
             </span>
           ) : (
-            <span className="text-[10px]" style={{ color: "#64748b" }}>
+            <span className="font-mono text-[10px]" style={{ color: "var(--sf-fg-dim)" }}>
               schema laadt…
             </span>
           )}
           {heeftKlanten && (
-            <span className="text-[10px] tabular-nums" style={{ color: "#94a3b8" }}>
+            <span className="font-mono text-[10px] tabular-nums" style={{ color: "var(--sf-fg-muted)" }}>
               {klanten} klanten
             </span>
           )}
@@ -434,17 +434,21 @@ function LiveBalkBody() {
   return (
     <>
       <div
-        className="w-full sticky top-0 z-50 backdrop-blur-xl"
+        className="w-full sticky top-0 z-50 backdrop-blur-sf-strong"
         style={{
-          background: "rgba(10, 14, 20, 0.85)",
-          borderBottom: "1px solid rgba(255,255,255,0.08)",
+          // Sci-fi glass: subtiele inktdrop met cyan-haze bovenaan via
+          // de globale page-bg-gradient. backdrop-blur-sf-strong = 40px.
+          background:
+            "linear-gradient(180deg, rgba(14,17,24,0.78) 0%, rgba(8,9,12,0.72) 100%)",
+          borderBottom: "1px solid var(--sf-hairline)",
           paddingTop: "env(safe-area-inset-top)",
+          boxShadow: "0 1px 0 rgba(0,229,255,0.06), 0 8px 32px rgba(0,0,0,0.4)",
         }}
       >
         {/* Datakolommen — klikbaar als navigatie. De onderbalk pulseert
             wanneer de huidige insight die specifieke vestiging betreft
             (welkom-override heeft voorrang). */}
-        <div className="flex" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+        <div className="flex" style={{ borderBottom: "1px solid var(--sf-hairline)" }}>
           {BEDRIJVEN.map((b, i) => {
             const isActief    = pathname === `/${b.slug}`;
             const welkomHere  = welkomOverride?.idx === i;
@@ -493,7 +497,7 @@ function LiveBalkBody() {
                   return (
                     <p
                       key={`welkom-${welkomOverride.tekst}`}
-                      className="text-[11px] font-medium text-center truncate w-full transition-opacity duration-500 fade-up"
+                      className="font-display text-[11px] font-medium text-center truncate w-full transition-opacity duration-500 fade-up tracking-tight"
                       style={{ color: b.kleur, opacity: 0.92 }}
                     >
                       {welkomOverride.tekst}
@@ -504,12 +508,12 @@ function LiveBalkBody() {
                 // Kleur: vestiging-specifiek als bedrijfIdx gezet, anders neutraal slate.
                 const kleur = huidigeInsight.bedrijfIdx !== null
                   ? BEDRIJVEN[huidigeInsight.bedrijfIdx].kleur
-                  : "#94a3b8";
+                  : "var(--sf-fg-muted)";
                 return (
                   <p
                     key={`ins-${insightIdx}-${huidigeInsight.tekst}`}
-                    className="text-[11px] font-medium tabular-nums text-center truncate w-full transition-opacity duration-500 fade-up tracking-wide"
-                    style={{ color: kleur, opacity: 0.92, letterSpacing: "0.01em" }}
+                    className="font-mono text-[11px] tabular-nums text-center truncate w-full transition-opacity duration-500 fade-up tracking-wide"
+                    style={{ color: kleur, opacity: 0.92, letterSpacing: "0.04em" }}
                   >
                     {huidigeInsight.tekst}
                   </p>
