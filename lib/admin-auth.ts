@@ -15,7 +15,7 @@
  * een server-secret zodat de cookie niet client-side te manipuleren is.
  */
 import { cookies } from "next/headers";
-import { createHmac } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 
 const ADMIN_COOKIE = "sg_admin_sessie";
 const COOKIE_DUUR_DAGEN = 7;
@@ -44,15 +44,22 @@ export interface AdminSessie {
 }
 
 /**
- * Server-secret voor cookie-signing. Faalt als env-var ontbreekt — kies
- * een willekeurige string van >= 32 chars in Vercel env-vars onder
- * ADMIN_COOKIE_SECRET.
+ * Server-secret voor cookie-signing. In productie VERPLICHT — als de env
+ * var ontbreekt gooien we, anders zou een misgrijp in Vercel-config een
+ * forgeable HMAC opleveren waarmee elke bezoeker een owner-cookie kan
+ * minten.
  *
- * Fallback in dev: deterministische dummy zodat lokaal testen werkt
- * zonder env-var te zetten. In productie ALTIJD echte secret zetten.
+ * In dev mag een deterministic dummy om lokaal werken niet stuk te maken.
  */
 function getSecret(): string {
-  return process.env.ADMIN_COOKIE_SECRET ?? "DEV-INSECURE-SECRET-zet-ADMIN_COOKIE_SECRET-in-vercel";
+  const env = process.env.ADMIN_COOKIE_SECRET;
+  if (env && env.length >= 16) return env;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "ADMIN_COOKIE_SECRET ontbreekt of te kort in productie — zet 'm in Vercel env vars (min 16 tekens).",
+    );
+  }
+  return "DEV-INSECURE-SECRET-zet-ADMIN_COOKIE_SECRET-in-vercel";
 }
 
 function ondertekenen(payload: string): string {
@@ -69,8 +76,13 @@ function maakToken(sessie: AdminSessie): string {
 function leesToken(token: string): AdminSessie | null {
   const [body, sig] = token.split(".");
   if (!body || !sig) return null;
-  // Constant-time compare via HMAC re-tekening
-  if (ondertekenen(body) !== sig) return null;
+  // Timing-safe compare: anders kan een aanvaller via response-time
+  // leren waar een geforced signature mis-matched. Buffers moeten zelfde
+  // lengte hebben — verwerp anders direct.
+  const verwacht = Buffer.from(ondertekenen(body), "utf8");
+  const ontvangen = Buffer.from(sig, "utf8");
+  if (verwacht.length !== ontvangen.length) return null;
+  if (!timingSafeEqual(verwacht, ontvangen)) return null;
   try {
     const payload = Buffer.from(body, "base64url").toString("utf8");
     return JSON.parse(payload) as AdminSessie;

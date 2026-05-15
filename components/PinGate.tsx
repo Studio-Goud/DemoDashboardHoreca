@@ -7,18 +7,16 @@ import { useT } from "@/lib/i18n/useT";
 import { startAuthentication } from "@simplewebauthn/browser";
 import FaceIDPromptModal from "./FaceIDPromptModal";
 
-// 4-cijferige PIN → identiteit + rol
-// - owners hebben een vaste vestiging
-// - elke manager heeft een eigen PIN; vestiging wordt na PIN-invoer gekozen
-const PIN_PROFIEL: Record<
-  string,
-  { naam: string; rol: "owner" | "manager"; vestiging?: "bb" | "sl" | "kl" }
-> = {
-  "2026": { naam: "Ricardo",  rol: "owner",   vestiging: "bb" },
-  "2580": { naam: "Matthieu", rol: "owner",   vestiging: "kl" },
-  "3001": { naam: "Gianni",   rol: "manager" },
-  "3002": { naam: "Theresa",  rol: "manager" },
-};
+// PIN_PROFIEL leeft NU ALLEEN server-side in lib/admin-auth.ts. We sturen
+// de PIN naar /api/admin/login en de server vertelt ons rol/naam/vestiging.
+// Eerder zat 'm in dit client-bestand en stond 'ie zo in de JS-bundle voor
+// alle bezoekers — DevTools toonde alle admin-PINs in plaintext.
+
+interface ServerSessieInfo {
+  rol: "owner" | "manager";
+  naam: string;
+  vestiging: "bb" | "sl" | "kl" | null;
+}
 
 const STORAGE_KEY  = "sg_auth";
 const USER_KEY     = "sg_user";
@@ -57,34 +55,6 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
     if (sessionStorage.getItem(STORAGE_KEY) === "1") setUnlocked(true);
     setChecking(false);
   }, []);
-
-  async function voltooidInloggen(
-    profiel: typeof PIN_PROFIEL[string],
-    vestiging: "bb" | "sl" | "kl",
-    pin: string,
-  ) {
-    // Bepaal effectieve rol — owner kan de Management-knop drukken om de
-    // manager-UI te testen; in dat geval is verwachteRol="manager" terwijl
-    // het profiel een owner is. Server lost het exact zo op.
-    const gewensteRol = verwachteRol ?? profiel.rol;
-    const effectieveRol: "owner" | "manager" =
-      profiel.rol === "owner" && gewensteRol === "manager" ? "manager" : profiel.rol;
-    const effectieveNaam =
-      profiel.rol === "owner" && effectieveRol === "manager"
-        ? `${profiel.naam} (eigenaar)`
-        : profiel.naam;
-
-    try {
-      await fetch("/api/admin/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pin, vestiging, gewensteRol }),
-      });
-    } catch {
-      // niet kritiek voor de UI-flow
-    }
-    sessieAfronden(effectieveNaam, effectieveRol, vestiging, true);
-  }
 
   /**
    * Zet sessionStorage + redirect — zónder /api/admin/login te roepen.
@@ -177,37 +147,62 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
     }
   }
 
+  // Houd vast welke server-info we hebben na een succesvolle PIN-validatie
+  // (zonder cookie te zetten) — gebruikt om de manager naar vestiging-keuze
+  // te brengen of fouten te tonen.
+  const [serverProfiel, setServerProfiel] = useState<ServerSessieInfo | null>(null);
+
+  async function valideerPinServer(pin: string): Promise<void> {
+    // Belangrijk: bij owner-PIN + verwachteRol="manager" sturen we
+    // gewensteRol="manager" mee zodat de server de view-as flow doet
+    // (anders zou owner direct als owner ingelogd worden).
+    const gewensteRol = verwachteRol === "manager" ? "manager" : undefined;
+    try {
+      const res = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin, gewensteRol }),
+      });
+      if (res.status === 429) {
+        const j = await res.json().catch(() => ({}));
+        setFout(true);
+        alert(j.error ?? "Te veel pogingen — even wachten.");
+        setTimeout(() => setInput(""), 600);
+        return;
+      }
+      if (!res.ok) {
+        setFout(true);
+        setTimeout(() => setInput(""), 600);
+        return;
+      }
+      const j = (await res.json()) as
+        | { vraagVestiging: true; rol: "manager"; naam: string }
+        | { ok: true; rol: "owner" | "manager"; naam: string; vestiging: "bb" | "sl" | "kl" };
+
+      if ("vraagVestiging" in j) {
+        // Manager flow — bewaar PIN voor de tweede call én ga naar de
+        // vestiging-keuze. We bewaren de PIN tijdelijk in component state
+        // (NIET sessionStorage — die wordt naar de server gestuurd in de
+        // 2e POST en daarna weggegooid).
+        setServerProfiel({ rol: j.rol, naam: j.naam, vestiging: null });
+        setFase("vestigingKiezen");
+        return;
+      }
+      // Owner flow: cookie staat, direct door.
+      sessieAfronden(j.naam, j.rol, j.vestiging, true);
+    } catch {
+      setFout(true);
+      setTimeout(() => setInput(""), 600);
+    }
+  }
+
   function drukOp(cijfer: string) {
     if (input.length >= 4) return;
     const nieuw = input + cijfer;
     setInput(nieuw);
     setFout(false);
-
     if (nieuw.length === 4) {
-      const profiel = PIN_PROFIEL[nieuw];
-      // PIN moet bestaan. Voor de rol-check:
-      //   - Manager-PIN op Eigenaar-knop = WEIGEREN (manager mag nooit
-      //     owner-rechten claimen)
-      //   - Owner-PIN op Management-knop = TOEGESTAAN (owner mag manager-
-      //     view testen). De sessie krijgt rol="manager" met naam-suffix.
-      const ongeldigeRolCombi =
-        verwachteRol === "owner" && profiel && profiel.rol !== "owner";
-      if (!profiel || ongeldigeRolCombi) {
-        setFout(true);
-        setTimeout(() => setInput(""), 600);
-        return;
-      }
-      // Bepaal of het een manager-flow is (vestiging-keuze nodig):
-      // - echte manager-PIN
-      // - OF owner die op de Management-knop drukte
-      const isManagerFlow =
-        profiel.rol === "manager" || verwachteRol === "manager";
-      if (isManagerFlow) {
-        setFase("vestigingKiezen");
-        return;
-      }
-      // Owner via Eigenaar-knop: meteen door met vaste vestiging.
-      voltooidInloggen(profiel, profiel.vestiging ?? "bb", nieuw);
+      valideerPinServer(nieuw);
     }
   }
 
@@ -216,14 +211,12 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
     setFout(false);
   }
 
-  function kiesVestiging(slug: "bb" | "sl" | "kl") {
+  async function kiesVestiging(slug: "bb" | "sl" | "kl") {
     // Twee paden naar deze keuze:
-    //   a) PIN-flow: manager-PIN is ingetoetst (input gevuld)
-    //   b) Face ID flow: faceIDProfiel is gevuld
+    //   a) PIN-flow: manager-PIN is succesvol ingetoetst (serverProfiel
+    //      heeft de naam + rol, input heeft de PIN)
+    //   b) Face ID flow: faceIDProfiel is gevuld (cookie staat al)
     if (faceIDProfiel) {
-      // Sessie cookie is al gezet door /api/auth/webauthn/auth/complete.
-      // Voor manager moeten we de vestiging server-side bijwerken — gebruik
-      // de bestaande /api/admin/login route met de bekende PIN.
       fetch("/api/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -232,9 +225,20 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
       sessieAfronden(faceIDProfiel.naam, faceIDProfiel.rol, slug);
       return;
     }
-    const profiel = PIN_PROFIEL[input];
-    if (!profiel) return;
-    voltooidInloggen(profiel, slug, input);
+    if (!serverProfiel) return;
+    // 2e call met vestiging zodat de cookie correct gezet wordt
+    const gewensteRol = verwachteRol === "manager" ? "manager" : undefined;
+    const res = await fetch("/api/admin/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pin: input, vestiging: slug, gewensteRol }),
+    });
+    if (!res.ok) {
+      setFout(true);
+      return;
+    }
+    const j = await res.json() as { naam: string; rol: "owner" | "manager"; vestiging: "bb" | "sl" | "kl" };
+    sessieAfronden(j.naam, j.rol, j.vestiging, true);
   }
 
   if (checking) {

@@ -8,7 +8,7 @@
 import { eq, and, gt } from "drizzle-orm";
 import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
-import { randomBytes } from "crypto";
+import { randomBytes, randomInt } from "crypto";
 import { db, schema } from "./db/client";
 
 const SESSIE_COOKIE = "sg_sessie_token";
@@ -65,7 +65,8 @@ export async function checkWachtwoord(plain: string, hash: string): Promise<bool
 export async function maakRegistratieCode(medewerkerId: number): Promise<{
   code: string; verloopt: Date;
 }> {
-  const code = String(Math.floor(Math.random() * 1_000_000)).padStart(6, "0");
+  // crypto-secure: 1M-space onmogelijk te raden binnen rate-limit
+  const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
   const verloopt = new Date();
   verloopt.setDate(verloopt.getDate() + REGISTRATIE_DUUR_DAGEN);
   await db.update(schema.medewerkers).set({
