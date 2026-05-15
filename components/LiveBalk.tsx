@@ -335,7 +335,7 @@ function BedrijfKolom({
  */
 export default function LiveBalk() {
   const pathname = usePathname();
-  if (pathname?.startsWith("/m") || pathname?.startsWith("/welkom")) {
+  if (pathname?.startsWith("/m") || pathname?.startsWith("/welkom") || pathname?.startsWith("/dev")) {
     return null;
   }
   return <LiveBalkBody />;

@@ -48,8 +48,11 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
   const [faceIDFout, setFaceIDFout] = useState<string | null>(null);
 
   // /m/* en /welkom* hebben eigen authenticatie (medewerker-sessie via cookie),
-  // dus PinGate moet die routes ongemoeid doorlaten.
-  const isMedewerkerRoute = pathname.startsWith("/m") || pathname.startsWith("/welkom");
+  // dus PinGate moet die routes ongemoeid doorlaten. /dev/* zijn losstaande
+  // design-system / boot-sequence demo's die zonder login bereikbaar moeten zijn.
+  const isMedewerkerRoute = pathname.startsWith("/m")
+    || pathname.startsWith("/welkom")
+    || pathname.startsWith("/dev");
 
   useEffect(() => {
     if (sessionStorage.getItem(STORAGE_KEY) === "1") setUnlocked(true);
