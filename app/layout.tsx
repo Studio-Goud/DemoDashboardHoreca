@@ -1,9 +1,30 @@
 import type { Metadata, Viewport } from "next";
+import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import PinGate from "@/components/PinGate";
 import LiveBalk from "@/components/LiveBalk";
 import { TaalProvider } from "@/lib/i18n/TaalProvider";
 import { getTaal, htmlLang } from "@/lib/i18n/server";
+
+// Display font — Space Grotesk geeft de "Linear / Arc / Vision Pro" toon zonder
+// de mechaniek van een gespecialiseerd display-font. Wisselt nette display-
+// proporties af met genoeg leesbaarheid voor body-tekst.
+const grotesk = Space_Grotesk({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-display",
+  weight: ["400", "500", "600", "700"],
+});
+
+// Monospace — voor numerieke readouts, timestamps, IDs. Geeft het "system
+// readout" gevoel uit het briefing-document. JetBrains Mono heeft dichte
+// karakters, sterke 0/O onderscheid, en past in een sci-fi context.
+const mono = JetBrains_Mono({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-mono",
+  weight: ["400", "500", "600"],
+});
 
 export const metadata: Metadata = {
   title: "Markthal HQ",
@@ -38,7 +59,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const taal = getTaal();
   return (
-    <html lang={htmlLang(taal)}>
+    <html lang={htmlLang(taal)} className={`${grotesk.variable} ${mono.variable}`}>
       <body className="min-h-screen antialiased">
         <TaalProvider initieelTaal={taal}>
           <PinGate>
