@@ -170,10 +170,11 @@ export default function LiveRevenue({
         <div>
           <p className="eyebrow mb-2">{t("live.today_revenue")}</p>
           <div
-            className="stat-value transition-opacity duration-500 tabular-nums"
+            className="font-display stat-value transition-opacity duration-500 tabular-nums tracking-tight"
             style={{
               color: "var(--text)",
               opacity: pulse ? 0.55 : 1,
+              letterSpacing: "-0.022em",
             }}
           >
             €
@@ -182,7 +183,7 @@ export default function LiveRevenue({
               maximumFractionDigits: 2,
             })}
           </div>
-          <p className="text-[13px] mt-1.5" style={{ color: "var(--muted)" }}>
+          <p className="font-mono text-[13px] mt-1.5 tabular-nums" style={{ color: "var(--muted)" }}>
             {data.aantalTransactiesVandaag} tx · gem. €
             {data.gemBonVandaag.toFixed(2)}
           </p>
@@ -195,8 +196,8 @@ export default function LiveRevenue({
               >
                 <span>{t("live.progress_vs_expected")}</span>
                 <span
-                  className="tabular-nums font-medium"
-                  style={{ color: opSchemaPos ? "#30B26F" : "#E07A1F" }}
+                  className="font-mono tabular-nums font-medium"
+                  style={{ color: opSchemaPos ? "var(--sf-success)" : "var(--sf-warning)" }}
                 >
                   {opSchema}%
                 </span>

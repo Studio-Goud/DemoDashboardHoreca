@@ -28,7 +28,7 @@ function Delta({ waarde }: { waarde: number }) {
   if (waarde === 0) {
     return (
       <span
-        className="inline-flex items-center gap-0.5 text-[12px] font-medium tabular-nums"
+        className="inline-flex items-center gap-0.5 font-mono text-[12px] font-medium tabular-nums"
         style={{ color: "var(--muted)" }}
       >
         <Icon name="minus" size={11} strokeWidth={2.5} />
@@ -39,8 +39,8 @@ function Delta({ waarde }: { waarde: number }) {
   const pos = waarde > 0;
   return (
     <span
-      className="inline-flex items-center gap-0.5 text-[12px] font-medium tabular-nums"
-      style={{ color: pos ? "#30B26F" : "#E5484D" }}
+      className="inline-flex items-center gap-0.5 font-mono text-[12px] font-medium tabular-nums"
+      style={{ color: pos ? "var(--sf-success)" : "var(--sf-danger)" }}
     >
       <Icon name={pos ? "arrow-up" : "arrow-down"} size={11} strokeWidth={2.5} />
       {pos ? "+" : ""}{waarde}%
@@ -61,8 +61,8 @@ function PeriodeRow({ label, huidig, vergelijking, groei }: PeriodeRowProps) {
       <div className="min-w-0">
         <p className="eyebrow mb-1">{label}</p>
         <p
-          className="text-[19px] font-semibold tabular-nums"
-          style={{ color: "var(--text)", letterSpacing: "-0.014em" }}
+          className="font-display text-[19px] font-semibold tabular-nums"
+          style={{ color: "var(--text)", letterSpacing: "-0.018em" }}
         >
           {fmtEur(huidig.omzet)}
         </p>
@@ -82,7 +82,7 @@ export default function KerncijfersGrid({ kerncijfers: k }: Props) {
   return (
     <div className="card">
       <div className="flex items-baseline justify-between mb-2">
-        <h3 className="text-[15px] font-semibold" style={{ color: "var(--text)" }}>
+        <h3 className="font-display text-[15px] font-semibold tracking-tight" style={{ color: "var(--text)" }}>
           {t("kerncijfers.title")}
         </h3>
         <span className="text-[11px]" style={{ color: "var(--muted)" }}>
@@ -144,8 +144,8 @@ export default function KerncijfersGrid({ kerncijfers: k }: Props) {
           <div>
             <p className="eyebrow mb-1">{t("kerncijfers.average_day")}</p>
             <p
-              className="text-[19px] font-semibold tabular-nums"
-              style={{ color: "var(--text)", letterSpacing: "-0.014em" }}
+              className="font-display text-[19px] font-semibold tabular-nums"
+              style={{ color: "var(--text)", letterSpacing: "-0.018em" }}
             >
               {fmtEur(k.gemOmzetPerDag)}
             </p>
