@@ -74,6 +74,7 @@ export async function POST(req: Request) {
     deviceLabel: body.deviceLabel?.trim() || `${sessie.naam}'s apparaat`,
     aangemaakt: new Date().toISOString(),
   });
+  console.log(`[webauthn/register] opgeslagen voor pin=${pin} (${sessie.naam}) id=${credential.id.slice(0, 8)}…`);
 
   await wisChallenge(body.sessionId);
   // Onbruikbaar maken door overschrijven met willekeurige waarde — extra

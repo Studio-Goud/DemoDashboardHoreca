@@ -116,29 +116,32 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
   }
 
   /**
-   * Probeer Face ID login voor de gevraagde rol. Faalt 'ie of zijn er
-   * geen passkeys → val terug op PIN-invoer.
+   * Probeer Face ID login voor de gevraagde rol. Direct na de click roepen
+   * we /auth/begin + startAuthentication() — iOS Safari vereist dat
+   * WebAuthn-calls in dezelfde user-activation context plaatsvinden als
+   * de click. Tussenliggende fetches (zoals een /has-check) kunnen dat
+   * window invalideren, waardoor iOS silent NotAllowedError gooit en de
+   * user denkt dat Face ID niet werkt.
+   *
+   * /auth/begin returnt 404 als er geen creds zijn → val terug op PIN.
    */
   async function probeerFaceID(rol: "owner" | "manager") {
     setFaceIDFout(null);
     setVerwachteRol(rol);
-    try {
-      const hasRes = await fetch(`/api/auth/webauthn/has?rol=${rol}`, { cache: "no-store" });
-      if (!hasRes.ok) throw new Error("check mislukt");
-      const has = await hasRes.json() as { aantal: number };
-      if (has.aantal === 0) {
-        // Geen passkeys → ga direct naar PIN
-        setFase("pin");
-        return;
-      }
-      setFase("faceIDBezig");
+    setFase("faceIDBezig");
 
+    try {
       const beginRes = await fetch("/api/auth/webauthn/auth/begin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rol }),
       });
-      if (!beginRes.ok) throw new Error("WebAuthn begin mislukt");
+      if (beginRes.status === 404) {
+        // Geen passkeys voor deze rol → direct PIN-pad zonder fout
+        setFase("pin");
+        return;
+      }
+      if (!beginRes.ok) throw new Error(`HTTP ${beginRes.status}`);
       const { options, sessionId } = await beginRes.json();
 
       const assertion = await startAuthentication({ optionsJSON: options });
@@ -160,17 +163,15 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
       };
 
       if (result.rol === "owner" && result.vestiging) {
-        // Owner: direct door
         sessieAfronden(result.naam, result.rol, result.vestiging);
       } else {
-        // Manager: nog vestiging kiezen. Bewaar profiel voor de keuze-fase.
         setFaceIDProfiel(result);
         setFase("vestigingKiezen");
       }
     } catch (e) {
       const bericht = e instanceof Error ? e.message : "Face ID afgebroken";
-      // NotAllowedError = user cancelled, dat is geen écht foutbericht.
       const isCancel = bericht.includes("NotAllowedError") || bericht.includes("aborted");
+      console.warn("[probeerFaceID]", bericht);
       setFaceIDFout(isCancel ? null : bericht);
       setFase("pin");
     }

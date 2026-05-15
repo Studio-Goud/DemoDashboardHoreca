@@ -22,6 +22,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "rol ongeldig" }, { status: 400 });
   }
   const creds = await credentialsVoorRol(rol);
+  console.log(`[webauthn/has] rol=${rol} aantal=${creds.length} ids=${creds.map(c => c.id.slice(0, 8)).join(",")}`);
   return NextResponse.json({
     aantal: creds.length,
     devices: creds.map((c) => ({

@@ -33,23 +33,14 @@ export default function FaceIDPromptModal({ hex }: Props) {
       if (localStorage.getItem(DISMISS_KEY) === "1") return;
       // 3. Niet via PIN ingelogd in deze sessie (bv. Face ID-flow)? skip.
       if (sessionStorage.getItem("sg_via_pin") !== "1") return;
-      // 4. Heeft deze gebruiker al een passkey?
-      const rol = sessionStorage.getItem("sg_rol");
-      if (rol !== "owner" && rol !== "manager") return;
+      // 4. Heeft DEZE specifieke gebruiker al een passkey? Per-user check
+      // via /has-mine (kijkt op basis van admin-cookie, niet op rol-totaal).
+      // Zo komt de modal NIET terug nadat 'ie 'm al heeft ingesteld.
       try {
-        // De /has endpoint geeft cumulatief alle credentials voor de rol
-        // terug. Voor de modal vragen we naar de specifieke user: de
-        // bestaande endpoint kijkt naar credentials.pin === sessie-PIN
-        // via /register/begin's excludeCredentials lijst. Hier checken we
-        // simpel of er ÜBERHAUPT credentials zijn voor de rol én tonen we
-        // toch — onderscheid per-PIN levert nu geen voordeel op.
-        const res = await fetch(`/api/auth/webauthn/has?rol=${rol}`, { cache: "no-store" });
+        const res = await fetch("/api/auth/webauthn/has-mine", { cache: "no-store" });
         if (!res.ok) return;
-        // Toon altijd na een eerste PIN-login. Owner kan zelf beslissen of
-        // 'ie een extra apparaat toevoegt; 'm niet tonen als de teller ≥
-        // 5 (dan zit het wel goed):
         const data = await res.json() as { aantal: number };
-        if (data.aantal >= 5) return;
+        if (data.aantal > 0) return; // gebruiker heeft al een passkey
         setZichtbaar(true);
       } catch { /* netwerk error → skip */ }
     }
