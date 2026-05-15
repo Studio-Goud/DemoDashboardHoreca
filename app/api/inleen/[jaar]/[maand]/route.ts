@@ -45,21 +45,26 @@ export async function GET(
 
   // Privacy: manager mag wel zien WAT er gefactureerd wordt en HOEVEEL uren,
   // maar NIET het uurloon of het exacte bedrag per medewerker. Voor manager
-  // strippen we de regels en houden alleen totalen per (van, naar)-paar +
-  // namen/uren (zonder uurloon/bedrag) als context.
+  // strippen we de regels EN filteren we op paren die zijn/haar vestiging
+  // betreffen (een BB-manager mag geen overzicht zien van SL → KL inleen).
   if (sessie.rol === "manager") {
-    overzicht.paren = overzicht.paren.map((p) => ({
-      ...p,
-      regels: p.regels.map((r) => ({
-        medewerkerId: r.medewerkerId,
-        voornaam: r.voornaam,
-        achternaam: r.achternaam,
-        uren: r.uren,
-        // expliciet verbergen — owner-only data
-        uurloon: 0,
-        bedrag: 0,
-      })),
-    }));
+    overzicht.paren = overzicht.paren
+      .filter((p) => p.vanSlug === sessie.vestiging || p.naarSlug === sessie.vestiging)
+      .map((p) => ({
+        ...p,
+        regels: p.regels.map((r) => ({
+          medewerkerId: r.medewerkerId,
+          voornaam: r.voornaam,
+          achternaam: r.achternaam,
+          uren: r.uren,
+          // expliciet verbergen — owner-only data
+          uurloon: 0,
+          bedrag: 0,
+        })),
+      }));
+    // Totaal herberekenen op de gefilterde paren — anders lekt het totaal
+    // info over vestigingen waar manager niet bij hoort.
+    overzicht.totaalBedrag = 0;
   }
 
   return NextResponse.json(overzicht);

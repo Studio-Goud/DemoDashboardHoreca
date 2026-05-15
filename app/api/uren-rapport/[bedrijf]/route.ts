@@ -42,6 +42,11 @@ export async function GET(
   if (!(VALID as string[]).includes(params.bedrijf)) {
     return NextResponse.json({ error: "ongeldig bedrijf" }, { status: 400 });
   }
+
+  // Vestiging-isolatie: manager BB mag geen SL/KL data zien.
+  if (sessie.rol === "manager" && sessie.vestiging !== params.bedrijf) {
+    return NextResponse.json({ error: "geen toegang tot andere vestiging" }, { status: 403 });
+  }
   const url = new URL(req.url);
   const maand = url.searchParams.get("maand"); // "YYYY-MM"
   const formaat = url.searchParams.get("formaat") ?? "json"; // "json" | "csv"

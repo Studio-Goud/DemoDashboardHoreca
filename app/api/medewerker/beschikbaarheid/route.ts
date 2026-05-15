@@ -1,16 +1,15 @@
 import { NextResponse } from "next/server";
 import { eq, and, gte, lte } from "drizzle-orm";
 import { db, schema } from "@/lib/db/client";
-import { huidigeSessie } from "@/lib/auth";
+import { apiVereistGoedgekeurdeMedewerker } from "@/lib/medewerker-gate";
 
 export const dynamic = "force-dynamic";
 
 /** GET ?start=YYYY-MM-DD&eind=YYYY-MM-DD — eigen beschikbaarheid. */
 export async function GET(req: Request) {
-  const sessie = await huidigeSessie();
-  if (!sessie || sessie.rol !== "medewerker") {
-    return NextResponse.json({ error: "niet ingelogd" }, { status: 401 });
-  }
+  const gate = await apiVereistGoedgekeurdeMedewerker();
+  if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
+  const { sessie } = gate;
   const url = new URL(req.url);
   const start = url.searchParams.get("start");
   const eind  = url.searchParams.get("eind");
@@ -38,10 +37,9 @@ export async function GET(req: Request) {
 
 /** PUT: set/update beschikbaarheid voor één dag. */
 export async function PUT(req: Request) {
-  const sessie = await huidigeSessie();
-  if (!sessie || sessie.rol !== "medewerker") {
-    return NextResponse.json({ error: "niet ingelogd" }, { status: 401 });
-  }
+  const gate = await apiVereistGoedgekeurdeMedewerker();
+  if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
+  const { sessie } = gate;
   try {
     const body = (await req.json()) as {
       datum?: string;
@@ -86,10 +84,9 @@ export async function PUT(req: Request) {
 
 /** DELETE ?datum=YYYY-MM-DD — beschikbaarheid wissen. */
 export async function DELETE(req: Request) {
-  const sessie = await huidigeSessie();
-  if (!sessie || sessie.rol !== "medewerker") {
-    return NextResponse.json({ error: "niet ingelogd" }, { status: 401 });
-  }
+  const gate = await apiVereistGoedgekeurdeMedewerker();
+  if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
+  const { sessie } = gate;
   const url = new URL(req.url);
   const datum = url.searchParams.get("datum");
   if (!datum) return NextResponse.json({ error: "datum verplicht" }, { status: 400 });

@@ -265,6 +265,9 @@ export async function huidigeSessie(): Promise<SessieInfo | null> {
   const token = cookies().get(SESSIE_COOKIE)?.value;
   if (!token) return null;
 
+  // Filter ook op medewerkers.actief = true: zonder dit kan een ontslagen
+  // medewerker met een nog-geldig sessie-cookie (TTL 30 dagen) z'n profiel,
+  // BSN, foto's en uren-data blijven opvragen tot het token verloopt.
   const rows = await db.select({
     sessie: schema.sessies,
     medewerker: schema.medewerkers,
@@ -274,6 +277,7 @@ export async function huidigeSessie(): Promise<SessieInfo | null> {
     .where(and(
       eq(schema.sessies.token, token),
       gt(schema.sessies.verloopt, new Date()),
+      eq(schema.medewerkers.actief, true),
     ));
   if (rows.length === 0) return null;
   const { sessie, medewerker } = rows[0];

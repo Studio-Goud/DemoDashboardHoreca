@@ -22,13 +22,26 @@ function maskSalaris(m: Medewerker): Medewerker {
 }
 
 export async function GET(req: Request) {
+  // Auth: zonder admin-sessie geen toegang tot medewerker-lijst.
   const sessie = huidigeAdminSessie();
-  const isOwner = sessie?.rol === "owner";
+  if (!sessie) return NextResponse.json({ error: "niet ingelogd" }, { status: 401 });
+  const isOwner = sessie.rol === "owner";
+
   const url = new URL(req.url);
   const bedrijf = url.searchParams.get("bedrijf");
+
+  // Vestiging-isolatie: manager mag alleen eigen vestiging zien.
+  if (sessie.rol === "manager" && isBedrijf(bedrijf) && bedrijf !== sessie.vestiging) {
+    return NextResponse.json({ error: "geen toegang tot andere vestiging" }, { status: 403 });
+  }
+  // Manager zonder bedrijf-param → forceer 'm op eigen vestiging.
+  const effectievBedrijf = sessie.rol === "manager" && sessie.vestiging
+    ? (sessie.vestiging as Bedrijf)
+    : (isBedrijf(bedrijf) ? bedrijf : null);
+
   try {
-    const lijst = isBedrijf(bedrijf)
-      ? await medewerkersPerBedrijf(bedrijf)
+    const lijst = effectievBedrijf
+      ? await medewerkersPerBedrijf(effectievBedrijf)
       : await fetchMedewerkers();
     // Privacy: alleen owner ziet de uurloon-velden.
     const veilig = isOwner ? lijst : lijst.map(maskSalaris);
@@ -40,6 +53,13 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  // Auth + owner-only: medewerkers aanmaken hoort bij owner.
+  const sessie = huidigeAdminSessie();
+  if (!sessie) return NextResponse.json({ error: "niet ingelogd" }, { status: 401 });
+  if (sessie.rol !== "owner") {
+    return NextResponse.json({ error: "alleen owner mag medewerkers aanmaken" }, { status: 403 });
+  }
+
   try {
     const body = (await req.json()) as {
       bedrijf?: string;

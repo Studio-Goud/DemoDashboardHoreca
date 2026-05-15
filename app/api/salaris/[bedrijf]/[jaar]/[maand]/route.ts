@@ -38,6 +38,12 @@ export async function GET(
   if (!(VALID as string[]).includes(params.bedrijf)) {
     return NextResponse.json({ error: "onbekend bedrijf" }, { status: 400 });
   }
+
+  // Vestiging-isolatie: manager BB mag geen SL/KL salarisgegevens zien.
+  if (sessie.rol === "manager" && sessie.vestiging !== params.bedrijf) {
+    return NextResponse.json({ error: "geen toegang tot andere vestiging" }, { status: 403 });
+  }
+
   const jaar = Number(params.jaar);
   const maand = Number(params.maand);
   if (!Number.isInteger(jaar) || jaar < 2020 || jaar > 2100) {
@@ -64,6 +70,11 @@ export async function GET(
       const totaalUren = berekeningen.reduce((s, b) => s + b.brutoUren, 0);
       const aantalMedewerkers = berekeningen.length;
 
+      // K-anonimiteit: bij < 3 medewerkers is een "aggregaat" effectief
+      // de individuele salaris-info van die ene persoon. Niet tonen.
+      const K_MIN = 3;
+      const toonAggregaat = aantalMedewerkers >= K_MIN;
+
       return NextResponse.json({
         rol: "manager",
         bedrijf: params.bedrijf,
@@ -72,10 +83,13 @@ export async function GET(
         // GEEN per-persoon detail — alleen aggregaten
         aantalMedewerkers,
         totaalUren: Math.round(totaalUren * 10) / 10,
-        totaalLoonkosten: Math.round(totaalLoonkosten * 100) / 100,
-        gemKostPerMedewerker: aantalMedewerkers > 0
+        // K-anonimiteit-bescherming op loon-aggregaten
+        totaalLoonkosten: toonAggregaat ? Math.round(totaalLoonkosten * 100) / 100 : null,
+        gemKostPerMedewerker: toonAggregaat
           ? Math.round((totaalLoonkosten / aantalMedewerkers) * 100) / 100
-          : 0,
+          : null,
+        aggregaatBeschikbaar: toonAggregaat,
+        aggregaatMinimumK: K_MIN,
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "onbekend";

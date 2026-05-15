@@ -1,17 +1,16 @@
 import { NextResponse } from "next/server";
 import { eq, and, desc } from "drizzle-orm";
 import { db, schema } from "@/lib/db/client";
-import { huidigeSessie } from "@/lib/auth";
+import { apiVereistGoedgekeurdeMedewerker } from "@/lib/medewerker-gate";
 import { logAudit, snapshotKlokEvent } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
 /** GET: laatste klok-event + open shift voor de medewerker. */
 export async function GET() {
-  const sessie = await huidigeSessie();
-  if (!sessie || sessie.rol !== "medewerker") {
-    return NextResponse.json({ error: "niet ingelogd" }, { status: 401 });
-  }
+  const gate = await apiVereistGoedgekeurdeMedewerker();
+  if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
+  const { sessie } = gate;
 
   const rows = await db.select()
     .from(schema.klokEvents)
@@ -39,10 +38,9 @@ export async function GET() {
 
 /** POST: registreer een nieuw klok-event (in/uit). */
 export async function POST(req: Request) {
-  const sessie = await huidigeSessie();
-  if (!sessie || sessie.rol !== "medewerker") {
-    return NextResponse.json({ error: "niet ingelogd" }, { status: 401 });
-  }
+  const gate = await apiVereistGoedgekeurdeMedewerker();
+  if (!gate.ok) return NextResponse.json({ error: gate.error }, { status: gate.status });
+  const { sessie } = gate;
 
   try {
     const body = (await req.json()) as {
