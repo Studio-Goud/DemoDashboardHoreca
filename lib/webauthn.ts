@@ -12,6 +12,7 @@
 import { kv } from "@vercel/kv";
 import { randomBytes } from "node:crypto";
 import { ADMIN_PIN_PROFIEL } from "./admin-auth";
+import { metLock } from "./kv-lock";
 
 const KV_CRED_PREFIX = "webauthn:cred:";
 const KV_CHALLENGE_PREFIX = "webauthn:challenge:";
@@ -38,9 +39,11 @@ export async function laadCredentials(pin: string): Promise<OpgeslagenCredential
 }
 
 export async function bewaarCredential(cred: OpgeslagenCredential): Promise<void> {
-  const lijst = await laadCredentials(cred.pin);
-  const nieuw = [...lijst.filter((c) => c.id !== cred.id), cred];
-  await kv.set(KV_CRED_PREFIX + cred.pin, nieuw);
+  await metLock(KV_CRED_PREFIX + cred.pin, async () => {
+    const lijst = await laadCredentials(cred.pin);
+    const nieuw = [...lijst.filter((c) => c.id !== cred.id), cred];
+    await kv.set(KV_CRED_PREFIX + cred.pin, nieuw);
+  });
 }
 
 export async function updateCredentialCounter(
@@ -48,16 +51,20 @@ export async function updateCredentialCounter(
   credentialId: string,
   nieuweCounter: number,
 ): Promise<void> {
-  const lijst = await laadCredentials(pin);
-  const i = lijst.findIndex((c) => c.id === credentialId);
-  if (i === -1) return;
-  lijst[i].counter = nieuweCounter;
-  await kv.set(KV_CRED_PREFIX + pin, lijst);
+  await metLock(KV_CRED_PREFIX + pin, async () => {
+    const lijst = await laadCredentials(pin);
+    const i = lijst.findIndex((c) => c.id === credentialId);
+    if (i === -1) return;
+    lijst[i].counter = nieuweCounter;
+    await kv.set(KV_CRED_PREFIX + pin, lijst);
+  });
 }
 
 export async function verwijderCredential(pin: string, credentialId: string): Promise<void> {
-  const lijst = await laadCredentials(pin);
-  await kv.set(KV_CRED_PREFIX + pin, lijst.filter((c) => c.id !== credentialId));
+  await metLock(KV_CRED_PREFIX + pin, async () => {
+    const lijst = await laadCredentials(pin);
+    await kv.set(KV_CRED_PREFIX + pin, lijst.filter((c) => c.id !== credentialId));
+  });
 }
 
 /** Alle credentials over alle PINs binnen één rol (owner of manager). */

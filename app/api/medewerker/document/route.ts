@@ -100,23 +100,27 @@ export async function POST(req: Request) {
       );
     }
 
-    // Verwijder eerdere upload van hetzelfde type (idempotent — herupload
-    // overschrijft de oude versie). Goedgekeurd-status wordt gereset.
-    await db.delete(schema.medewerkerDocumenten).where(and(
-      eq(schema.medewerkerDocumenten.medewerkerId, sessie.medewerkerId),
-      eq(schema.medewerkerDocumenten.type, type),
-    ));
-
-    const [nieuw] = await db.insert(schema.medewerkerDocumenten).values({
-      medewerkerId: sessie.medewerkerId,
-      type,
-      mimetype: file.type,
-      bestandsnaam: file.name?.slice(0, 200) ?? null,
-      iv: versleuteld.iv,
-      authtag: versleuteld.authtag,
-      ciphertext: versleuteld.ciphertext,
-      grootteBytes: buffer.length,
-    }).returning({ id: schema.medewerkerDocumenten.id });
+    // Atomair vervangen via een transactie. Zonder tx: als de serverless
+    // functie (Vercel) tussen DELETE en INSERT gekilled wordt (maxDuration,
+    // OOM), raakt de medewerker z'n oude document kwijt zonder vervanger.
+    // Met tx: óf de hele swap slaagt, óf de oude blijft staan.
+    const nieuw = await db.transaction(async (tx) => {
+      await tx.delete(schema.medewerkerDocumenten).where(and(
+        eq(schema.medewerkerDocumenten.medewerkerId, sessie.medewerkerId),
+        eq(schema.medewerkerDocumenten.type, type),
+      ));
+      const [rij] = await tx.insert(schema.medewerkerDocumenten).values({
+        medewerkerId: sessie.medewerkerId,
+        type,
+        mimetype: file.type,
+        bestandsnaam: file.name?.slice(0, 200) ?? null,
+        iv: versleuteld.iv,
+        authtag: versleuteld.authtag,
+        ciphertext: versleuteld.ciphertext,
+        grootteBytes: buffer.length,
+      }).returning({ id: schema.medewerkerDocumenten.id });
+      return rij;
+    });
 
     return NextResponse.json({ ok: true, id: nieuw.id });
   } catch (e) {

@@ -2,6 +2,11 @@ import { kv } from "@vercel/kv";
 import type { IngTransactie } from "./ing";
 import type { Factuur } from "./factuur-ai";
 import type { ContantRegel } from "./boekhouding";
+import { metLock } from "./kv-lock";
+
+// Alle KV-mutators hieronder gebruiken metLock() per blob-key. Zonder
+// lock kunnen twee gelijktijdige uploads/edits elkaars schrijfacties
+// overschrijven (klassieke read-modify-write race).
 
 type BedrijfSlug = "bb" | "sl" | "kl";
 
@@ -25,12 +30,15 @@ export async function slaIngOp(
   }
 
   for (const [key, maandTxs] of Array.from(perMaand.entries())) {
-    // Merge met bestaande (dedupliceert op id)
-    const bestaand: IngTransactie[] = (await kv.get(key)) ?? [];
-    const merged = new Map<string, IngTransactie>();
-    for (const tx of bestaand) merged.set(tx.id, tx);
-    for (const tx of maandTxs) merged.set(tx.id, tx); // overschrijft bestaande
-    await kv.set(key, Array.from(merged.values()));
+    // Merge met bestaande (dedupliceert op id) onder per-key lock zodat
+    // gelijktijdige uploads niet elkaars werk overschrijven.
+    await metLock(key, async () => {
+      const bestaand: IngTransactie[] = (await kv.get(key)) ?? [];
+      const merged = new Map<string, IngTransactie>();
+      for (const tx of bestaand) merged.set(tx.id, tx);
+      for (const tx of maandTxs) merged.set(tx.id, tx);
+      await kv.set(key, Array.from(merged.values()));
+    });
   }
 }
 
@@ -74,11 +82,13 @@ export async function updateIngTransactie(
   update: Partial<Pick<IngTransactie, "btw21" | "btw9" | "categorie" | "btwStatus" | "splits">>
 ): Promise<void> {
   const key = ingKey(bedrijf, jaar, maand);
-  const txs: IngTransactie[] = (await kv.get(key)) ?? [];
-  const idx = txs.findIndex((t) => t.id === id);
-  if (idx === -1) return;
-  txs[idx] = { ...txs[idx], ...update, btwStatus: "handmatig" };
-  await kv.set(key, txs);
+  await metLock(key, async () => {
+    const txs: IngTransactie[] = (await kv.get(key)) ?? [];
+    const idx = txs.findIndex((t) => t.id === id);
+    if (idx === -1) return;
+    txs[idx] = { ...txs[idx], ...update, btwStatus: "handmatig" };
+    await kv.set(key, txs);
+  });
 }
 
 // ─── Facturen ─────────────────────────────────────────────────────────────────
@@ -100,11 +110,13 @@ export async function slaFacturenOp(
 
   for (const [jaar, jaarFacturen] of Array.from(perJaar.entries())) {
     const key = facturenKey(bedrijf, jaar);
-    const bestaand: Factuur[] = (await kv.get(key)) ?? [];
-    const merged = new Map<string, Factuur>();
-    for (const f of bestaand) merged.set(f.id, f);
-    for (const f of jaarFacturen) merged.set(f.id, f);
-    await kv.set(key, Array.from(merged.values()));
+    await metLock(key, async () => {
+      const bestaand: Factuur[] = (await kv.get(key)) ?? [];
+      const merged = new Map<string, Factuur>();
+      for (const f of bestaand) merged.set(f.id, f);
+      for (const f of jaarFacturen) merged.set(f.id, f);
+      await kv.set(key, Array.from(merged.values()));
+    });
   }
 }
 
@@ -123,11 +135,13 @@ export async function updateFactuur(
   update: Partial<Pick<Factuur, "datum" | "bedragInclBtw" | "bedragExclBtw" | "btw21" | "btw9" | "leverancier" | "status">>
 ): Promise<void> {
   const key = facturenKey(bedrijf, jaar);
-  const facturen: Factuur[] = (await kv.get(key)) ?? [];
-  const idx = facturen.findIndex((f) => f.id === id);
-  if (idx === -1) return;
-  facturen[idx] = { ...facturen[idx], ...update };
-  await kv.set(key, facturen);
+  await metLock(key, async () => {
+    const facturen: Factuur[] = (await kv.get(key)) ?? [];
+    const idx = facturen.findIndex((f) => f.id === id);
+    if (idx === -1) return;
+    facturen[idx] = { ...facturen[idx], ...update };
+    await kv.set(key, facturen);
+  });
 }
 
 export async function verwijderFactuur(
@@ -136,8 +150,10 @@ export async function verwijderFactuur(
   id: string
 ): Promise<void> {
   const key = facturenKey(bedrijf, jaar);
-  const facturen: Factuur[] = (await kv.get(key)) ?? [];
-  await kv.set(key, facturen.filter((f) => f.id !== id));
+  await metLock(key, async () => {
+    const facturen: Factuur[] = (await kv.get(key)) ?? [];
+    await kv.set(key, facturen.filter((f) => f.id !== id));
+  });
 }
 
 // ─── Contant ──────────────────────────────────────────────────────────────────
@@ -160,12 +176,14 @@ export async function voegContantToe(
 ): Promise<void> {
   const jaar = Number(regel.datum.slice(0, 4));
   const key = contantKey(bedrijf, jaar);
-  const regels: ContantRegel[] = (await kv.get(key)) ?? [];
-  // Dedupliceer op id
-  const idx = regels.findIndex((r) => r.id === regel.id);
-  if (idx >= 0) regels[idx] = regel;
-  else regels.push(regel);
-  await kv.set(key, regels.sort((a, b) => a.datum.localeCompare(b.datum)));
+  await metLock(key, async () => {
+    const regels: ContantRegel[] = (await kv.get(key)) ?? [];
+    // Dedupliceer op id
+    const idx = regels.findIndex((r) => r.id === regel.id);
+    if (idx >= 0) regels[idx] = regel;
+    else regels.push(regel);
+    await kv.set(key, regels.sort((a, b) => a.datum.localeCompare(b.datum)));
+  });
 }
 
 export async function verwijderContant(
@@ -174,6 +192,8 @@ export async function verwijderContant(
   id: string
 ): Promise<void> {
   const key = contantKey(bedrijf, jaar);
-  const regels: ContantRegel[] = (await kv.get(key)) ?? [];
-  await kv.set(key, regels.filter((r) => r.id !== id));
+  await metLock(key, async () => {
+    const regels: ContantRegel[] = (await kv.get(key)) ?? [];
+    await kv.set(key, regels.filter((r) => r.id !== id));
+  });
 }
