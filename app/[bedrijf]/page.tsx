@@ -17,6 +17,9 @@ import FeestdagenKalender from "@/components/FeestdagenKalender";
 import Vergelijken from "@/components/Vergelijken";
 import FeestdagVergelijking from "@/components/FeestdagVergelijking";
 import KomendeFeestdagAlert from "@/components/KomendeFeestdagAlert";
+import MedewerkerLeaderboard from "@/components/MedewerkerLeaderboard";
+import TeamCombinaties from "@/components/TeamCombinaties";
+import ReviewsBeheer from "@/components/ReviewsBeheer";
 import Reveal from "@/components/sf/Reveal";
 import CruiseAgenda from "@/components/CruiseAgenda";
 import WeerImpact from "@/components/WeerImpact";
@@ -314,6 +317,10 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
             </Reveal>
           )}
 
+          <Reveal>
+            <MedewerkerLeaderboard bedrijfSlug={config.slug} hex={config.hex} />
+          </Reveal>
+
           {dagOmzet.length > 0 && (
             <Reveal>
               <RevenueChart data={dagOmzet} kleur={kleurNaam} hex={config.hex} />
@@ -397,6 +404,8 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
         <div className="space-y-5">
           <SalarisPanel bedrijf={config.slug} hex={config.hex} />
           <PersoneelPrestaties bedrijf={config.slug} hex={config.hex} />
+          <TeamCombinaties bedrijfSlug={config.slug} hex={config.hex} />
+          <ReviewsBeheer bedrijfSlug={config.slug} hex={config.hex} />
           <BedrijfsInstellingen bedrijf={config.slug} hex={config.hex} />
           <InleenDoorberekening hex={config.hex} filterSlug={config.slug} />
           <VoorraadAfrekening hex={config.hex} filterSlug={config.slug} />

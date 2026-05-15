@@ -465,6 +465,27 @@ export const voorraadProductenRelations = relations(voorraadProducten, ({ one })
   status: one(voorraadStatus, { fields: [voorraadProducten.id], references: [voorraadStatus.productId] }),
 }));
 
+// ─── Feedback reviews ────────────────────────────────────────────────────────
+// Klanten scannen een dag-QR aan tafel/op de bon → invullen op
+// /feedback/[bedrijf]?d=YYYY-MM-DD. Review krijgt geen medewerker-FK; de
+// score-berekening attribueert reviews aan het hele team dat die datum op
+// rooster stond (rosters.datum). Rate-limit op ipHash om review-spam tegen
+// te gaan.
+export const feedbackReviews = pgTable("feedback_reviews", {
+  id: serial("id").primaryKey(),
+  bedrijfSlug: varchar("bedrijf_slug", { length: 8 }).notNull(),
+  datum: date("datum").notNull(),
+  sterren: integer("sterren").notNull(),
+  tekst: text("tekst"),
+  ipHash: varchar("ip_hash", { length: 64 }),
+  ingediendOp: timestamp("ingediend_op", { withTimezone: true }).notNull().defaultNow(),
+  // Soft-delete: owner kan een review verbergen (spam/fake) zonder hard-delete
+  verborgen: boolean("verborgen").notNull().default(false),
+}, (t) => ({
+  bedrijfDatumIdx: index("feedback_reviews_bedrijf_datum_idx").on(t.bedrijfSlug, t.datum),
+  ingediendIdx: index("feedback_reviews_ingediend_idx").on(t.ingediendOp),
+}));
+
 // Type-helpers voor consumers
 export type Department      = typeof departments.$inferSelect;
 export type Medewerker      = typeof medewerkers.$inferSelect;
@@ -481,3 +502,5 @@ export type SalarisPeriode = typeof salarisPerioden.$inferSelect;
 export type NieuweSalarisPeriode = typeof salarisPerioden.$inferInsert;
 export type VoorraadProduct = typeof voorraadProducten.$inferSelect;
 export type VoorraadStatus  = typeof voorraadStatus.$inferSelect;
+export type FeedbackReview  = typeof feedbackReviews.$inferSelect;
+export type NieuweFeedbackReview = typeof feedbackReviews.$inferInsert;

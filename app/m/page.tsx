@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { eq, and, gte, lte, asc } from "drizzle-orm";
 import { db, schema } from "@/lib/db/client";
 import MedewerkerRooster from "@/components/medewerker/MedewerkerRooster";
+import MijnScore from "@/components/MijnScore";
 
 export const dynamic = "force-dynamic";
 
@@ -69,10 +70,13 @@ export default async function MedewerkerHome() {
   }));
 
   return (
-    <MedewerkerRooster
-      naam={sessie.naam}
-      diensten={diensten}
-      vandaag={start}
-    />
+    <div className="space-y-5">
+      <MedewerkerRooster
+        naam={sessie.naam}
+        diensten={diensten}
+        vandaag={start}
+      />
+      <MijnScore />
+    </div>
   );
 }

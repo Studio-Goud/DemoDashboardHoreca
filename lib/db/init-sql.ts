@@ -292,9 +292,34 @@ const MIGRATIE_0008: Migratie = {
   ],
 };
 
+/**
+ * Migratie 0009: feedback_reviews voor klant-feedback flow + leaderboard
+ * attributie per dag.
+ */
+const MIGRATIE_0009: Migratie = {
+  naam: "0009_feedback_reviews",
+  statements: [
+    `CREATE TABLE IF NOT EXISTS "feedback_reviews" (
+       "id"            serial PRIMARY KEY,
+       "bedrijf_slug"  varchar(8) NOT NULL,
+       "datum"         date NOT NULL,
+       "sterren"       integer NOT NULL,
+       "tekst"         text,
+       "ip_hash"       varchar(64),
+       "ingediend_op"  timestamptz NOT NULL DEFAULT now(),
+       "verborgen"     boolean NOT NULL DEFAULT false
+     )`,
+    `CREATE INDEX IF NOT EXISTS "feedback_reviews_bedrijf_datum_idx"
+       ON "feedback_reviews" ("bedrijf_slug", "datum")`,
+    `CREATE INDEX IF NOT EXISTS "feedback_reviews_ingediend_idx"
+       ON "feedback_reviews" ("ingediend_op")`,
+  ],
+};
+
 const ALLE_MIGRATIES: Migratie[] = [
   MIGRATIE_0001, MIGRATIE_0002, MIGRATIE_0003, MIGRATIE_0004,
   MIGRATIE_0005, MIGRATIE_0006, MIGRATIE_0007, MIGRATIE_0008,
+  MIGRATIE_0009,
 ];
 
 async function voerMigratieUit(m: Migratie): Promise<DbInitResultaat> {
