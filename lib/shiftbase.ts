@@ -645,10 +645,13 @@ export async function _fetchBeschikbaarheid(minDate: string, maxDate: string): P
   return json.data.map(mapAvailability);
 }
 
+// 30s TTL — beschikbaarheid kan door medewerkers in Shiftbase wijzigen
+// en moet relatief snel zichtbaar zijn in de app. Voor handmatige live-
+// refresh: POST /api/shiftbase/refresh-beschikbaarheid (revalidateTag).
 export const fetchBeschikbaarheid = unstable_cache(
   _fetchBeschikbaarheid,
   ["shiftbase-beschikbaarheid"],
-  { revalidate: 300, tags: ["shiftbase", "shiftbase-beschikbaarheid"] },
+  { revalidate: 30, tags: ["shiftbase", "shiftbase-beschikbaarheid"] },
 );
 
 // --- Cache-invalidatie helper ----------------------------------------------
