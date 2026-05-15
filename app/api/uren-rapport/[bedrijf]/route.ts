@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { eq, and, gte, lte, asc } from "drizzle-orm";
 import { db, schema } from "@/lib/db/client";
+import { huidigeAdminSessie } from "@/lib/admin-auth";
 import type { Bedrijf } from "@/lib/sumup";
 
 export const dynamic = "force-dynamic";
@@ -31,12 +32,23 @@ export async function GET(
   req: Request,
   { params }: { params: { bedrijf: string } },
 ) {
+  // Auth — uren-rapport bevat salaris-info (uurloon, totaal bruto). Owners
+  // krijgen alles; managers alleen aantallen (uren + diensten), geen
+  // €-bedragen. Niet-ingelogd → 401. CSV-export blijft owner-only.
+  const sessie = huidigeAdminSessie();
+  if (!sessie) return NextResponse.json({ error: "niet ingelogd" }, { status: 401 });
+  const isOwner = sessie.rol === "owner";
+
   if (!(VALID as string[]).includes(params.bedrijf)) {
     return NextResponse.json({ error: "ongeldig bedrijf" }, { status: 400 });
   }
   const url = new URL(req.url);
   const maand = url.searchParams.get("maand"); // "YYYY-MM"
   const formaat = url.searchParams.get("formaat") ?? "json"; // "json" | "csv"
+
+  if (formaat === "csv" && !isOwner) {
+    return NextResponse.json({ error: "CSV-export alleen voor owner" }, { status: 403 });
+  }
 
   if (!maand || !/^\d{4}-\d{2}$/.test(maand)) {
     return NextResponse.json({ error: "maand moet YYYY-MM zijn" }, { status: 400 });
@@ -182,18 +194,44 @@ export async function GET(
       });
     }
 
+    // Manager-view: strip uurloon + alle €-velden. Houdt uren + diensten
+    // zichtbaar zodat manager planning kan controleren.
+    const regelsPubliek = isOwner ? regels : regels.map((r) => ({
+      id: r.id,
+      voornaam: r.voornaam,
+      achternaam: r.achternaam,
+      gewerkteUren: r.gewerkteUren,
+      aantalDiensten: r.aantalDiensten,
+      uurloon: null,
+      vakantiegeldPct: 0,
+      vakantieUrenPct: 0,
+      basisLoon: 0,
+      vakantiegeld: 0,
+      vakantieUren: 0,
+      totaalBruto: 0,
+    }));
+    const totalenPubliek = isOwner ? totalen : {
+      uren: totalen.uren,
+      diensten: totalen.diensten,
+      basisLoon: 0,
+      vakantiegeld: 0,
+      vakantieUren: 0,
+      totaalBruto: 0,
+    };
+
     return NextResponse.json({
       bedrijf: params.bedrijf,
       maand,
       start, eind,
-      regels,
+      isOwner,
+      regels: regelsPubliek,
       totalen: {
-        uren: Math.round(totalen.uren * 100) / 100,
-        diensten: totalen.diensten,
-        basisLoon: Math.round(totalen.basisLoon * 100) / 100,
-        vakantiegeld: Math.round(totalen.vakantiegeld * 100) / 100,
-        vakantieUren: Math.round(totalen.vakantieUren * 100) / 100,
-        totaalBruto: Math.round(totalen.totaalBruto * 100) / 100,
+        uren: Math.round(totalenPubliek.uren * 100) / 100,
+        diensten: totalenPubliek.diensten,
+        basisLoon: Math.round(totalenPubliek.basisLoon * 100) / 100,
+        vakantiegeld: Math.round(totalenPubliek.vakantiegeld * 100) / 100,
+        vakantieUren: Math.round(totalenPubliek.vakantieUren * 100) / 100,
+        totaalBruto: Math.round(totalenPubliek.totaalBruto * 100) / 100,
       },
     });
   } catch (e) {

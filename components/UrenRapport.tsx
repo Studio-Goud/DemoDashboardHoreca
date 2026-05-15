@@ -22,6 +22,7 @@ interface Regel {
 interface Data {
   bedrijf: string;
   maand: string;
+  isOwner: boolean;
   regels: Regel[];
   totalen: {
     uren: number;
@@ -98,14 +99,16 @@ export default function UrenRapport({ bedrijf, naam, hex, maand }: Props) {
               <Icon name="chevron-right" size={14} />
             </Link>
           </div>
-          <a
-            href={`/api/uren-rapport/${bedrijf}?maand=${maand}&formaat=csv`}
-            className="px-3.5 py-1.5 rounded-[8px] text-[13px] font-medium text-white"
-            style={{ background: hex }}
-            download
-          >
-            Download CSV
-          </a>
+          {data?.isOwner && (
+            <a
+              href={`/api/uren-rapport/${bedrijf}?maand=${maand}&formaat=csv`}
+              className="px-3.5 py-1.5 rounded-[8px] text-[13px] font-medium text-white"
+              style={{ background: hex }}
+              download
+            >
+              Download CSV
+            </a>
+          )}
         </div>
       </div>
 
@@ -120,6 +123,47 @@ export default function UrenRapport({ bedrijf, naam, hex, maand }: Props) {
             Geen gepubliceerde diensten in {maandLabel.toLowerCase()}
           </p>
         </div>
+      ) : !data.isOwner ? (
+        // Manager-view: alleen uren + diensten, geen salaris-info
+        <>
+          <div className="card grid grid-cols-2 gap-4">
+            <Kpi label="Totale uren" waarde={`${data.totalen.uren.toFixed(1)}u`} hex={hex} highlight />
+            <Kpi label="Aantal diensten" waarde={String(data.totalen.diensten)} hex={hex} />
+          </div>
+
+          <div className="card overflow-x-auto p-0">
+            <table className="w-full text-[12px]" style={{ borderCollapse: "separate", borderSpacing: 0 }}>
+              <thead>
+                <tr>
+                  <Th>Medewerker</Th>
+                  <Th align="right">Diensten</Th>
+                  <Th align="right">Uren</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.regels.map((r) => (
+                  <tr key={r.id}>
+                    <Td>
+                      <span style={{ color: "var(--text)", fontWeight: 500 }}>{r.voornaam}</span>{" "}
+                      <span style={{ color: "var(--muted)" }}>{r.achternaam}</span>
+                    </Td>
+                    <Td align="right">{r.aantalDiensten}</Td>
+                    <Td align="right" bold>{r.gewerkteUren.toFixed(1)}u</Td>
+                  </tr>
+                ))}
+                <tr style={{ background: "var(--bg)" }}>
+                  <Td bold>TOTAAL</Td>
+                  <Td align="right" bold>{data.totalen.diensten}</Td>
+                  <Td align="right" bold>{data.totalen.uren.toFixed(1)}u</Td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p className="text-[11px] text-center" style={{ color: "var(--muted)" }}>
+            Salaris-bedragen zijn alleen zichtbaar voor de eigenaar.
+          </p>
+        </>
       ) : (
         <>
           {/* Totalen */}
