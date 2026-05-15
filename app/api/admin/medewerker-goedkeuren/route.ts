@@ -12,6 +12,7 @@ import { eq } from "drizzle-orm";
 import { huidigeAdminSessie } from "@/lib/admin-auth";
 import { db, schema } from "@/lib/db/client";
 import { runAllePendingMigraties } from "@/lib/db/init-sql";
+import { logAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,21 @@ export async function POST(req: Request) {
     goedgekeurdDoor: body.goedgekeurd ? sessie.naam : null,
     updatedAt: new Date(),
   }).where(eq(schema.medewerkers.id, body.medewerkerId));
+
+  // AVG-trail: wie heeft wanneer wie goedgekeurd/ingetrokken?
+  await logAudit(
+    "medewerker_goedkeuring",
+    body.medewerkerId,
+    body.goedgekeurd ? "approve" : "revoke",
+    null,
+    { door: sessie.naam, rol: sessie.rol },
+    {
+      doorRol: sessie.rol,
+      reden: body.goedgekeurd ? "Owner heeft account vrijgegeven" : "Goedkeuring ingetrokken",
+      ipAdres: req.headers.get("x-forwarded-for") ?? undefined,
+      userAgent: req.headers.get("user-agent") ?? undefined,
+    },
+  );
 
   return NextResponse.json({ ok: true });
 }

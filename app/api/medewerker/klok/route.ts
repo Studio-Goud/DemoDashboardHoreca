@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { eq, and, desc } from "drizzle-orm";
 import { db, schema } from "@/lib/db/client";
 import { apiVereistGoedgekeurdeMedewerker } from "@/lib/medewerker-gate";
+import { metLock } from "@/lib/kv-lock";
 import { logAudit, snapshotKlokEvent } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
@@ -51,38 +52,42 @@ export async function POST(req: Request) {
     if (body.type !== "in" && body.type !== "out") {
       return NextResponse.json({ error: "type moet 'in' of 'out' zijn" }, { status: 400 });
     }
+    // Narrow naar literal type voor TS — anders ziet 'ie body.type binnen
+    // de async closure als string|undefined.
+    const klokType: "in" | "out" = body.type;
 
-    // Voorkom dubbele klok-events achter elkaar
-    const laatste = await db.select()
-      .from(schema.klokEvents)
-      .where(eq(schema.klokEvents.medewerkerId, sessie.medewerkerId))
-      .orderBy(desc(schema.klokEvents.tijdstempel))
-      .limit(1);
-    if (laatste.length > 0 && laatste[0].type === body.type) {
-      return NextResponse.json({
-        error: body.type === "in" ? "Je bent al ingeklokt" : "Je bent al uitgeklokt",
-      }, { status: 409 });
-    }
+    // Per-medewerker lock: voorkomt dat twee tap-snel-achter-elkaar requests
+    // beide door de "laatste type"-check komen voordat een van beide insert.
+    // Zonder lock: race → 2× "in"-event achter elkaar.
+    const ingevoegd = await metLock(`klok:${sessie.medewerkerId}`, async () => {
+      const laatste = await db.select()
+        .from(schema.klokEvents)
+        .where(eq(schema.klokEvents.medewerkerId, sessie.medewerkerId))
+        .orderBy(desc(schema.klokEvents.tijdstempel))
+        .limit(1);
+      if (laatste.length > 0 && laatste[0].type === klokType) {
+        throw new Error(klokType === "in" ? "Je bent al ingeklokt" : "Je bent al uitgeklokt");
+      }
 
-    // Probeer huidige roster te vinden (zodat klok aan dienst gekoppeld is)
-    const vandaag = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Amsterdam" }).format(new Date());
-    const huidigeRoster = await db.select()
-      .from(schema.rosters)
-      .where(and(
-        eq(schema.rosters.medewerkerId, sessie.medewerkerId),
-        eq(schema.rosters.datum, vandaag),
-      ))
-      .limit(1);
+      const vandaag = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Amsterdam" }).format(new Date());
+      const huidigeRoster = await db.select()
+        .from(schema.rosters)
+        .where(and(
+          eq(schema.rosters.medewerkerId, sessie.medewerkerId),
+          eq(schema.rosters.datum, vandaag),
+        ))
+        .limit(1);
 
-    const ingevoegd = await db.insert(schema.klokEvents).values({
-      medewerkerId: sessie.medewerkerId,
-      rosterId: huidigeRoster[0]?.id ?? null,
-      type: body.type,
-      tijdstempel: new Date(),
-      latitude:  body.latitude !== undefined  ? String(body.latitude)  : null,
-      longitude: body.longitude !== undefined ? String(body.longitude) : null,
-      handmatig: false,
-    }).returning();
+      return db.insert(schema.klokEvents).values({
+        medewerkerId: sessie.medewerkerId,
+        rosterId: huidigeRoster[0]?.id ?? null,
+        type: klokType,
+        tijdstempel: new Date(),
+        latitude:  body.latitude !== undefined  ? String(body.latitude)  : null,
+        longitude: body.longitude !== undefined ? String(body.longitude) : null,
+        handmatig: false,
+      }).returning();
+    }, { ttlSec: 5, tries: 8 });
 
     // Audit-log: elke klok-actie is een onomkeerbare gewerkte-uren-melding.
     // We loggen wie het deed via de sessie zodat we altijd weten welke
@@ -108,6 +113,9 @@ export async function POST(req: Request) {
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "onbekend";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    // De lock-callback gooit "Je bent al ingeklokt/uitgeklokt" als 409
+    // (duplicate event), andere fouten zijn 500.
+    const isDuplicate = msg.includes("ingeklokt") || msg.includes("uitgeklokt");
+    return NextResponse.json({ error: msg }, { status: isDuplicate ? 409 : 500 });
   }
 }

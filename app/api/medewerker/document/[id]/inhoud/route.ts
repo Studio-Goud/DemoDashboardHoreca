@@ -15,6 +15,7 @@ import { huidigeSessie } from "@/lib/auth";
 import { huidigeAdminSessie } from "@/lib/admin-auth";
 import { db, schema } from "@/lib/db/client";
 import { ontsleutelBestand } from "@/lib/documenten";
+import { logAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,20 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     plain = ontsleutelBestand({ iv: doc.iv, authtag: doc.authtag, ciphertext: doc.ciphertext });
   } catch {
     return NextResponse.json({ error: "ontsleutelen mislukt — key wijziging?" }, { status: 500 });
+  }
+
+  // AVG-trail: trackbaar wie wanneer welke ID/bankpas-foto opende. Voor
+  // medewerker-zelf (= eigen foto's) loggen we niet — die heeft uiteraard
+  // toegang. Voor owner-access loggen we voor inzage door derden.
+  if (isOwner) {
+    await logAudit(
+      "medewerker_document",
+      id,
+      "decrypt",
+      null,
+      { door: adminSessie!.naam, mimetype: doc.mimetype },
+      { doorRol: adminSessie!.rol, reden: "Document geopend in review" },
+    );
   }
 
   // Buffer → Uint8Array zodat NextResponse 'm als BodyInit accepteert

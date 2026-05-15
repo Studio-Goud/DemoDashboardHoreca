@@ -299,11 +299,15 @@ export async function berekenSalarisVoorBedrijf(
   for (const r of primair) alleIds.add(r.id);
   for (const r of fallback) alleIds.add(r.id);
 
-  const resultaten: SalarisBerekening[] = [];
-  for (const id of Array.from(alleIds)) {
-    const b = await berekenSalarisVoorMedewerker(id, jaar, maand);
-    if (b && b.brutoUren > 0) resultaten.push(b);
-  }
+  // Parallel ipv sequentieel — was N+1 (90 DB roundtrips voor 30 medewerkers).
+  // Promise.all gooit alles tegelijk in de pool en wacht op alles tegelijk;
+  // de Postgres-pool serialiseert intern maar latency stapelt niet meer op.
+  const berekeningen = await Promise.all(
+    Array.from(alleIds).map((id) => berekenSalarisVoorMedewerker(id, jaar, maand)),
+  );
+  const resultaten = berekeningen.filter(
+    (b): b is SalarisBerekening => b !== null && b.brutoUren > 0,
+  );
   return resultaten.sort((a, b) => a.achternaam.localeCompare(b.achternaam));
 }
 

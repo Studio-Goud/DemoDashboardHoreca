@@ -14,8 +14,16 @@
 
 import { db, schema } from "./db/client";
 
-export type AuditEntiteit = "roster" | "klok_event" | "medewerker";
-export type AuditActie = "create" | "update" | "delete";
+export type AuditEntiteit =
+  | "roster"
+  | "klok_event"
+  | "medewerker"
+  // AVG/GDPR-trail: elke decryptie van BSN / document = log-regel,
+  // elke goedkeuring/intrekking ook. Voldoet aan art.30 verwerking.
+  | "medewerker_bsn"
+  | "medewerker_document"
+  | "medewerker_goedkeuring";
+export type AuditActie = "create" | "update" | "delete" | "decrypt" | "approve" | "revoke";
 export type AuditRol = "owner" | "manager" | "medewerker" | "systeem";
 
 interface AuditContext {

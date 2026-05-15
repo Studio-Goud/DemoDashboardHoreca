@@ -48,12 +48,14 @@ export async function haalIngOp(
   maanden?: number[]
 ): Promise<IngTransactie[]> {
   const ms = maanden ?? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-  const resultaten: IngTransactie[] = [];
-  for (const m of ms) {
-    const key = ingKey(bedrijf, jaar, m);
-    const data: IngTransactie[] = (await kv.get(key)) ?? [];
-    resultaten.push(...data);
-  }
+  // Parallelle KV-reads ipv 12× sequentieel — was de hot path voor het
+  // hele dashboard (haalIngOp wordt door cashflow, dga, financieel-
+  // adviseur en boekhouding aangeroepen). Vercel KV verdraagt ~50 reqs/s
+  // ruim, dus 12 parallel is geen probleem.
+  const blobs = await Promise.all(
+    ms.map((m) => kv.get<IngTransactie[]>(ingKey(bedrijf, jaar, m)).then((d) => d ?? [])),
+  );
+  const resultaten = blobs.flat();
   return resultaten.sort((a, b) => a.datum.localeCompare(b.datum));
 }
 

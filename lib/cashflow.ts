@@ -84,10 +84,14 @@ async function gemiddeldeVasteLasten(bedrijf: BedrijfSlug, jaar: number): Promis
     maanden.push({ jaar: j, maand: m });
   }
 
+  // Parallel ophalen — was 3 sequentiële KV-reads.
+  const txsPerMaand = await Promise.all(
+    maanden.map(({ jaar: j, maand }) => haalIngOp(bedrijf, j, [maand])),
+  );
+
   let totaal = 0;
   let geteldMaanden = 0;
-  for (const { jaar: j, maand } of maanden) {
-    const txs = await haalIngOp(bedrijf, j, [maand]);
+  for (const txs of txsPerMaand) {
     const maandKost = txs
       .filter((t) => t.richting === "debit" && VASTE_LAST_CATEGORIEEN.has(t.categorie))
       .reduce((s, t) => s + t.bedrag, 0);

@@ -14,6 +14,7 @@ import { eq, sql } from "drizzle-orm";
 import { huidigeAdminSessie } from "@/lib/admin-auth";
 import { db, schema } from "@/lib/db/client";
 import { ontsleutelTekst } from "@/lib/documenten";
+import { logAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -67,6 +68,15 @@ export async function GET(req: Request) {
     let bsn: string | null = null;
     if (m.bsnVersleuteld) {
       try { bsn = ontsleutelTekst(m.bsnVersleuteld); } catch { bsn = "(decryptie-fout)"; }
+      // AVG art.30: trackbaar wie wanneer BSN heeft ingezien.
+      await logAudit(
+        "medewerker_bsn",
+        m.id,
+        "decrypt",
+        null,
+        { door: sessie.naam },
+        { doorRol: sessie.rol, reden: "BSN gelezen in review-paneel" },
+      );
     }
 
     return NextResponse.json({
