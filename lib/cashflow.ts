@@ -27,16 +27,18 @@ export interface CashflowEvent {
 
 export interface CashflowProjectie {
   bedrijf: BedrijfSlug;
-  startSaldo: number;
   startDatum: string;
-  saldoOpgeslagen: string | null;
   events: CashflowEvent[];
-  /** Per dag een snapshot van saldo (gemakkelijk voor lijngrafiek). */
+  /**
+   * Per dag een snapshot — `saldo` is hier de cumulatieve delta vanaf 0,
+   * NIET een absoluut bank-saldo. We laten de naam staan voor de grafiek-
+   * code; alleen de UI-labels veranderen naar "cumulatief netto".
+   */
   dagen: Array<{ datum: string; saldo: number; mutatie: number }>;
-  /** Dagen waarop saldo onder threshold zakt — waarschuwing. */
+  /** Dagen waarop de cumulatieve delta onder 0 zakt — waarschuwing. */
   gevarenDagen: string[];
-  eindSaldo: number;
-  laagsteSaldo: number;
+  eindDelta: number;
+  laagsteDelta: number;
   laagsteDatum: string;
 }
 
@@ -182,21 +184,20 @@ export async function cashflowProjectie(
   bedrijf: BedrijfSlug,
   dagen = 90,
 ): Promise<CashflowProjectie> {
-  // 1. Bedrijfsinstellingen — startsaldo + werkgeverslasten-pct
+  // 1. Bedrijfsinstellingen — werkgeverslasten-pct (was: ook startsaldo)
+  // Bank-saldo is uit de UI gehaald omdat handmatig bijhouden te foutgevoelig
+  // bleek. De projectie toont nu de cumulatieve netto-delta vanaf 0.
   const [dept] = await db
     .select({
-      huidigSaldo: schema.departments.huidigSaldo,
-      huidigSaldoOpgeslagen: schema.departments.huidigSaldoOpgeslagen,
       werkgeverslastenPct: schema.departments.werkgeverslastenPct,
     })
     .from(schema.departments)
     .where(eq(schema.departments.slug, bedrijf));
 
-  const startSaldo = dept?.huidigSaldo === null || dept?.huidigSaldo === undefined ? 0 : Number(dept.huidigSaldo);
+  const startSaldo = 0;
   const werkgeverslastenPct = dept?.werkgeverslastenPct === null || dept?.werkgeverslastenPct === undefined
     ? 27
     : Number(dept.werkgeverslastenPct);
-  const saldoOpgeslagen = dept?.huidigSaldoOpgeslagen?.toISOString() ?? null;
 
   const startDatum = nlDatumString(new Date());
 
@@ -302,30 +303,29 @@ export async function cashflowProjectie(
     datum, saldo: Math.round(v.saldo * 100) / 100, mutatie: Math.round(v.mutatie * 100) / 100,
   }));
 
-  // 8. Gevarenzones: dagen waarop saldo < 0 of < 10% van startsaldo
-  const drempel = Math.max(0, startSaldo * 0.1);
+  // 8. Gevarenzones: dagen waarop de cumulatieve delta onder 0 zakt.
+  // Zonder absolute saldo kunnen we niet meer relatief aan een startwaarde
+  // waarschuwen; we vlaggen dus elke dag met negatief cumulatief.
   const gevarenDagen = dagenLijst
-    .filter((d) => d.saldo < drempel)
+    .filter((d) => d.saldo < 0)
     .map((d) => d.datum);
 
-  // 9. Laagste saldo + datum
+  // 9. Laagste delta + datum
   const laagste = dagenLijst.reduce(
     (acc, d) => (d.saldo < acc.saldo ? { saldo: d.saldo, datum: d.datum } : acc),
-    { saldo: startSaldo, datum: startDatum },
+    { saldo: 0, datum: startDatum },
   );
 
-  const eindSaldo = dagenLijst[dagenLijst.length - 1]?.saldo ?? startSaldo;
+  const eindDelta = dagenLijst[dagenLijst.length - 1]?.saldo ?? 0;
 
   return {
     bedrijf,
-    startSaldo,
     startDatum,
-    saldoOpgeslagen,
     events: events.map((e) => ({ ...e, mutatie: Math.round(e.mutatie * 100) / 100, saldoNa: Math.round(e.saldoNa * 100) / 100 })),
     dagen: dagenLijst,
     gevarenDagen,
-    eindSaldo: Math.round(eindSaldo * 100) / 100,
-    laagsteSaldo: Math.round(laagste.saldo * 100) / 100,
+    eindDelta: Math.round(eindDelta * 100) / 100,
+    laagsteDelta: Math.round(laagste.saldo * 100) / 100,
     laagsteDatum: laagste.datum,
   };
 }

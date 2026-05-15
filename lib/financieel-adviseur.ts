@@ -70,7 +70,6 @@ async function bouwContext(bedrijf: BedrijfSlug): Promise<string> {
     dgaUittreksel(bedrijf, jaar).catch(() => null),
     energieUittreksel(bedrijf, jaar).catch(() => null),
     db.select({
-      huidigSaldo: schema.departments.huidigSaldo,
       werkgeverslastenPct: schema.departments.werkgeverslastenPct,
     }).from(schema.departments).where(eq(schema.departments.slug, bedrijf)).then(r => r[0]),
     dashboardAggregaten(bedrijf).catch(() => null),
@@ -106,7 +105,6 @@ async function bouwContext(bedrijf: BedrijfSlug): Promise<string> {
     datum_vandaag: nu.toISOString().slice(0, 10),
     jaar,
     huidige_maand: maand,
-    bank_saldo: bedrijfsRow?.huidigSaldo ? Number(bedrijfsRow.huidigSaldo) : null,
     huidige_maand_pnl: {
       omzet_bruto: pnl.omzetBruto,
       kosten_totaal: pnl.kostenTotaal,
@@ -120,9 +118,9 @@ async function bouwContext(bedrijf: BedrijfSlug): Promise<string> {
       top_kostenposten: topCats,
     },
     cashflow_60_dagen: cashflow ? {
-      start_saldo: cashflow.startSaldo,
-      eind_saldo: cashflow.eindSaldo,
-      laagste_saldo: cashflow.laagsteSaldo,
+      // Cumulatief netto-effect vanaf 0 over de volgende 60 dagen.
+      eind_delta: cashflow.eindDelta,
+      laagste_delta: cashflow.laagsteDelta,
       laagste_datum: cashflow.laagsteDatum,
       gevaren_dagen: cashflow.gevarenDagen.length,
     } : null,

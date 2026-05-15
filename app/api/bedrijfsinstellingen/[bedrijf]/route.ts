@@ -31,8 +31,6 @@ export async function GET(_req: Request, { params }: { params: { bedrijf: string
       slug: schema.departments.slug,
       naam: schema.departments.naam,
       werkgeverslastenPct: schema.departments.werkgeverslastenPct,
-      huidigSaldo: schema.departments.huidigSaldo,
-      huidigSaldoOpgeslagen: schema.departments.huidigSaldoOpgeslagen,
     })
     .from(schema.departments)
     .where(eq(schema.departments.slug, params.bedrijf));
@@ -41,8 +39,6 @@ export async function GET(_req: Request, { params }: { params: { bedrijf: string
     slug: row.slug,
     naam: row.naam,
     werkgeverslastenPct: row.werkgeverslastenPct === null ? 27 : Number(row.werkgeverslastenPct),
-    huidigSaldo: row.huidigSaldo === null ? null : Number(row.huidigSaldo),
-    huidigSaldoOpgeslagen: row.huidigSaldoOpgeslagen?.toISOString() ?? null,
   });
 }
 
@@ -57,7 +53,6 @@ export async function PUT(req: Request, { params }: { params: { bedrijf: string 
   }
   const body = (await req.json().catch(() => ({}))) as {
     werkgeverslastenPct?: number;
-    huidigSaldo?: number;
   };
   const updates: Record<string, unknown> = {};
   if (body.werkgeverslastenPct !== undefined) {
@@ -66,14 +61,6 @@ export async function PUT(req: Request, { params }: { params: { bedrijf: string 
       return NextResponse.json({ error: "percentage tussen 0 en 100" }, { status: 400 });
     }
     updates.werkgeverslastenPct = pct.toFixed(2);
-  }
-  if (body.huidigSaldo !== undefined) {
-    const sal = Number(body.huidigSaldo);
-    if (!Number.isFinite(sal)) {
-      return NextResponse.json({ error: "huidigSaldo ongeldig" }, { status: 400 });
-    }
-    updates.huidigSaldo = sal.toFixed(2);
-    updates.huidigSaldoOpgeslagen = new Date();
   }
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "geen velden om bij te werken" }, { status: 400 });

@@ -15,14 +15,12 @@ interface CashflowEvent {
 
 interface CashflowData {
   bedrijf: Slug;
-  startSaldo: number;
   startDatum: string;
-  saldoOpgeslagen: string | null;
   events: CashflowEvent[];
   dagen: Array<{ datum: string; saldo: number; mutatie: number }>;
   gevarenDagen: string[];
-  eindSaldo: number;
-  laagsteSaldo: number;
+  eindDelta: number;
+  laagsteDelta: number;
   laagsteDatum: string;
 }
 
@@ -53,10 +51,6 @@ export default function CashflowProjectie({ bedrijf, hex }: Props) {
   const [laden, setLaden] = useState(true);
   const [fout, setFout] = useState<string | null>(null);
 
-  // Saldo-edit state
-  const [editSaldo, setEditSaldo] = useState("");
-  const [saldoBezig, setSaldoBezig] = useState(false);
-
   const laad = useCallback(async () => {
     setLaden(true);
     setFout(null);
@@ -66,9 +60,7 @@ export default function CashflowProjectie({ bedrijf, hex }: Props) {
         const j = await res.json().catch(() => ({}));
         throw new Error(j.error ?? `HTTP ${res.status}`);
       }
-      const j = await res.json();
-      setData(j);
-      setEditSaldo(j.startSaldo > 0 ? String(j.startSaldo) : "");
+      setData(await res.json());
     } catch (e) {
       setFout(e instanceof Error ? e.message : "fout");
     } finally {
@@ -77,25 +69,6 @@ export default function CashflowProjectie({ bedrijf, hex }: Props) {
   }, [bedrijf, dagen]);
 
   useEffect(() => { laad(); }, [laad]);
-
-  async function saldoOpslaan() {
-    const num = Number(editSaldo.replace(",", "."));
-    if (!Number.isFinite(num)) {
-      setFout("Geef een getal");
-      return;
-    }
-    setSaldoBezig(true);
-    try {
-      await fetch(`/api/bedrijfsinstellingen/${bedrijf}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ huidigSaldo: num }),
-      });
-      await laad();
-    } finally {
-      setSaldoBezig(false);
-    }
-  }
 
   if (laden && !data) {
     return (
@@ -116,7 +89,6 @@ export default function CashflowProjectie({ bedrijf, hex }: Props) {
 
   if (!data) return null;
 
-  const geenSaldo = data.startSaldo === 0 && !data.saldoOpgeslagen;
   const heeftGevaar = data.gevarenDagen.length > 0;
   const grafiekData = data.dagen.map((d) => ({
     datum: d.datum.slice(5),
@@ -151,64 +123,19 @@ export default function CashflowProjectie({ bedrijf, hex }: Props) {
         </div>
       </div>
 
-      {/* Saldo-input */}
-      <div className="rounded-lg p-3 mb-3" style={{ background: geenSaldo ? "#FFF9E6" : "var(--bg)", border: geenSaldo ? "1px solid #F0B731" : "1px solid var(--hairline)" }}>
-        <div className="flex items-baseline justify-between gap-2 flex-wrap">
-          <div className="flex-1 min-w-0">
-            <p className="text-[10px] uppercase tracking-wide font-semibold mb-0.5" style={{ color: "var(--muted)" }}>
-              Huidig bank-saldo
-            </p>
-            {data.saldoOpgeslagen ? (
-              <p className="text-[10px]" style={{ color: "var(--muted)" }}>
-                Laatst bijgewerkt {new Date(data.saldoOpgeslagen).toLocaleDateString("nl-NL")}
-              </p>
-            ) : (
-              <p className="text-[10px]" style={{ color: "#B07A0F" }}>
-                ⚠️ Nog niet ingevuld — projectie start vanaf €0
-              </p>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm" style={{ color: "var(--muted)" }}>€</span>
-            <input
-              type="number"
-              step="0.01"
-              value={editSaldo}
-              onChange={(e) => setEditSaldo(e.target.value)}
-              placeholder="0"
-              className="text-sm border border-slate-200 rounded px-2 py-1 w-28 tabular-nums text-right"
-            />
-            <button
-              onClick={saldoOpslaan}
-              disabled={saldoBezig || Number(editSaldo) === data.startSaldo}
-              className="text-xs font-medium px-3 py-1.5 rounded text-white disabled:opacity-50"
-              style={{ background: hex }}
-            >
-              Update
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* KPI's */}
-      <div className="grid grid-cols-3 gap-2 mb-3">
-        <div className="rounded-lg p-2.5" style={{ background: "var(--bg)" }}>
-          <p className="text-[10px] uppercase tracking-wide" style={{ color: "var(--muted)" }}>Start</p>
-          <p className="text-[14px] font-semibold tabular-nums" style={{ color: "var(--text)" }}>
-            {fmt(data.startSaldo)}
-          </p>
-        </div>
-        <div className="rounded-lg p-2.5" style={{ background: data.laagsteSaldo < 0 ? "#FFEEED" : "var(--bg)" }}>
-          <p className="text-[10px] uppercase tracking-wide" style={{ color: "var(--muted)" }}>Laagste</p>
-          <p className="text-[14px] font-semibold tabular-nums" style={{ color: data.laagsteSaldo < 0 ? "#E5484D" : "var(--text)" }}>
-            {fmt(data.laagsteSaldo)}
+      {/* KPI's — cumulatieve delta vanaf nu (geen absoluut saldo) */}
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        <div className="rounded-lg p-2.5" style={{ background: data.laagsteDelta < 0 ? "#FFEEED" : "var(--bg)" }}>
+          <p className="text-[10px] uppercase tracking-wide" style={{ color: "var(--muted)" }}>Laagste netto</p>
+          <p className="text-[14px] font-semibold tabular-nums" style={{ color: data.laagsteDelta < 0 ? "#E5484D" : "var(--text)" }}>
+            {data.laagsteDelta >= 0 ? "+" : ""}{fmt(data.laagsteDelta)}
           </p>
           <p className="text-[9px]" style={{ color: "var(--muted)" }}>op {data.laagsteDatum.slice(5)}</p>
         </div>
         <div className="rounded-lg p-2.5" style={{ background: "var(--bg)" }}>
           <p className="text-[10px] uppercase tracking-wide" style={{ color: "var(--muted)" }}>Eind {dagen}d</p>
-          <p className="text-[14px] font-semibold tabular-nums" style={{ color: data.eindSaldo < data.startSaldo ? "#E07A1F" : "#30B26F" }}>
-            {fmt(data.eindSaldo)}
+          <p className="text-[14px] font-semibold tabular-nums" style={{ color: data.eindDelta < 0 ? "#E07A1F" : "#30B26F" }}>
+            {data.eindDelta >= 0 ? "+" : ""}{fmt(data.eindDelta)}
           </p>
         </div>
       </div>
@@ -216,7 +143,7 @@ export default function CashflowProjectie({ bedrijf, hex }: Props) {
       {/* Waarschuwing */}
       {heeftGevaar && (
         <div className="rounded-lg p-2.5 mb-3 text-[12px]" style={{ background: "#FFEEED", border: "1px solid #FCA5A5", color: "#B91C1C" }}>
-          ⚠️ Saldo zakt op {data.gevarenDagen.length} {data.gevarenDagen.length === 1 ? "dag" : "dagen"} onder de drempel.
+          ⚠️ Cumulatieve cashflow gaat op {data.gevarenDagen.length} {data.gevarenDagen.length === 1 ? "dag" : "dagen"} onder nul.
           Eerste keer: <strong>{data.gevarenDagen[0]}</strong>.
         </div>
       )}
@@ -234,7 +161,7 @@ export default function CashflowProjectie({ bedrijf, hex }: Props) {
             <XAxis dataKey="datum" tick={{ fontSize: 9 }} interval={Math.floor(dagen / 8)} stroke="#94a3b8" />
             <YAxis tick={{ fontSize: 9 }} tickFormatter={(v) => fmt(v)} stroke="#94a3b8" width={50} />
             <Tooltip
-              formatter={(v: number) => [fmtPrecies(v), "Saldo"]}
+              formatter={(v: number) => [fmtPrecies(v), "Cumulatief netto"]}
               labelFormatter={(l) => `Datum: ${l}`}
               contentStyle={{ fontSize: 11 }}
             />
@@ -271,9 +198,8 @@ export default function CashflowProjectie({ bedrijf, hex }: Props) {
       </details>
 
       <p className="text-[10px] mt-3" style={{ color: "var(--muted)" }}>
-        Projectie op basis van: huidig saldo + verwachte omzet (model op 3 mnd-gemiddelde) + geplande loon
-        (rooster × all-in) + vaste lasten (3 mnd-gemiddelde) + kwartaal-BTW-deadlines. Update het saldo regelmatig
-        voor de meest accurate projectie.
+        Cumulatief netto-effect vanaf nu: verwachte omzet (3 mnd-gemiddelde × dag-factor) minus geplande loon
+        (rooster × all-in), vaste lasten (3 mnd-gemiddelde) en kwartaal-BTW-deadlines. Geen absoluut bank-saldo.
       </p>
     </div>
   );
