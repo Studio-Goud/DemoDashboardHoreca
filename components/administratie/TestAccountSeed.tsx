@@ -16,6 +16,7 @@ interface Resultaat {
   email: string;
   pin: string;
   bericht: string;
+  autoLogin: boolean;
 }
 
 export default function TestAccountSeed({ hex }: Props) {
@@ -31,7 +32,7 @@ export default function TestAccountSeed({ hex }: Props) {
       const res = await fetch("/api/admin/seed-test-medewerker", { method: "POST" });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error || "Aanmaken mislukt");
-      setResultaat({ email: j.email, pin: j.pin, bericht: j.bericht });
+      setResultaat({ email: j.email, pin: j.pin, bericht: j.bericht, autoLogin: !!j.autoLogin });
     } catch (e: unknown) {
       setFout(e instanceof Error ? e.message : "Aanmaken mislukt");
     } finally {
@@ -101,13 +102,13 @@ export default function TestAccountSeed({ hex }: Props) {
             </button>
           </div>
           <a
-            href={loginUrl}
+            href={resultaat.autoLogin ? "/m" : loginUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 px-3 py-2 rounded-lg font-mono text-[10px] uppercase tracking-wider mt-1"
             style={{ background: hex, color: "#000" }}
           >
-            <ExternalLink size={11} /> Open /m/login in nieuw tab
+            <ExternalLink size={11} /> {resultaat.autoLogin ? "Open /m (al ingelogd)" : "Open /m/login in nieuw tab"}
           </a>
           <button
             type="button"

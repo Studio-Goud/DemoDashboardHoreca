@@ -108,18 +108,18 @@ export default function MedewerkerNav({ naam, vestiging }: Props) {
           paddingBottom: "env(safe-area-inset-bottom)",
         }}
       >
-        <div className="max-w-md mx-auto grid grid-cols-4">
+        <div className="max-w-md mx-auto grid grid-cols-5">
           {TABS.map((tab) => {
             const actief = pad === tab.href || (tab.href !== "/m" && pad.startsWith(tab.href));
             return (
               <Link
                 key={tab.href}
                 href={tab.href}
-                className="flex flex-col items-center gap-1 py-4 transition-colors"
+                className="flex flex-col items-center gap-1 py-3 transition-colors"
                 style={{ color: actief ? hex : "var(--muted)" }}
               >
-                <Icon name={tab.icon} size={26} strokeWidth={actief ? 2 : 1.6} />
-                <span className="text-[11px] font-medium" style={{ letterSpacing: "-0.005em" }}>
+                <Icon name={tab.icon} size={22} strokeWidth={actief ? 2 : 1.6} />
+                <span className="text-[10px] font-medium leading-none" style={{ letterSpacing: "-0.005em" }}>
                   {t(tab.tKey)}
                 </span>
               </Link>

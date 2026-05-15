@@ -13,7 +13,7 @@ import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { huidigeAdminSessie } from "@/lib/admin-auth";
 import { db, schema } from "@/lib/db/client";
-import { hashPin } from "@/lib/auth";
+import { hashPin, inloggenMedewerker } from "@/lib/auth";
 import { versleutelTekst } from "@/lib/documenten";
 
 export const dynamic = "force-dynamic";
@@ -101,11 +101,23 @@ export async function POST() {
       .values(ontbrekend.map((d) => ({ medewerkerId, departmentId: d.id })));
   }
 
+  // Direct inloggen als de test-medewerker — zet medewerker-sessie cookie
+  // (los van owner admin-cookie). Voorkomt dat owner stuck raakt op
+  // /m/profiel omdat z'n eigen oude medewerker-sessie nog actief is.
+  let autoLogin = false;
+  try {
+    const sessie = await inloggenMedewerker(TEST_EMAIL, TEST_PIN);
+    autoLogin = sessie !== null;
+  } catch { /* stil — fallback op handmatige login via /m/login */ }
+
   return NextResponse.json({
     ok: true,
     id: medewerkerId,
     email: TEST_EMAIL,
     pin: TEST_PIN,
-    bericht: `Test-account klaar. Log in op /m/login?email=${TEST_EMAIL} met PIN ${TEST_PIN}.`,
+    autoLogin,
+    bericht: autoLogin
+      ? "Klaar! Open /m om te testen — je bent automatisch ingelogd als test-medewerker (je owner-sessie blijft actief)."
+      : `Test-account klaar. Log in op /m/login?email=${TEST_EMAIL} met PIN ${TEST_PIN}.`,
   });
 }
