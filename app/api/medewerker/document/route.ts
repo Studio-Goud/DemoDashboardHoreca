@@ -10,7 +10,7 @@
  *        moeten zijn).
  */
 import { NextResponse } from "next/server";
-import { and, eq, desc } from "drizzle-orm";
+import { and, eq, ne, desc } from "drizzle-orm";
 import { huidigeSessie } from "@/lib/auth";
 import { db, schema } from "@/lib/db/client";
 import { versleutelBestand } from "@/lib/documenten";
@@ -100,27 +100,28 @@ export async function POST(req: Request) {
       );
     }
 
-    // Atomair vervangen via een transactie. Zonder tx: als de serverless
-    // functie (Vercel) tussen DELETE en INSERT gekilled wordt (maxDuration,
-    // OOM), raakt de medewerker z'n oude document kwijt zonder vervanger.
-    // Met tx: óf de hele swap slaagt, óf de oude blijft staan.
-    const nieuw = await db.transaction(async (tx) => {
-      await tx.delete(schema.medewerkerDocumenten).where(and(
-        eq(schema.medewerkerDocumenten.medewerkerId, sessie.medewerkerId),
-        eq(schema.medewerkerDocumenten.type, type),
-      ));
-      const [rij] = await tx.insert(schema.medewerkerDocumenten).values({
-        medewerkerId: sessie.medewerkerId,
-        type,
-        mimetype: file.type,
-        bestandsnaam: file.name?.slice(0, 200) ?? null,
-        iv: versleuteld.iv,
-        authtag: versleuteld.authtag,
-        ciphertext: versleuteld.ciphertext,
-        grootteBytes: buffer.length,
-      }).returning({ id: schema.medewerkerDocumenten.id });
-      return rij;
-    });
+    // Atomair vervangen ZONDER transactie — neon-http driver ondersteunt
+    // geen multi-statement transacties. Volgorde: INSERT eerst, daarna
+    // DELETE van alle oudere rijen van hetzelfde type. Als de functie
+    // tussen INSERT en DELETE dies: medewerker heeft 2 rijen (nieuwe +
+    // oude), géén data loss. De DELETE skipt de net-ingevoerde rij
+    // expliciet via `ne(id, newId)`.
+    const [nieuw] = await db.insert(schema.medewerkerDocumenten).values({
+      medewerkerId: sessie.medewerkerId,
+      type,
+      mimetype: file.type,
+      bestandsnaam: file.name?.slice(0, 200) ?? null,
+      iv: versleuteld.iv,
+      authtag: versleuteld.authtag,
+      ciphertext: versleuteld.ciphertext,
+      grootteBytes: buffer.length,
+    }).returning({ id: schema.medewerkerDocumenten.id });
+
+    await db.delete(schema.medewerkerDocumenten).where(and(
+      eq(schema.medewerkerDocumenten.medewerkerId, sessie.medewerkerId),
+      eq(schema.medewerkerDocumenten.type, type),
+      ne(schema.medewerkerDocumenten.id, nieuw.id),
+    ));
 
     return NextResponse.json({ ok: true, id: nieuw.id });
   } catch (e) {
