@@ -43,8 +43,17 @@ export default function MedewerkerNav({ naam, vestiging }: Props) {
   const hex = VESTIGING_HEX[vestiging] ?? "#0A84FF";
 
   async function uitloggen() {
-    await fetch("/api/medewerker/uitloggen", { method: "POST" });
-    router.replace("/m/login");
+    try {
+      const res = await fetch("/api/medewerker/uitloggen", { method: "POST" });
+      if (!res.ok) console.warn("[uitloggen] response not ok", res.status);
+    } catch (e) {
+      console.warn("[uitloggen] fetch failed", e);
+    } finally {
+      // Hard navigatie zodat de server-side sessie-check op /m/login
+      // herstart met de gewiste cookie. router.replace blijft soms hangen
+      // op de huidige client-state als de PWA agressief cachet.
+      window.location.href = "/m/login";
+    }
   }
 
   return (
@@ -55,6 +64,7 @@ export default function MedewerkerNav({ naam, vestiging }: Props) {
         style={{
           background: "color-mix(in srgb, var(--bg-elev) 88%, transparent)",
           borderBottom: "1px solid var(--hairline)",
+          paddingTop: "env(safe-area-inset-top)",
         }}
       >
         <div className="max-w-md mx-auto flex items-center justify-between gap-2 px-4 py-3">
@@ -68,22 +78,29 @@ export default function MedewerkerNav({ naam, vestiging }: Props) {
             <TaalSwitcher compact />
             <button
               onClick={uitloggen}
-              className="text-[12px] flex items-center gap-1 px-2 py-1 rounded-md"
-              style={{ color: "var(--muted)" }}
-              aria-label="Uitloggen"
+              className="text-[12px] font-medium flex items-center gap-1.5 px-3 py-2 rounded-lg"
+              style={{
+                color: "var(--text-2)",
+                background: "var(--bg-elev)",
+                border: "1px solid var(--hairline)",
+              }}
+              aria-label={t("m.logout")}
             >
               <Icon name="log-out" size={14} />
+              <span>{t("m.logout")}</span>
             </button>
           </div>
         </div>
       </header>
 
-      {/* Onderaan: tab-bar (mobiel-first) */}
+      {/* Onderaan: tab-bar (mobiel-first) — groter en met safe-area-inset
+          zodat 'ie boven de iPhone home-indicator zit */}
       <nav
         className="fixed bottom-0 inset-x-0 z-30 backdrop-blur-xl"
         style={{
-          background: "color-mix(in srgb, var(--bg-elev) 88%, transparent)",
+          background: "color-mix(in srgb, var(--bg-elev) 92%, transparent)",
           borderTop: "1px solid var(--hairline)",
+          paddingBottom: "env(safe-area-inset-bottom)",
         }}
       >
         <div className="max-w-md mx-auto grid grid-cols-4">
@@ -93,11 +110,11 @@ export default function MedewerkerNav({ naam, vestiging }: Props) {
               <Link
                 key={tab.href}
                 href={tab.href}
-                className="flex flex-col items-center gap-0.5 py-2.5 transition-colors"
+                className="flex flex-col items-center gap-1 py-4 transition-colors"
                 style={{ color: actief ? hex : "var(--muted)" }}
               >
-                <Icon name={tab.icon} size={20} strokeWidth={actief ? 2 : 1.6} />
-                <span className="text-[10px] font-medium" style={{ letterSpacing: "-0.005em" }}>
+                <Icon name={tab.icon} size={26} strokeWidth={actief ? 2 : 1.6} />
+                <span className="text-[11px] font-medium" style={{ letterSpacing: "-0.005em" }}>
                   {t(tab.tKey)}
                 </span>
               </Link>

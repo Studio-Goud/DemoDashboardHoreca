@@ -19,7 +19,10 @@ export default async function MedewerkerLayout({ children }: { children: React.R
       {heeftSessie && (
         <MedewerkerNav naam={sessie.naam} vestiging={sessie.vestiging ?? "bb"} />
       )}
-      <main className={`flex-1 max-w-md w-full mx-auto p-4 ${heeftSessie ? "pb-24" : ""}`}>
+      <main
+        className={`flex-1 max-w-md w-full mx-auto p-4 ${heeftSessie ? "pb-36" : ""}`}
+        style={heeftSessie ? { paddingBottom: "calc(8rem + env(safe-area-inset-bottom))" } : undefined}
+      >
         {children}
       </main>
     </div>
