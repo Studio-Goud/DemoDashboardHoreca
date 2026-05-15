@@ -9,6 +9,13 @@ export interface ContantRegel {
   btw21: number;
   btw9: number;
   type: "inkomst" | "uitgave";
+  /**
+   * Optionele categorie voor uitgaven. "dga-er" = DGA-onttrekking Echt
+   * Rotterdams (Ricardo), "dga-mp5" = DGA-onttrekking MP5 (Matthieu). Andere
+   * waarden of leeg = gewone cash kosten. Voor inkomsten wordt dit veld
+   * genegeerd (altijd "omzet").
+   */
+  categorie?: string;
 }
 
 export interface MaandSamenvatting {
@@ -228,13 +235,31 @@ export function berekenMaand(
   // MaandSamenvatting (MaandPnL toont ze als eigen kaartjes); alleen de
   // BTW-bedragen worden gesplitst per richting.
   const contantInkomstRegels = maandContant.filter((c) => c.type === "inkomst");
-  const contantUitgaveRegels = maandContant.filter((c) => c.type === "uitgave");
+  const allContantUitgaven   = maandContant.filter((c) => c.type === "uitgave");
+  // DGA-cash apart trekken — telt mee als salaris, niet als gewone kost.
+  const contantDgaErRegels   = allContantUitgaven.filter((c) => c.categorie === "dga-er");
+  const contantDgaMp5Regels  = allContantUitgaven.filter((c) => c.categorie === "dga-mp5");
+  const contantUitgaveRegels = allContantUitgaven.filter((c) => c.categorie !== "dga-er" && c.categorie !== "dga-mp5");
+
   const contantInkomsten = contantInkomstRegels.reduce((s, c) => s + c.bedrag, 0);
   const contantUitgaven  = contantUitgaveRegels.reduce((s, c) => s + c.bedrag, 0);
   const contantInkomstBtw21 = contantInkomstRegels.reduce((s, c) => s + c.btw21, 0);
   const contantInkomstBtw9  = contantInkomstRegels.reduce((s, c) => s + c.btw9, 0);
   const contantUitgaveBtw21 = contantUitgaveRegels.reduce((s, c) => s + c.btw21, 0);
   const contantUitgaveBtw9  = contantUitgaveRegels.reduce((s, c) => s + c.btw9, 0);
+
+  // Contant uitbetaalde DGA: telt mee als salaris en bij de juiste DGA-bucket.
+  // Geen BTW (DGA cash heeft geen factuur), dus voorbelasting blijft 0.
+  for (const c of contantDgaErRegels) {
+    dgaEchtRotterdams += c.bedrag;
+    salarissen += c.bedrag;
+    catMap["salaris"] = (catMap["salaris"] ?? 0) + c.bedrag;
+  }
+  for (const c of contantDgaMp5Regels) {
+    dgaMp5 += c.bedrag;
+    salarissen += c.bedrag;
+    catMap["salaris"] = (catMap["salaris"] ?? 0) + c.bedrag;
+  }
   // Contant inkomsten-BTW = afdragen, telt mee in omzetBtwBetaald
   omzetBtwBetaald += contantInkomstBtw21 + contantInkomstBtw9;
   // Totaal-BTW velden voor backwards-compat (Samenvatting/breakdown)
@@ -246,9 +271,17 @@ export function berekenMaand(
   const qPrefixes = [qStart, qStart + 1, qStart + 2].map(
     (m) => `${jaar}-${String(m).padStart(2, "0")}`
   );
-  const mp5KwartaalTotaal = ingTxs
-    .filter((t) => qPrefixes.some((p) => t.datum.startsWith(p)) && t.categorie === "dga-mp5")
-    .reduce((s, t) => s + t.bedrag, 0);
+  const mp5KwartaalTotaal =
+    ingTxs
+      .filter((t) => qPrefixes.some((p) => t.datum.startsWith(p)) && t.categorie === "dga-mp5")
+      .reduce((s, t) => s + t.bedrag, 0) +
+    contant
+      .filter((c) =>
+        qPrefixes.some((p) => c.datum.startsWith(p)) &&
+        c.type === "uitgave" &&
+        c.categorie === "dga-mp5"
+      )
+      .reduce((s, c) => s + c.bedrag, 0);
 
   const kostenTotaal = rnd(kostenIng + kostenFacturen + contantUitgaven);
   // Voorbelasting: alleen contant-uitgaven (kosten), niet contant-inkomsten

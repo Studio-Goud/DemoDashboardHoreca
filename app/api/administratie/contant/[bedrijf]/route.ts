@@ -15,6 +15,15 @@ function berekenBtw(bedrag: number, tarief: 0 | 9 | 21) {
   return { btw21: 0, btw9: 0 };
 }
 
+// Herkent of een uitgave een DGA-onttrekking is op basis van omschrijving.
+// Patronen matchen "MP5", "Matthieu", "Echt Rotterdams" of "Ricardo".
+function detecteerDgaCategorie(omschrijving: string): "dga-er" | "dga-mp5" | undefined {
+  const lc = omschrijving.toLowerCase();
+  if (/\bmp5\b|matthieu/.test(lc)) return "dga-mp5";
+  if (/echt\s*rotterdams|\bricardo\b/.test(lc)) return "dga-er";
+  return undefined;
+}
+
 // GET /api/administratie/contant/[bedrijf]?jaar=2026
 export async function GET(
   req: NextRequest,
@@ -46,6 +55,7 @@ export async function POST(
     btw21?: number;
     btw9?: number;
     type: "inkomst" | "uitgave";
+    categorie?: string;
   };
 
   if (!body.datum || !body.omschrijving || !body.bedrag) {
@@ -58,6 +68,11 @@ export async function POST(
     : berekenBtw(Math.abs(body.bedrag), body.tarief ?? 9);
   const id = `contant-${body.datum}-${Date.now()}`;
 
+  // Categorie: expliciet gekozen wint; anders auto-detect bij uitgaven.
+  const type = body.type ?? "uitgave";
+  const categorie = body.categorie?.trim() ||
+    (type === "uitgave" ? detecteerDgaCategorie(body.omschrijving) : undefined);
+
   const regel: ContantRegel = {
     id,
     datum: body.datum,
@@ -65,11 +80,38 @@ export async function POST(
     bedrag: Math.abs(body.bedrag),
     btw21,
     btw9,
-    type: body.type ?? "uitgave",
+    type,
+    categorie,
   };
 
   await voegContantToe(bedrijf, regel);
-  return NextResponse.json({ ok: true, id });
+  return NextResponse.json({ ok: true, id, categorie });
+}
+
+// PATCH /api/administratie/contant/[bedrijf]?jaar=2026&id=xxx
+// Update een veld op een bestaande regel — momenteel alleen categorie.
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: { bedrijf: string } }
+) {
+  const bedrijf = checkBedrijf(params.bedrijf);
+  if (!bedrijf) return NextResponse.json({ error: "Ongeldig bedrijf" }, { status: 400 });
+
+  const { searchParams } = new URL(req.url);
+  const jaar = Number(searchParams.get("jaar"));
+  const id = searchParams.get("id");
+  if (!jaar || !id) return NextResponse.json({ error: "jaar en id verplicht" }, { status: 400 });
+
+  const body = await req.json() as { categorie?: string };
+
+  const regels = await haalContantOp(bedrijf, jaar);
+  const regel = regels.find((r) => r.id === id);
+  if (!regel) return NextResponse.json({ error: "regel niet gevonden" }, { status: 404 });
+
+  // Lege string of "kosten" → categorie weghalen.
+  const nieuweCategorie = body.categorie && body.categorie !== "kosten" ? body.categorie : undefined;
+  await voegContantToe(bedrijf, { ...regel, categorie: nieuweCategorie });
+  return NextResponse.json({ ok: true });
 }
 
 // DELETE /api/administratie/contant/[bedrijf]?jaar=2026&id=xxx

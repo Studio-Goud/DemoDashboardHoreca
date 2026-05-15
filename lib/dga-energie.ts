@@ -8,7 +8,7 @@
  *   netbeheer Enexis/Stedin/Liander). Aparte tracker want energie is een
  *   serieus % van de kostenstructuur.
  */
-import { haalIngOp } from "./boekhouding-kv";
+import { haalIngOp, haalContantOp } from "./boekhouding-kv";
 
 export type BedrijfSlug = "bb" | "sl" | "kl";
 
@@ -50,8 +50,30 @@ const DGA_LABELS: Record<"dga-er" | "dga-mp5", string> = {
 };
 
 export async function dgaUittreksel(bedrijf: BedrijfSlug, jaar: number): Promise<DgaUittreksel> {
-  const txs = await haalIngOp(bedrijf, jaar);
-  const dgaTxs = txs.filter((t) => t.categorie === "dga-er" || t.categorie === "dga-mp5");
+  const [txs, contantRegels] = await Promise.all([
+    haalIngOp(bedrijf, jaar),
+    haalContantOp(bedrijf, jaar),
+  ]);
+  // Normaliseer contant DGA-uitbetalingen naar hetzelfde shape als ING-txs zodat
+  // de rest van de aggregatie ongewijzigd blijft. Alleen velden die we hier
+  // gebruiken (datum, bedrag, categorie, omschrijving) worden gevuld.
+  const contantAlsTx = contantRegels
+    .filter((c) => c.type === "uitgave" && (c.categorie === "dga-er" || c.categorie === "dga-mp5"))
+    .map((c) => ({
+      datum: c.datum,
+      bedrag: c.bedrag,
+      categorie: c.categorie as "dga-er" | "dga-mp5",
+      omschrijving: `${c.omschrijving} (cash)`,
+    }));
+  const ingDgaTxs = txs
+    .filter((t) => t.categorie === "dga-er" || t.categorie === "dga-mp5")
+    .map((t) => ({
+      datum: t.datum,
+      bedrag: t.bedrag,
+      categorie: t.categorie as "dga-er" | "dga-mp5",
+      omschrijving: t.omschrijving,
+    }));
+  const dgaTxs = [...ingDgaTxs, ...contantAlsTx].sort((a, b) => a.datum.localeCompare(b.datum));
 
   const perDgaMap = new Map<string, { totaal: number; aantal: number; laatsteIdx: number }>();
   const perMaandMap = new Map<number, number>();
