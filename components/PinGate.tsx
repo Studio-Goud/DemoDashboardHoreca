@@ -6,6 +6,17 @@ import Icon from "./Icon";
 import { useT } from "@/lib/i18n/useT";
 import { startAuthentication } from "@simplewebauthn/browser";
 import FaceIDPromptModal from "./FaceIDPromptModal";
+import { BOOT_SEAL_EVENT } from "./BootSequence";
+
+/**
+ * Roept de boot-sequence af zodra de gebruiker een rol selecteert —
+ * dan fade'd 't grid/particle-canvas weg en zien we de echte UI.
+ */
+function sealBoot() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(BOOT_SEAL_EVENT));
+  }
+}
 
 // PIN_PROFIEL leeft NU ALLEEN server-side in lib/admin-auth.ts. We sturen
 // de PIN naar /api/admin/login en de server vertelt ons rol/naam/vestiging.
@@ -282,12 +293,14 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
   // Medewerker-routes: PinGate niet tonen — die hebben eigen sessie via cookie
   if (isMedewerkerRoute) return <>{children}</>;
 
-  // Fase 0: rol-keuze (Medewerker / Management)
+  // Fase 0: rol-keuze (Medewerker / Management / Eigenaar). De boot blijft
+  // in ambient-modus achter dit scherm — logo MARKTHAL HQ staat boven, grid
+  // en particles draaien op lage intensity. Daarom geen eigen "Markthal HQ"
+  // eyebrow meer hier — de boot toont 'm.
   if (fase === "rolKiezen") {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-8">
-        <div className="mb-10 text-center">
-          <p className="eyebrow mb-2">Markthal HQ</p>
+      <div className="min-h-screen flex flex-col items-center justify-center p-8 relative z-10">
+        <div className="mb-10 text-center mt-20">
           <h1
             className="text-[22px] font-semibold tracking-tight"
             style={{ color: "var(--text)", letterSpacing: "-0.019em" }}
@@ -301,7 +314,7 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
 
         <div className="flex flex-col gap-3 w-72">
           <button
-            onClick={() => router.push("/m/login")}
+            onClick={() => { sealBoot(); router.push("/m/login"); }}
             className="group px-5 py-5 rounded-[16px] text-left transition-all relative overflow-hidden"
             style={{
               background: "linear-gradient(135deg, rgba(48, 178, 111, 0.12) 0%, rgba(48, 178, 111, 0.04) 100%)",
@@ -332,7 +345,7 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
           </button>
 
           <button
-            onClick={() => probeerFaceID("manager")}
+            onClick={() => { sealBoot(); probeerFaceID("manager"); }}
             className="group px-5 py-5 rounded-[16px] text-left transition-all relative overflow-hidden"
             style={{
               background: "linear-gradient(135deg, rgba(10, 132, 255, 0.12) 0%, rgba(10, 132, 255, 0.04) 100%)",
@@ -364,7 +377,7 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
 
           {/* Eigenaar — purper-goud accent, scheidt zich visueel van management */}
           <button
-            onClick={() => probeerFaceID("owner")}
+            onClick={() => { sealBoot(); probeerFaceID("owner"); }}
             className="group px-5 py-5 rounded-[16px] text-left transition-all relative overflow-hidden"
             style={{
               background: "linear-gradient(135deg, rgba(191, 90, 242, 0.12) 0%, rgba(191, 90, 242, 0.04) 100%)",

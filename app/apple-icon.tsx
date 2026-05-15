@@ -8,39 +8,8 @@ const BB = "#0A84FF";
 const SL = "#30B26F";
 const KL = "#E07A1F";
 
-function NeonBar({ color }: { color: string }) {
-  return (
-    <div
-      style={{
-        position: "relative",
-        width: 118,
-        height: 8,
-        marginBottom: 9,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          height: "100%",
-          background: color,
-          borderRadius: 4,
-          boxShadow: `0 0 9px ${color}, 0 0 20px ${color}, 0 0 34px ${color}80`,
-        }}
-      />
-      <div
-        style={{
-          position: "absolute",
-          width: 110,
-          height: 1.5,
-          borderRadius: 1,
-          background: "rgba(255,255,255,0.55)",
-        }}
-      />
-    </div>
-  );
+function glow(c: string): string {
+  return `0 0 8px ${c}, 0 0 18px ${c}, 0 0 32px ${c}80`;
 }
 
 export default function AppleIcon() {
@@ -54,38 +23,121 @@ export default function AppleIcon() {
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          justifyContent: "center",
+          position: "relative",
         }}
       >
+        {/* MARKTHAL bovenaan */}
         <div
           style={{
-            fontSize: 23,
+            marginTop: 32,
+            fontSize: 20,
             fontWeight: 800,
             color: "#FFFFFF",
-            letterSpacing: 1.4,
-            marginBottom: 2,
+            letterSpacing: 2,
             lineHeight: 1,
+            display: "flex",
           }}
         >
           MARKTHAL
         </div>
+
+        {/* HQ gevormd uit neon-buizen */}
         <div
           style={{
-            fontSize: 11,
-            fontWeight: 500,
-            color: "#FFFFFF",
-            opacity: 0.65,
-            letterSpacing: 6,
-            marginBottom: 24,
-            lineHeight: 1,
+            position: "absolute",
+            top: 78,
+            left: 0,
+            right: 0,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "flex-start",
+            gap: 14,
           }}
         >
-          HQ
-        </div>
+          {/* H */}
+          <div
+            style={{
+              position: "relative",
+              width: 48,
+              height: 66,
+              display: "flex",
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: 10,
+                height: 66,
+                background: BB,
+                borderRadius: 5,
+                boxShadow: glow(BB),
+              }}
+            />
+            <div
+              style={{
+                position: "absolute",
+                top: 28,
+                left: 0,
+                width: 48,
+                height: 10,
+                background: SL,
+                borderRadius: 5,
+                boxShadow: glow(SL),
+              }}
+            />
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 38,
+                width: 10,
+                height: 66,
+                background: BB,
+                borderRadius: 5,
+                boxShadow: glow(BB),
+              }}
+            />
+          </div>
 
-        <NeonBar color={BB} />
-        <NeonBar color={SL} />
-        <NeonBar color={KL} />
+          {/* Q */}
+          <div
+            style={{
+              position: "relative",
+              width: 60,
+              height: 66,
+              display: "flex",
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                top: 4,
+                left: 4,
+                width: 50,
+                height: 50,
+                borderRadius: 25,
+                border: `10px solid ${KL}`,
+                boxSizing: "border-box",
+                boxShadow: glow(KL),
+              }}
+            />
+            <div
+              style={{
+                position: "absolute",
+                top: 46,
+                left: 38,
+                width: 22,
+                height: 10,
+                background: KL,
+                borderRadius: 5,
+                transform: "rotate(40deg)",
+                boxShadow: glow(KL),
+              }}
+            />
+          </div>
+        </div>
       </div>
     ),
     { ...size },

@@ -41,8 +41,14 @@ const PARTICLES_PER_INTERSECTION = 4;
 // Beat-sheet
 const T_CONVERGEER = 500;
 const T_LOGO       = 1100;
-const T_FADE       = 1700;
-const T_DONE       = 2200; // fade-out 500ms
+const T_AMBIENT    = 1700;  // Hier blijft 'ie hangen tot user een rol kiest
+                            // (of meteen door als er al een sessie is)
+
+// Custom event waarmee PinGate de boot kan "afsluiten" zodra een rol
+// gekozen is. Async dispatch zodat we 'm overal kunnen triggeren.
+export const BOOT_SEAL_EVENT = "boot:seal";
+
+type Fase = "chaos" | "convergeer" | "logo" | "ambient" | "fading" | "done";
 
 export default function BootSequence() {
   const pathname = usePathname() ?? "";
@@ -56,7 +62,7 @@ export default function BootSequence() {
   // ALS de boot deze sessie al gespeeld heeft → niet opnieuw. Voorkomt
   // dat client-side navigatie (bv. /bb → /bb/rooster) de boot replay'd.
   // sessionStorage is leeg na hard refresh / nieuwe tab → dan boot wel.
-  const [fase, setFase] = useState<"chaos" | "convergeer" | "logo" | "fading" | "done">(() => {
+  const [fase, setFase] = useState<Fase>(() => {
     if (skipBoot) return "done";
     if (typeof window !== "undefined" && sessionStorage.getItem(BOOT_GESPEELD_KEY) === "1") {
       return "done";
@@ -77,29 +83,57 @@ export default function BootSequence() {
     }
     heeftGestart.current = true;
 
+    // Detecteer of we naar rol-keuze gaan of direct naar de UI. Als de
+    // gebruiker al ingelogd is (sg_auth=1) hoeft de boot niet te wachten —
+    // dan auto-finish na een korte ambient-pauze, zoals voorheen.
+    const alIngelogd =
+      typeof window !== "undefined" && sessionStorage.getItem("sg_auth") === "1";
+
     const t1 = setTimeout(() => setFase("convergeer"), T_CONVERGEER);
     const t2 = setTimeout(() => setFase("logo"), T_LOGO);
-    const t3 = setTimeout(() => setFase("fading"), T_FADE);
-    const t4 = setTimeout(() => {
-      setFase("done");
-      // Markeer als gespeeld — geldt voor de hele tab-sessie tot refresh
-      try {
-        sessionStorage.setItem(BOOT_GESPEELD_KEY, "1");
-      } catch { /* private mode */ }
-    }, T_DONE);
+    const t3 = setTimeout(() => setFase("ambient"), T_AMBIENT);
+
+    let autoFade: ReturnType<typeof setTimeout> | null = null;
+    let autoDone: ReturnType<typeof setTimeout> | null = null;
+    if (alIngelogd) {
+      // Korte ambient-pauze (300ms), dan fadet 'ie automatisch weg.
+      autoFade = setTimeout(() => setFase("fading"), T_AMBIENT + 300);
+      autoDone = setTimeout(() => {
+        setFase("done");
+        try { sessionStorage.setItem(BOOT_GESPEELD_KEY, "1"); } catch { /* private mode */ }
+      }, T_AMBIENT + 800);
+    }
+    // Geen ingelogde sessie → wacht op een boot:seal event van PinGate
+    // wanneer de gebruiker een rol kiest.
+    const onSeal = () => {
+      setFase("fading");
+      setTimeout(() => {
+        setFase("done");
+        try { sessionStorage.setItem(BOOT_GESPEELD_KEY, "1"); } catch { /* private mode */ }
+      }, 500);
+    };
+    window.addEventListener(BOOT_SEAL_EVENT, onSeal);
+
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
       clearTimeout(t3);
-      clearTimeout(t4);
+      if (autoFade) clearTimeout(autoFade);
+      if (autoDone) clearTimeout(autoDone);
+      window.removeEventListener(BOOT_SEAL_EVENT, onSeal);
     };
   }, [skipBoot]);
 
   if (fase === "done") return null;
 
+  // In ambient-modus: pointer-events blijven uit én z-index zakt zodat de
+  // rol-keuze UI er bovenop ligt en bedienbaar is. De gradient + grid +
+  // dimmed particles geven het "we zijn nog in synthesis" gevoel.
+  const isAmbient = fase === "ambient";
+
   return (
     <motion.div
-      className="fixed inset-0 z-[100] overflow-hidden pointer-events-none"
+      className={`fixed inset-0 overflow-hidden pointer-events-none ${isAmbient ? "z-[1]" : "z-[100]"}`}
       initial={{ opacity: 1 }}
       animate={{ opacity: fase === "fading" ? 0 : 1 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
@@ -110,22 +144,30 @@ export default function BootSequence() {
       }}
     >
       <GridLines fase={fase} />
-      <ParticleCanvas />
+      <ParticleCanvas fase={fase} />
       <ScanSweep fase={fase} />
 
       <AnimatePresence>
-        {(fase === "logo" || fase === "convergeer") && (
+        {(fase === "logo" || fase === "convergeer" || fase === "ambient") && (
           <motion.div
             key="logo"
-            className="absolute inset-0 flex items-center justify-center"
-            initial={{ opacity: 0, filter: "blur(14px)", scale: 0.96 }}
+            className="absolute inset-x-0 flex items-center justify-center"
+            initial={{ opacity: 0, filter: "blur(14px)", scale: 0.96, top: "50%", y: "-50%" }}
             animate={{
-              opacity: fase === "logo" ? 1 : 0.15,
-              filter: fase === "logo" ? "blur(0px)" : "blur(8px)",
-              scale: fase === "logo" ? 1 : 0.98,
+              opacity:
+                fase === "logo" ? 1 :
+                fase === "ambient" ? 0.85 :
+                0.15,
+              filter:
+                fase === "logo" || fase === "ambient" ? "blur(0px)" : "blur(8px)",
+              scale:
+                fase === "ambient" ? 0.55 :
+                fase === "logo" ? 1 : 0.98,
+              top: fase === "ambient" ? "9%" : "50%",
+              y: fase === "ambient" ? "0%" : "-50%",
             }}
             exit={{ opacity: 0, filter: "blur(8px)", scale: 1.02 }}
-            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
           >
             <div className="text-center">
               <p
@@ -154,8 +196,10 @@ export default function BootSequence() {
 
 // ─── Particle canvas ─────────────────────────────────────────────────
 
-function ParticleCanvas() {
+function ParticleCanvas({ fase }: { fase: Fase }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const faseRef = useRef<Fase>(fase);
+  faseRef.current = fase;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -218,13 +262,16 @@ function ParticleCanvas() {
 
     const tick = (now: number) => {
       const elapsed = now - startTime;
-      if (elapsed > T_DONE) {
+      // In ambient-modus blijven we doortikken voor zachte particle-breathing
+      // achter de rolKiezen-cards. Stoppen pas wanneer 't ding "done" is.
+      if (faseRef.current === "done") {
         cancelAnimationFrame(rafId);
         return;
       }
       ctx.clearRect(0, 0, w, h);
 
       const inConverge = elapsed > 500;
+      const ambientDimming = faseRef.current === "ambient" ? 0.35 : 1;
 
       for (const p of particles) {
         if (inConverge) {
@@ -238,9 +285,9 @@ function ParticleCanvas() {
 
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(0, 229, 255, ${p.alpha})`;
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = "rgba(0, 229, 255, 0.85)";
+        ctx.fillStyle = `rgba(0, 229, 255, ${p.alpha * ambientDimming})`;
+        ctx.shadowBlur = 10 * ambientDimming;
+        ctx.shadowColor = `rgba(0, 229, 255, ${0.85 * ambientDimming})`;
         ctx.fill();
       }
       ctx.shadowBlur = 0;
@@ -261,7 +308,7 @@ function ParticleCanvas() {
 
 // ─── Grid lines ──────────────────────────────────────────────────────
 
-function GridLines({ fase }: { fase: "chaos" | "convergeer" | "logo" | "fading" | "done" }) {
+function GridLines({ fase }: { fase: Fase }) {
   const vLines = 7;
   const hLines = 6;
 
@@ -315,8 +362,8 @@ function GridLines({ fase }: { fase: "chaos" | "convergeer" | "logo" | "fading" 
 
 // ─── Horizontale scan-sweep ──────────────────────────────────────────
 
-function ScanSweep({ fase }: { fase: "chaos" | "convergeer" | "logo" | "fading" | "done" }) {
-  if (fase === "chaos" || fase === "done") return null;
+function ScanSweep({ fase }: { fase: Fase }) {
+  if (fase === "chaos" || fase === "done" || fase === "ambient") return null;
   return (
     <motion.div
       className="absolute inset-x-0 z-20"
