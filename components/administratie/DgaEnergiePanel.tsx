@@ -4,12 +4,20 @@ import { useEffect, useState, useCallback } from "react";
 
 type Slug = "bb" | "sl" | "kl";
 
+interface DgaPerMaand {
+  maand: number;
+  totaal: number;
+  aantal: number;
+  transacties: Array<{ datum: string; bedrag: number; omschrijving: string }>;
+}
+
 interface DgaPerCategorie {
   categorie: "dga-er" | "dga-mp5";
   label: string;
   totaal: number;
   aantal: number;
   laatste: { datum: string; bedrag: number; omschrijving: string } | null;
+  perMaand: DgaPerMaand[];
 }
 
 interface DgaData {
@@ -48,6 +56,15 @@ export default function DgaEnergiePanel({ bedrijf, hex }: Props) {
   const [dga, setDga] = useState<DgaData | null>(null);
   const [energie, setEnergie] = useState<EnergieData | null>(null);
   const [laden, setLaden] = useState(true);
+  const [opengeklapt, setOpengeklapt] = useState<Set<string>>(new Set());
+
+  function toggleOpenklap(cat: string) {
+    setOpengeklapt((prev) => {
+      const n = new Set(prev);
+      if (n.has(cat)) n.delete(cat); else n.add(cat);
+      return n;
+    });
+  }
 
   const laad = useCallback(async () => {
     setLaden(true);
@@ -123,29 +140,84 @@ export default function DgaEnergiePanel({ bedrijf, hex }: Props) {
         <p className="text-[11px] uppercase tracking-wide font-semibold" style={{ color: "var(--muted)" }}>
           💼 DGA-onttrekkingen YTD
         </p>
-        {dga.perDga.map((d) => (
-          <div
-            key={d.categorie}
-            className="rounded-lg border border-slate-200 bg-white p-3 flex items-center justify-between gap-3 flex-wrap"
-          >
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold" style={{ color: "var(--text)" }}>{d.label}</p>
-              {d.laatste ? (
-                <p className="text-[11px] text-slate-400">
-                  Laatste: {d.laatste.datum} · {fmt(d.laatste.bedrag)}
-                </p>
-              ) : (
-                <p className="text-[11px] text-slate-400">Nog geen onttrekkingen dit jaar</p>
+        {dga.perDga.map((d) => {
+          const isOpen = opengeklapt.has(d.categorie);
+          return (
+            <div
+              key={d.categorie}
+              className="rounded-lg border border-slate-200 bg-white"
+            >
+              <button
+                onClick={() => toggleOpenklap(d.categorie)}
+                className="w-full p-3 flex items-center justify-between gap-3 flex-wrap text-left"
+                aria-expanded={isOpen}
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold flex items-center gap-1.5" style={{ color: "var(--text)" }}>
+                    <span
+                      className="text-slate-400 text-[10px] transition-transform"
+                      style={{ transform: isOpen ? "rotate(90deg)" : "rotate(0deg)" }}
+                    >▶</span>
+                    {d.label}
+                  </p>
+                  {d.laatste ? (
+                    <p className="text-[11px] text-slate-400 ml-3.5">
+                      Laatste: {d.laatste.datum} · {fmt(d.laatste.bedrag)}
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-slate-400 ml-3.5">Nog geen onttrekkingen dit jaar</p>
+                  )}
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-[18px] font-semibold tabular-nums" style={{ color: hex }}>
+                    {fmt(d.totaal)}
+                  </p>
+                  <p className="text-[10px] text-slate-400">{d.aantal} {d.aantal === 1 ? "transactie" : "transacties"}</p>
+                </div>
+              </button>
+              {isOpen && (
+                <div className="border-t border-slate-100 px-3 py-2 space-y-0.5 bg-slate-50/50 rounded-b-lg">
+                  {d.perMaand.map((m) => (
+                    <div key={m.maand} className="text-[12px]">
+                      <div className="flex items-baseline justify-between gap-2 py-1">
+                        <span
+                          className="capitalize w-14 shrink-0"
+                          style={{ color: m.totaal > 0 ? "var(--text)" : "var(--muted)" }}
+                        >
+                          {MAANDEN_KORT[m.maand - 1]}
+                        </span>
+                        <span
+                          className="tabular-nums flex-1 text-right"
+                          style={{
+                            color: m.totaal > 0 ? "var(--text)" : "var(--muted)",
+                            opacity: m.totaal > 0 ? 1 : 0.5,
+                          }}
+                        >
+                          {m.totaal > 0 ? fmt(m.totaal) : "—"}
+                        </span>
+                        <span className="text-[10px] text-slate-400 w-6 text-right shrink-0">
+                          {m.aantal > 0 ? `${m.aantal}×` : ""}
+                        </span>
+                      </div>
+                      {m.transacties.length > 0 && (
+                        <div className="ml-14 pl-2 border-l border-slate-200 space-y-0.5 mb-1">
+                          {m.transacties.map((tx, i) => (
+                            <div key={i} className="flex items-baseline justify-between gap-2 text-[11px]">
+                              <span className="text-slate-400 truncate">
+                                {tx.datum.slice(8, 10)}/{tx.datum.slice(5, 7)} · {tx.omschrijving}
+                              </span>
+                              <span className="tabular-nums text-slate-500 shrink-0">{fmt(tx.bedrag)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
-            <div className="text-right shrink-0">
-              <p className="text-[18px] font-semibold tabular-nums" style={{ color: hex }}>
-                {fmt(d.totaal)}
-              </p>
-              <p className="text-[10px] text-slate-400">{d.aantal} {d.aantal === 1 ? "transactie" : "transacties"}</p>
-            </div>
-          </div>
-        ))}
+          );
+        })}
         <div className="flex items-baseline justify-between pt-2 mt-1 border-t border-slate-100">
           <span className="text-[12px]" style={{ color: "var(--muted)" }}>Totaal DGA opgenomen {jaar}</span>
           <span className="text-[16px] font-semibold tabular-nums" style={{ color: "var(--text)" }}>

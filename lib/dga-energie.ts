@@ -15,13 +15,20 @@ export type BedrijfSlug = "bb" | "sl" | "kl";
 export interface DgaUittreksel {
   bedrijf: BedrijfSlug;
   jaar: number;
-  /** Per DGA-categorie: cumulatief bedrag + aantal transacties. */
+  /** Per DGA-categorie: cumulatief bedrag + aantal transacties + maand-breakdown. */
   perDga: Array<{
     categorie: "dga-er" | "dga-mp5";
     label: string;
     totaal: number;
     aantal: number;
     laatste: { datum: string; bedrag: number; omschrijving: string } | null;
+    /** Per maand: bedrag + aantal transacties + individuele txs (voor uitklap). */
+    perMaand: Array<{
+      maand: number;
+      totaal: number;
+      aantal: number;
+      transacties: Array<{ datum: string; bedrag: number; omschrijving: string }>;
+    }>;
   }>;
   /** Per maand de som over alle DGA's — voor grafiek. */
   perMaand: Array<{ maand: number; totaal: number }>;
@@ -92,11 +99,38 @@ export async function dgaUittreksel(bedrijf: BedrijfSlug, jaar: number): Promise
   // dgaTxs is gesorteerd op datum (zie haalIngOp). Laatste in array = nieuwste.
   // We pakken voor "laatste" daadwerkelijk de meest-recente datum.
   const perDga = (["dga-er", "dga-mp5"] as const).map((cat) => {
+    const transactiesVoorDeze = dgaTxs.filter((t) => t.categorie === cat);
+
+    // 12-maands breakdown — altijd alle 12 maanden zodat de UI gaten toont.
+    const perMaandBuckets = Array.from({ length: 12 }, (_, i) => ({
+      maand: i + 1,
+      totaal: 0,
+      aantal: 0,
+      transacties: [] as Array<{ datum: string; bedrag: number; omschrijving: string }>,
+    }));
+    for (const t of transactiesVoorDeze) {
+      const m = Number(t.datum.slice(5, 7));
+      const bucket = perMaandBuckets[m - 1];
+      bucket.totaal = Math.round((bucket.totaal + t.bedrag) * 100) / 100;
+      bucket.aantal += 1;
+      bucket.transacties.push({
+        datum: t.datum,
+        bedrag: t.bedrag,
+        omschrijving: t.omschrijving,
+      });
+    }
+
     const stats = perDgaMap.get(cat);
     if (!stats) {
-      return { categorie: cat, label: DGA_LABELS[cat], totaal: 0, aantal: 0, laatste: null };
+      return {
+        categorie: cat,
+        label: DGA_LABELS[cat],
+        totaal: 0,
+        aantal: 0,
+        laatste: null,
+        perMaand: perMaandBuckets,
+      };
     }
-    const transactiesVoorDeze = dgaTxs.filter((t) => t.categorie === cat);
     const laatste = transactiesVoorDeze[transactiesVoorDeze.length - 1];
     return {
       categorie: cat,
@@ -108,6 +142,7 @@ export async function dgaUittreksel(bedrijf: BedrijfSlug, jaar: number): Promise
         bedrag: laatste.bedrag,
         omschrijving: laatste.omschrijving,
       } : null,
+      perMaand: perMaandBuckets,
     };
   });
 
