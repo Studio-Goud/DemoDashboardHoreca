@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PushAanmelden from "@/components/PushAanmelden";
 import FaceIDOpzetten from "@/components/FaceIDOpzetten";
+import AudioToggle from "@/components/sf/AudioToggle";
 
 interface Props {
   hex: string;
@@ -552,6 +553,21 @@ export default function SetupPanel({ hex }: Props) {
             </p>
           </div>
           <FaceIDOpzetten hex={hex} />
+        </div>
+
+        {/* Stap 7: Audio cues — opt-in haptic-substituut */}
+        <div className="rounded-[10px] p-3" style={{ background: "var(--bg)", border: "1px solid var(--hairline)" }}>
+          <div className="mb-3">
+            <p className="text-[13px] font-semibold" style={{ color: "var(--text)" }}>
+              7. Audio cues (optioneel)
+            </p>
+            <p className="text-[11px] mt-1" style={{ color: "var(--muted)" }}>
+              iOS PWA's ondersteunen geen haptic feedback. Audio cues zijn een
+              subtiele substituut: een korte tik bij tap, bevestigen, sluiten.
+              Off by default — zet 'm aan als je 't fijn vindt.
+            </p>
+          </div>
+          <AudioToggle />
         </div>
 
         {fout && (

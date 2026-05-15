@@ -8,6 +8,7 @@
 import { forwardRef } from "react";
 import { motion, type HTMLMotionProps } from "framer-motion";
 import { tap as tapPreset } from "@/lib/motion";
+import { cues } from "@/lib/audio";
 
 type Variant = "primary" | "ghost" | "bracket" | "danger";
 type Size = "sm" | "md" | "lg";
@@ -21,9 +22,17 @@ interface Props extends Omit<HTMLMotionProps<"button">, "children"> {
 }
 
 const Button = forwardRef<HTMLButtonElement, Props>(function Button(
-  { variant = "primary", size = "md", glow = "subtle", className = "", children, disabled, ...rest },
+  { variant = "primary", size = "md", glow = "subtle", className = "", children, disabled, onClick, ...rest },
   ref,
 ) {
+  // Wikkel onClick zodat we een audio-cue kunnen spelen voordat de
+  // werkelijke handler vuurt. Cue is no-op als audio uit staat.
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (!disabled) {
+      variant === "danger" ? cues.error() : cues.tap();
+    }
+    onClick?.(e);
+  };
   const base =
     "inline-flex items-center justify-center gap-2 font-display rounded-sf transition-colors duration-sf-fast disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2";
 
@@ -58,6 +67,7 @@ const Button = forwardRef<HTMLButtonElement, Props>(function Button(
       whileTap={disabled ? undefined : { scale: 0.97 }}
       transition={tapPreset.transition}
       disabled={disabled}
+      onClick={handleClick}
       className={`${base} ${sizes[size]} ${variants[variant]} ${className}`}
       style={glowStyle}
       {...rest}

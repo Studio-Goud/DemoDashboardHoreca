@@ -17,6 +17,8 @@ import Modal from "@/components/sf/Modal";
 import Toggle from "@/components/sf/Toggle";
 import { Pulse, ScanBar, Shimmer } from "@/components/sf/Loading";
 import Progress from "@/components/sf/Progress";
+import Reveal from "@/components/sf/Reveal";
+import AudioToggle from "@/components/sf/AudioToggle";
 
 export default function ComponentsShowcase() {
   const [naam, setNaam] = useState("");
@@ -293,6 +295,19 @@ export default function ComponentsShowcase() {
             safe-area-inset top, drie slots (leading/center/trailing).
           </p>
         </Section>
+
+        {/* ─── AudioToggle ────────────────────────────────────────────── */}
+        <Section nummer="11" titel="Audio cues">
+          <Card variant="solid" className="p-5">
+            <p className="text-sf-body mb-4" style={{ color: "var(--sf-fg-muted)" }}>
+              iOS PWA's hebben geen vibration-API; audio is een subtiele
+              substituut. Zet aan en tik daarna een willekeurige sf-Button —
+              je hoort een korte tikje (1500 Hz, 25ms, vol 4%). Voicing
+              komt uit lib/audio.ts cues map.
+            </p>
+            <AudioToggle />
+          </Card>
+        </Section>
       </main>
 
       <TabBar tabs={tabs} actiefId={actiefTab} onSelect={setActiefTab} />
@@ -304,17 +319,19 @@ export default function ComponentsShowcase() {
 
 function Section({ nummer, titel, children }: { nummer: string; titel: string; children: React.ReactNode }) {
   return (
-    <section>
-      <div className="flex items-baseline gap-3 mb-4">
-        <span className="font-mono text-sf-caps tracking-[0.2em] uppercase" style={{ color: "var(--sf-accent)" }}>
-          {nummer}
-        </span>
-        <h2 className="font-display text-sf-h1 tracking-tight" style={{ color: "var(--sf-fg)" }}>
-          {titel}
-        </h2>
-      </div>
-      {children}
-    </section>
+    <Reveal>
+      <section>
+        <div className="flex items-baseline gap-3 mb-4">
+          <span className="font-mono text-sf-caps tracking-[0.2em] uppercase" style={{ color: "var(--sf-accent)" }}>
+            {nummer}
+          </span>
+          <h2 className="font-display text-sf-h1 tracking-tight" style={{ color: "var(--sf-fg)" }}>
+            {titel}
+          </h2>
+        </div>
+        {children}
+      </section>
+    </Reveal>
   );
 }
 

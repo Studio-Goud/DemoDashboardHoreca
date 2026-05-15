@@ -114,7 +114,7 @@ export default function BedrijfTabBar({ bedrijf, actiefId }: Props) {
               data-tab={tab.id}
               role="tab"
               aria-selected={isActief}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium whitespace-nowrap transition-all shrink-0"
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-[13px] font-medium whitespace-nowrap transition-all shrink-0 min-h-[44px]"
               style={isActief
                 ? {
                     background: `linear-gradient(135deg, ${tabKleur}22 0%, ${tabKleur}0E 100%)`,
