@@ -25,6 +25,18 @@ export default function DevIndex() {
       ondertitel: "Monospace readout met scan-sweep + glitch-logo",
       vibe: "Death Stranding · Blade Runner 2049",
     },
+    {
+      slug: "boot-4",
+      titel: "04 — Synthesis · DARK",
+      ondertitel: "Particles tekenen het grid in · atmosferische cyan haze",
+      vibe: "Combineert 01 + 02 · winnaars",
+    },
+    {
+      slug: "boot-4-light",
+      titel: "04 — Synthesis · LIGHT",
+      ondertitel: "Zelfde concept in clean-lab off-white met ink-blue",
+      vibe: "Vision Pro op licht · futuristisch lab",
+    },
   ];
 
   return (
