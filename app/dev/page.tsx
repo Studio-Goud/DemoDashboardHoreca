@@ -37,6 +37,12 @@ export default function DevIndex() {
       ondertitel: "Zelfde concept in clean-lab off-white met ink-blue",
       vibe: "Vision Pro op licht · futuristisch lab",
     },
+    {
+      slug: "components",
+      titel: "Componenten-showcase",
+      ondertitel: "10 basiscomponenten · Button, TextField, Modal, Toggle, Progress…",
+      vibe: "FASE 4 · klaar voor gebruik in de app",
+    },
   ];
 
   return (
