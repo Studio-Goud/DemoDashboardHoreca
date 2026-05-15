@@ -90,12 +90,15 @@ function getWeekNr(iso: string): number {
   );
 }
 
+// Drukte-codering — via sf-tokens. Behoudt traditionele kleur-semantiek
+// (groen=rustig, oranje=druk, rood=zeer druk) maar consistent met de
+// rest van de sci-fi laag.
 const DRUKTE_KLEUR: Record<NonNullable<DagContext["prognose"]>["druk"], string> = {
-  gesloten:   "#8E8E93",
-  laag:       "#30B26F",
-  normaal:    "#0A84FF",
-  druk:       "#E07A1F",
-  "zeer druk":"#E5484D",
+  gesloten:   "var(--sf-fg-dim)",
+  laag:       "var(--sf-success)",
+  normaal:    "var(--sf-accent)",
+  druk:       "var(--sf-warning)",
+  "zeer druk":"var(--sf-danger)",
 };
 const DRUKTE_LABEL_KEY: Record<NonNullable<DagContext["prognose"]>["druk"], string> = {
   gesloten:   "drukte.closed",
@@ -298,7 +301,7 @@ export default function RoosterEditor({
           </a>
           <div className="min-w-0">
             <p className="eyebrow">{t("rooster.label_naam")} · {naam}</p>
-            <h1 className="text-[18px] font-semibold" style={{ color: "var(--text)" }}>
+            <h1 className="font-display text-[20px] font-semibold tracking-tight" style={{ color: "var(--text)", letterSpacing: "-0.018em" }}>
               {t("rooster.week_prefix")} {weekNr} · {fmtKortDatum(weekStart)} – {fmtKortDatum(weekEind)}
             </h1>
             <p className="text-[11px] tabular-nums" style={{ color: "var(--muted)" }}>
@@ -366,8 +369,8 @@ export default function RoosterEditor({
       </div>
 
       {foutmelding && (
-        <div className="card" style={{ borderColor: "#E5484D44" }}>
-          <p className="text-[13px]" style={{ color: "#E5484D" }}>{foutmelding}</p>
+        <div className="card" style={{ borderColor: "rgba(255, 61, 92, 0.35)" }}>
+          <p className="font-mono text-[13px]" style={{ color: "var(--sf-danger)" }}>{foutmelding}</p>
         </div>
       )}
 
@@ -425,7 +428,7 @@ export default function RoosterEditor({
                   </div>
                   <p className="text-[12px] mt-0.5 tabular-nums" style={{ color: "var(--muted)" }}>
                     {diensten.length === 0 ? (
-                      <span style={{ color: "#E5484D" }}>{t("rooster.geen_diensten_dag")}</span>
+                      <span style={{ color: "var(--sf-warning)" }}>{t("rooster.geen_diensten_dag")}</span>
                     ) : (
                       <>
                         {diensten.length} {diensten.length === 1 ? t("rooster.diensten_singular") : t("rooster.diensten_plural")} · {dagUren.toFixed(1)}{t("rooster.urenSuffix")}
