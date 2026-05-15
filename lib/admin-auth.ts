@@ -23,13 +23,18 @@ const COOKIE_DUUR_DAGEN = 7;
 // Owner + manager PIN-profielen. ZELFDE als in components/PinGate.tsx.
 // (We zouden dit kunnen extraheren naar een gedeelde lib maar voor nu
 // dupliceren we het om import-cycles te voorkomen.)
+//
+// Managers krijgen elk hun eigen PIN ipv één gedeelde 2222 — zo blijft
+// audit-trail per persoon traceerbaar en kan een individuele manager
+// uitgesloten worden zonder dat anderen geraakt worden.
 export const ADMIN_PIN_PROFIEL: Record<
   string,
   { naam: string; rol: "owner" | "manager"; vestiging?: "bb" | "sl" | "kl" }
 > = {
   "2026": { naam: "Ricardo",  rol: "owner",   vestiging: "bb" },
   "2580": { naam: "Matthieu", rol: "owner",   vestiging: "kl" },
-  "2222": { naam: "Manager",  rol: "manager" },
+  "3001": { naam: "Gianni",   rol: "manager" },
+  "3002": { naam: "Theresa",  rol: "manager" },
 };
 
 export interface AdminSessie {

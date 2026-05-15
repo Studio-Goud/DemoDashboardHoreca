@@ -8,14 +8,15 @@ import { startAuthentication } from "@simplewebauthn/browser";
 
 // 4-cijferige PIN → identiteit + rol
 // - owners hebben een vaste vestiging
-// - manager-PIN is gedeeld; vestiging wordt na PIN-invoer gekozen
+// - elke manager heeft een eigen PIN; vestiging wordt na PIN-invoer gekozen
 const PIN_PROFIEL: Record<
   string,
   { naam: string; rol: "owner" | "manager"; vestiging?: "bb" | "sl" | "kl" }
 > = {
   "2026": { naam: "Ricardo",  rol: "owner",   vestiging: "bb" },
   "2580": { naam: "Matthieu", rol: "owner",   vestiging: "kl" },
-  "2222": { naam: "Manager",  rol: "manager" },
+  "3001": { naam: "Gianni",   rol: "manager" },
+  "3002": { naam: "Theresa",  rol: "manager" },
 };
 
 const STORAGE_KEY  = "sg_auth";
