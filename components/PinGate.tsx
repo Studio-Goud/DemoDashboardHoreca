@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Icon from "./Icon";
 import { useT } from "@/lib/i18n/useT";
+import { startAuthentication } from "@simplewebauthn/browser";
 
 // 4-cijferige PIN → identiteit + rol
 // - owners hebben een vaste vestiging
@@ -37,10 +38,14 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
   const [fout, setFout] = useState(false);
   const [checking, setChecking] = useState(true);
   // Fase: "rolKiezen" (default) → "pin" → eventueel "vestigingKiezen" (manager)
-  const [fase, setFase] = useState<"rolKiezen" | "pin" | "vestigingKiezen">("rolKiezen");
+  const [fase, setFase] = useState<"rolKiezen" | "pin" | "vestigingKiezen" | "faceIDBezig">("rolKiezen");
   // Welke rol verwachten we voor de PIN-invoer? Eigenaar mag NIET binnenkomen
   // met manager-PIN en omgekeerd — security door scheiding.
   const [verwachteRol, setVerwachteRol] = useState<"owner" | "manager" | null>(null);
+  // Face-ID metadata na een succesvolle WebAuthn-auth (manager moet daarna
+  // nog vestiging kiezen — owner gaat direct door)
+  const [faceIDProfiel, setFaceIDProfiel] = useState<{ pin: string; naam: string; rol: "owner" | "manager"; vestiging: "bb" | "sl" | "kl" | null } | null>(null);
+  const [faceIDFout, setFaceIDFout] = useState<string | null>(null);
 
   // /m/* en /welkom* hebben eigen authenticatie (medewerker-sessie via cookie),
   // dus PinGate moet die routes ongemoeid doorlaten.
@@ -68,15 +73,88 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
     } catch {
       // niet kritiek voor de UI-flow
     }
+    sessieAfronden(profiel.naam, profiel.rol, vestiging);
+  }
 
+  /**
+   * Zet sessionStorage + redirect — zónder /api/admin/login te roepen.
+   * Gebruikt na een succesvolle Face ID auth, waar de cookie al
+   * server-side is gezet door /api/auth/webauthn/auth/complete.
+   */
+  function sessieAfronden(
+    naam: string,
+    rol: "owner" | "manager",
+    vestiging: "bb" | "sl" | "kl",
+  ) {
     sessionStorage.setItem(STORAGE_KEY, "1");
-    sessionStorage.setItem(USER_KEY, profiel.naam);
-    sessionStorage.setItem(ROL_KEY, profiel.rol);
+    sessionStorage.setItem(USER_KEY, naam);
+    sessionStorage.setItem(ROL_KEY, rol);
     sessionStorage.setItem(VESTIGING_KEY, vestiging);
-    sessionStorage.setItem("sg_welkom_pending", profiel.naam);
-    window.dispatchEvent(new CustomEvent("sg:welkom", { detail: { naam: profiel.naam } }));
+    sessionStorage.setItem("sg_welkom_pending", naam);
+    window.dispatchEvent(new CustomEvent("sg:welkom", { detail: { naam } }));
     setUnlocked(true);
     router.replace(`/${vestiging}`);
+  }
+
+  /**
+   * Probeer Face ID login voor de gevraagde rol. Faalt 'ie of zijn er
+   * geen passkeys → val terug op PIN-invoer.
+   */
+  async function probeerFaceID(rol: "owner" | "manager") {
+    setFaceIDFout(null);
+    setVerwachteRol(rol);
+    try {
+      const hasRes = await fetch(`/api/auth/webauthn/has?rol=${rol}`, { cache: "no-store" });
+      if (!hasRes.ok) throw new Error("check mislukt");
+      const has = await hasRes.json() as { aantal: number };
+      if (has.aantal === 0) {
+        // Geen passkeys → ga direct naar PIN
+        setFase("pin");
+        return;
+      }
+      setFase("faceIDBezig");
+
+      const beginRes = await fetch("/api/auth/webauthn/auth/begin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rol }),
+      });
+      if (!beginRes.ok) throw new Error("WebAuthn begin mislukt");
+      const { options, sessionId } = await beginRes.json();
+
+      const assertion = await startAuthentication({ optionsJSON: options });
+
+      const completeRes = await fetch("/api/auth/webauthn/auth/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId, assertion }),
+      });
+      if (!completeRes.ok) {
+        const j = await completeRes.json().catch(() => ({ error: "fout" }));
+        throw new Error(j.error || "auth mislukt");
+      }
+      const result = await completeRes.json() as {
+        rol: "owner" | "manager";
+        naam: string;
+        vestiging: "bb" | "sl" | "kl" | null;
+        pin: string;
+      };
+
+      if (result.rol === "owner" && result.vestiging) {
+        // Owner: direct door
+        sessieAfronden(result.naam, result.rol, result.vestiging);
+      } else {
+        // Manager: nog vestiging kiezen. Bewaar profiel voor de keuze-fase.
+        setFaceIDProfiel(result);
+        setFase("vestigingKiezen");
+      }
+    } catch (e) {
+      const bericht = e instanceof Error ? e.message : "Face ID afgebroken";
+      // NotAllowedError = user cancelled, dat is geen écht foutbericht.
+      const isCancel = bericht.includes("NotAllowedError") || bericht.includes("aborted");
+      setFaceIDFout(isCancel ? null : bericht);
+      setFase("pin");
+    }
   }
 
   function drukOp(cijfer: string) {
@@ -110,6 +188,21 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
   }
 
   function kiesVestiging(slug: "bb" | "sl" | "kl") {
+    // Twee paden naar deze keuze:
+    //   a) PIN-flow: manager-PIN is ingetoetst (input gevuld)
+    //   b) Face ID flow: faceIDProfiel is gevuld
+    if (faceIDProfiel) {
+      // Sessie cookie is al gezet door /api/auth/webauthn/auth/complete.
+      // Voor manager moeten we de vestiging server-side bijwerken — gebruik
+      // de bestaande /api/admin/login route met de bekende PIN.
+      fetch("/api/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin: faceIDProfiel.pin, vestiging: slug }),
+      }).catch(() => null);
+      sessieAfronden(faceIDProfiel.naam, faceIDProfiel.rol, slug);
+      return;
+    }
     const profiel = PIN_PROFIEL[input];
     if (!profiel) return;
     voltooidInloggen(profiel, slug, input);
@@ -182,7 +275,7 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
           </button>
 
           <button
-            onClick={() => { setVerwachteRol("manager"); setFase("pin"); }}
+            onClick={() => probeerFaceID("manager")}
             className="group px-5 py-5 rounded-[16px] text-left transition-all relative overflow-hidden"
             style={{
               background: "linear-gradient(135deg, rgba(10, 132, 255, 0.12) 0%, rgba(10, 132, 255, 0.04) 100%)",
@@ -214,7 +307,7 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
 
           {/* Eigenaar — purper-goud accent, scheidt zich visueel van management */}
           <button
-            onClick={() => { setVerwachteRol("owner"); setFase("pin"); }}
+            onClick={() => probeerFaceID("owner")}
             className="group px-5 py-5 rounded-[16px] text-left transition-all relative overflow-hidden"
             style={{
               background: "linear-gradient(135deg, rgba(191, 90, 242, 0.12) 0%, rgba(191, 90, 242, 0.04) 100%)",
@@ -296,6 +389,34 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
     );
   }
 
+  if (fase === "faceIDBezig") {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-8">
+        <div className="mb-8 text-center">
+          <p className="eyebrow mb-2" style={{ color: verwachteRol === "owner" ? "#BF5AF2" : "#0A84FF" }}>
+            {verwachteRol === "owner" ? "Eigenaar" : "Management"}
+          </p>
+          <h1 className="text-[22px] font-semibold tracking-tight" style={{ color: "var(--text)", letterSpacing: "-0.019em" }}>
+            Face ID / Touch ID
+          </h1>
+          <p className="text-[13px] mt-2" style={{ color: "var(--muted)" }}>
+            Bevestig je identiteit op je apparaat
+          </p>
+        </div>
+        <div className="w-16 h-16 rounded-full flex items-center justify-center mb-6" style={{ background: "var(--bg-elev)", border: "1px solid var(--hairline)" }}>
+          <div className="w-6 h-6 rounded-full animate-pulse" style={{ background: verwachteRol === "owner" ? "#BF5AF2" : "#0A84FF" }} />
+        </div>
+        <button
+          onClick={() => setFase("pin")}
+          className="text-[13px]"
+          style={{ color: "var(--muted)" }}
+        >
+          Code invoeren in plaats daarvan
+        </button>
+      </div>
+    );
+  }
+
   // PIN-scherm: voor zowel manager als eigenaar. Eyebrow toont welke rol
   // verwacht wordt zodat de gebruiker weet dat hij/zij de juiste PIN moet
   // intoetsen.
@@ -321,6 +442,11 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
         >
           {t("login.title")}
         </h1>
+        {faceIDFout && (
+          <p className="text-[11px] mt-2" style={{ color: "#E07A1F" }}>
+            Face ID: {faceIDFout}
+          </p>
+        )}
       </div>
 
       <div className="flex gap-3.5 mb-10">

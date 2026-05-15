@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PushAanmelden from "@/components/PushAanmelden";
+import FaceIDOpzetten from "@/components/FaceIDOpzetten";
 
 interface Props {
   hex: string;
@@ -536,6 +537,21 @@ export default function SetupPanel({ hex }: Props) {
               )}
             </>
           )}
+        </div>
+
+        {/* Stap 6: Face ID / Touch ID */}
+        <div className="rounded-[10px] p-3" style={{ background: "var(--bg)", border: "1px solid var(--hairline)" }}>
+          <div className="mb-2">
+            <p className="text-[13px] font-semibold" style={{ color: "var(--text)" }}>
+              6. Snelle login (Face ID / Touch ID)
+            </p>
+            <p className="text-[11px] mt-1" style={{ color: "var(--muted)" }}>
+              Stel een passkey in op dit apparaat. Volgende keer log je in
+              door alleen op je rol te tikken en je gezicht / vingerafdruk
+              te laten scannen — geen PIN nodig.
+            </p>
+          </div>
+          <FaceIDOpzetten hex={hex} />
         </div>
 
         {fout && (
