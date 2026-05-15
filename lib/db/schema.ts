@@ -47,12 +47,25 @@ export const medewerkers = pgTable("medewerkers", {
 
   // Authenticatie
   pinHash:                text("pin_hash"),                    // bcrypt hash van zelfgekozen PIN
+  wachtwoordHash:         text("wachtwoord_hash"),             // bcrypt hash van wachtwoord (account-recovery / setup)
   registratieToken:       varchar("registratie_token", { length: 64 }),
   registratieVerloopt:    timestamp("registratie_verloopt", { withTimezone: true }),
   laatsteLogin:           timestamp("laatste_login",        { withTimezone: true }),
 
   avatarUrl: text("avatar_url"),
   actief:    boolean("actief").notNull().default(true),
+
+  // ─── NAW + loonadministratie (zelf in te vullen door medewerker) ───────
+  geboortedatum: date("geboortedatum"),
+  straat:        varchar("straat",       { length: 120 }),
+  huisnummer:    varchar("huisnummer",   { length: 16 }),
+  postcode:      varchar("postcode",     { length: 12 }),
+  woonplaats:    varchar("woonplaats",   { length: 100 }),
+  iban:          varchar("iban",         { length: 34 }),
+  // BSN is bijzondere persoonsgegevens — server-side AES-256-GCM encrypted
+  // opgeslagen. Format: <iv-hex>:<authtag-hex>:<ciphertext-hex>.
+  bsnVersleuteld: text("bsn_versleuteld"),
+  onboardingVoltooid: boolean("onboarding_voltooid").notNull().default(false),
 
   // Thuis-vestiging — gebruikt voor doorbereken-overzicht inleen-uren.
   // Werk bij een andere vestiging telt als "uitgeleend" en wordt aan het
@@ -239,6 +252,29 @@ export const auditLog = pgTable("audit_log", {
   entiteitIdx: index("audit_log_entiteit_idx").on(t.entiteit, t.entiteitId),
   doorIdx:     index("audit_log_door_idx").on(t.doorMedewerkerId, t.createdAt),
   tijdIdx:     index("audit_log_tijd_idx").on(t.createdAt),
+}));
+
+// ─── Medewerker documenten (ID, paspoort, bankpas) ──────────────────────────
+// Foto's worden server-side AES-256-GCM versleuteld voordat ze naar Postgres
+// gaan. iv en authtag worden bij de blob bewaard zodat decrypt mogelijk is.
+// Alleen owners kunnen ze openen — endpoint check huidigeAdminSessie().
+export const medewerkerDocumenten = pgTable("medewerker_documenten", {
+  id: serial("id").primaryKey(),
+  medewerkerId: integer("medewerker_id").notNull().references(() => medewerkers.id, { onDelete: "cascade" }),
+  type: varchar("type", { length: 32 }).notNull(), // 'id-voor' | 'id-achter' | 'paspoort' | 'bankpas'
+  mimetype: varchar("mimetype", { length: 64 }).notNull(),
+  bestandsnaam: varchar("bestandsnaam", { length: 200 }),
+  // Versleutelde inhoud + bijbehorende crypto-velden (zie lib/documenten.ts)
+  iv:           text("iv").notNull(),
+  authtag:      text("authtag").notNull(),
+  ciphertext:   text("ciphertext").notNull(), // base64
+  grootteBytes: integer("grootte_bytes").notNull(),
+  geuploadOp:   timestamp("geupload_op", { withTimezone: true }).notNull().defaultNow(),
+  goedgekeurd:  boolean("goedgekeurd").notNull().default(false),
+  goedgekeurdDoor: varchar("goedgekeurd_door", { length: 80 }),
+  goedgekeurdOp:   timestamp("goedgekeurd_op", { withTimezone: true }),
+}, (t) => ({
+  medewerkerIdx: index("medewerker_documenten_medewerker_idx").on(t.medewerkerId),
 }));
 
 // ─── Sessies (cookie-tokens voor login) ──────────────────────────────────────

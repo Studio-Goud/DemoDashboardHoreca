@@ -96,6 +96,12 @@ export default function MedewerkerLoginFlow({ ingevuldEmail }: Props) {
         >
           {t("common.next")}
         </button>
+        <p className="text-center text-[12px] mt-6" style={{ color: "var(--muted)" }}>
+          Nog geen account?{" "}
+          <a href="/m/registreren" className="underline" style={{ color: "var(--text-2)" }}>
+            Registreren
+          </a>
+        </p>
       </div>
     );
   }

@@ -42,6 +42,17 @@ export async function checkPin(pin: string, hash: string): Promise<boolean> {
   return bcrypt.compare(pin, hash);
 }
 
+// ─── Wachtwoord hashing (account-credential bij zelf-registratie) ─────────
+
+export async function hashWachtwoord(wachtwoord: string): Promise<string> {
+  if (wachtwoord.length < 8) throw new Error("Wachtwoord minstens 8 tekens");
+  return bcrypt.hash(wachtwoord, 12);
+}
+
+export async function checkWachtwoord(plain: string, hash: string): Promise<boolean> {
+  return bcrypt.compare(plain, hash);
+}
+
 // ─── Registratie: code/token genereren + opslaan ──────────────────────────
 
 /**
@@ -142,6 +153,97 @@ export async function voltooidRegistratie(
 
 // ─── Inloggen: maak sessie + cookie ────────────────────────────────────────
 
+/** Maakt sessie + cookie voor een al-geverifieerde medewerker. */
+async function maakSessie(medewerkerId: number, naam: string): Promise<SessieInfo> {
+  const token = genereerToken();
+  const verloopt = new Date();
+  verloopt.setDate(verloopt.getDate() + SESSIE_DUUR_DAGEN);
+
+  const depts = await db.select({ slug: schema.departments.slug })
+    .from(schema.medewerkerDepartments)
+    .innerJoin(schema.departments, eq(schema.medewerkerDepartments.departmentId, schema.departments.id))
+    .where(eq(schema.medewerkerDepartments.medewerkerId, medewerkerId));
+  const vestiging = depts[0]?.slug ?? null;
+
+  await db.insert(schema.sessies).values({
+    token, medewerkerId, rol: "medewerker", vestiging, verloopt,
+  });
+  await db.update(schema.medewerkers).set({
+    laatsteLogin: new Date(),
+  }).where(eq(schema.medewerkers.id, medewerkerId));
+
+  cookies().set(SESSIE_COOKIE, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    expires: verloopt,
+  });
+
+  return { medewerkerId, rol: "medewerker", vestiging, naam };
+}
+
+/**
+ * Zelf-registratie. Geen email-verificatie (overhead voor MVP); owner kan
+ * achteraf reviewen in de admin-tab. Direct ingelogd na succes.
+ */
+export async function registreerMedewerker(opties: {
+  email: string;
+  wachtwoord: string;
+  voornaam: string;
+  achternaam: string;
+}): Promise<SessieInfo | { fout: string }> {
+  const email = opties.email.toLowerCase().trim();
+  if (!/^\S+@\S+\.\S+$/.test(email)) return { fout: "ongeldig email-adres" };
+
+  const bestaand = await db.select({ id: schema.medewerkers.id })
+    .from(schema.medewerkers)
+    .where(eq(schema.medewerkers.email, email));
+  if (bestaand.length > 0) return { fout: "email bestaat al — probeer in te loggen" };
+
+  let hash: string;
+  try {
+    hash = await hashWachtwoord(opties.wachtwoord);
+  } catch (e) {
+    return { fout: e instanceof Error ? e.message : "wachtwoord ongeldig" };
+  }
+
+  const [m] = await db.insert(schema.medewerkers).values({
+    email,
+    voornaam: opties.voornaam.trim(),
+    achternaam: opties.achternaam.trim(),
+    wachtwoordHash: hash,
+    actief: true,
+  }).returning({ id: schema.medewerkers.id });
+
+  return maakSessie(m.id, `${opties.voornaam} ${opties.achternaam}`.trim());
+}
+
+/** Wachtwoord-login (fallback voor wanneer PIN vergeten is). */
+export async function inloggenViaWachtwoord(email: string, wachtwoord: string): Promise<SessieInfo | null> {
+  const rows = await db.select()
+    .from(schema.medewerkers)
+    .where(and(
+      eq(schema.medewerkers.email, email.toLowerCase().trim()),
+      eq(schema.medewerkers.actief, true),
+    ));
+  if (rows.length === 0) return null;
+  const m = rows[0];
+  if (!m.wachtwoordHash) return null;
+  const ok = await checkWachtwoord(wachtwoord, m.wachtwoordHash);
+  if (!ok) return null;
+  return maakSessie(m.id, `${m.voornaam} ${m.achternaam}`.trim());
+}
+
+/** Zet/wijzig de PIN van een ingelogde medewerker. */
+export async function zetMedewerkerPin(medewerkerId: number, pin: string): Promise<void> {
+  const hash = await hashPin(pin);
+  await db.update(schema.medewerkers).set({
+    pinHash: hash,
+    updatedAt: new Date(),
+  }).where(eq(schema.medewerkers.id, medewerkerId));
+}
+
 export async function inloggenMedewerker(email: string, pin: string): Promise<SessieInfo | null> {
   const rows = await db.select()
     .from(schema.medewerkers)
@@ -154,42 +256,7 @@ export async function inloggenMedewerker(email: string, pin: string): Promise<Se
   if (!m.pinHash) return null;
   const ok = await checkPin(pin, m.pinHash);
   if (!ok) return null;
-
-  // Sessie aanmaken
-  const token = genereerToken();
-  const verloopt = new Date();
-  verloopt.setDate(verloopt.getDate() + SESSIE_DUUR_DAGEN);
-
-  // Bepaal vestiging (eerste gekoppelde department)
-  const depts = await db.select({ slug: schema.departments.slug })
-    .from(schema.medewerkerDepartments)
-    .innerJoin(schema.departments, eq(schema.medewerkerDepartments.departmentId, schema.departments.id))
-    .where(eq(schema.medewerkerDepartments.medewerkerId, m.id));
-  const vestiging = depts[0]?.slug ?? null;
-
-  await db.insert(schema.sessies).values({
-    token, medewerkerId: m.id, rol: "medewerker", vestiging, verloopt,
-  });
-
-  await db.update(schema.medewerkers).set({
-    laatsteLogin: new Date(),
-  }).where(eq(schema.medewerkers.id, m.id));
-
-  // Cookie zetten
-  cookies().set(SESSIE_COOKIE, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    expires: verloopt,
-  });
-
-  return {
-    medewerkerId: m.id,
-    rol: "medewerker",
-    vestiging,
-    naam: `${m.voornaam} ${m.achternaam}`.trim(),
-  };
+  return maakSessie(m.id, `${m.voornaam} ${m.achternaam}`.trim());
 }
 
 // ─── Sessie lezen (op elke server request) ────────────────────────────────

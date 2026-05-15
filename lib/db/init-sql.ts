@@ -216,8 +216,63 @@ const MIGRATIE_0006: Migratie = {
   ],
 };
 
+/**
+ * Migratie 0007: medewerker zelf-registratie + NAW + loonadministratie.
+ *
+ * - wachtwoord_hash voor zelf-aanmeld accounts (PIN blijft daily login,
+ *   wachtwoord = fallback / account recovery)
+ * - NAW velden (adres + geboortedatum)
+ * - iban als plain varchar (gevoelig maar geen bijzondere persoonsgegevens)
+ * - bsn_versleuteld: AES-256-GCM ciphertext (zie lib/documenten.ts)
+ * - onboarding_voltooid: gate voor het portaal — pas na invullen krijg je
+ *   roosterzicht
+ * - medewerker_documenten: foto's van ID + bankpas, versleuteld met
+ *   dezelfde key als BSN
+ */
+const MIGRATIE_0007: Migratie = {
+  naam: "0007_medewerker_zelfregistratie",
+  statements: [
+    `ALTER TABLE "medewerkers"
+       ADD COLUMN IF NOT EXISTS "wachtwoord_hash" text`,
+    `ALTER TABLE "medewerkers"
+       ADD COLUMN IF NOT EXISTS "geboortedatum" date`,
+    `ALTER TABLE "medewerkers"
+       ADD COLUMN IF NOT EXISTS "straat" varchar(120)`,
+    `ALTER TABLE "medewerkers"
+       ADD COLUMN IF NOT EXISTS "huisnummer" varchar(16)`,
+    `ALTER TABLE "medewerkers"
+       ADD COLUMN IF NOT EXISTS "postcode" varchar(12)`,
+    `ALTER TABLE "medewerkers"
+       ADD COLUMN IF NOT EXISTS "woonplaats" varchar(100)`,
+    `ALTER TABLE "medewerkers"
+       ADD COLUMN IF NOT EXISTS "iban" varchar(34)`,
+    `ALTER TABLE "medewerkers"
+       ADD COLUMN IF NOT EXISTS "bsn_versleuteld" text`,
+    `ALTER TABLE "medewerkers"
+       ADD COLUMN IF NOT EXISTS "onboarding_voltooid" boolean NOT NULL DEFAULT false`,
+    `CREATE TABLE IF NOT EXISTS "medewerker_documenten" (
+       "id" serial PRIMARY KEY,
+       "medewerker_id" integer NOT NULL REFERENCES "medewerkers"("id") ON DELETE CASCADE,
+       "type" varchar(32) NOT NULL,
+       "mimetype" varchar(64) NOT NULL,
+       "bestandsnaam" varchar(200),
+       "iv" text NOT NULL,
+       "authtag" text NOT NULL,
+       "ciphertext" text NOT NULL,
+       "grootte_bytes" integer NOT NULL,
+       "geupload_op" timestamp with time zone NOT NULL DEFAULT now(),
+       "goedgekeurd" boolean NOT NULL DEFAULT false,
+       "goedgekeurd_door" varchar(80),
+       "goedgekeurd_op" timestamp with time zone
+     )`,
+    `CREATE INDEX IF NOT EXISTS "medewerker_documenten_medewerker_idx"
+       ON "medewerker_documenten" ("medewerker_id")`,
+  ],
+};
+
 const ALLE_MIGRATIES: Migratie[] = [
-  MIGRATIE_0001, MIGRATIE_0002, MIGRATIE_0003, MIGRATIE_0004, MIGRATIE_0005, MIGRATIE_0006,
+  MIGRATIE_0001, MIGRATIE_0002, MIGRATIE_0003, MIGRATIE_0004,
+  MIGRATIE_0005, MIGRATIE_0006, MIGRATIE_0007,
 ];
 
 async function voerMigratieUit(m: Migratie): Promise<DbInitResultaat> {
