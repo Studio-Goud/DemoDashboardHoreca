@@ -325,7 +325,23 @@ function BedrijfKolom({
 
 // ─── LiveBalk (root) ──────────────────────────────────────────────────────────
 
+/**
+ * Wrapper die de LiveBalk verbergt op medewerker-routes (en welkom/
+ * onboarding). Omzet is bedrijfsinformatie en hoort niet zichtbaar te
+ * zijn voordat iemand als owner/manager is ingelogd.
+ *
+ * Implementatie als wrapper voorkomt dat we 22+ hooks in LiveBalkBody
+ * onnodig moeten skippen (Rules of Hooks).
+ */
 export default function LiveBalk() {
+  const pathname = usePathname();
+  if (pathname?.startsWith("/m") || pathname?.startsWith("/welkom")) {
+    return null;
+  }
+  return <LiveBalkBody />;
+}
+
+function LiveBalkBody() {
   const pathname   = usePathname();
   const { rol }    = useRol();
   const LEEG_STAAT: BedrijfStaat = { omzet: 0, klanten: 0, verwachtNu: 0 };
