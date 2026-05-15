@@ -11,6 +11,7 @@ import SetupPanel from "@/components/administratie/SetupPanel";
 import DgaEnergiePanel from "@/components/administratie/DgaEnergiePanel";
 import CashflowProjectie from "@/components/administratie/CashflowProjectie";
 import MedewerkerDocumentenPanel from "@/components/administratie/MedewerkerDocumentenPanel";
+import TestAccountSeed from "@/components/administratie/TestAccountSeed";
 
 interface Props {
   bedrijf: "bb" | "sl" | "kl";
@@ -40,6 +41,7 @@ export default function AdminTab({ bedrijf, hex }: Props) {
       <KwartaalRapport bedrijf={bedrijf} hex={hex} />
       <MedewerkerDocumentenPanel hex={hex} />
       <SetupPanel hex={hex} />
+      <TestAccountSeed hex={hex} />
     </div>
   );
 }
