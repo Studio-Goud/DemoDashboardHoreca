@@ -6,7 +6,7 @@
  * - Eind van de maand: totale afname × prijs per afnemende vestiging.
  *   SL (de bron) factureert dat bedrag door naar de afnemende vestigingen.
  */
-import { and, eq, gte, lte, desc } from "drizzle-orm";
+import { and, eq, gte, lt, desc } from "drizzle-orm";
 import { db, schema } from "./db/client";
 
 export type BedrijfSlug = "bb" | "sl" | "kl";
@@ -212,7 +212,8 @@ export async function maandAfrekening(jaar: number, maand: number): Promise<Maan
     .innerJoin(schema.gedeeldeVoorraadProducten, eq(schema.gedeeldeVoorraadAfnames.productId, schema.gedeeldeVoorraadProducten.id))
     .where(and(
       gte(schema.gedeeldeVoorraadAfnames.datum, startDatum),
-      lte(schema.gedeeldeVoorraadAfnames.datum, eindDatum),
+      // Half-open: eindDatum is 1e van volgende maand, exclusive
+      lt(schema.gedeeldeVoorraadAfnames.datum, eindDatum),
     ));
 
   // Groepeer per (bedrijf, product)

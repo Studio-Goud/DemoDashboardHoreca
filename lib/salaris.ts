@@ -96,10 +96,18 @@ async function urenPerDagVoorMedewerker(
     .from(schema.klokEvents)
     .leftJoin(schema.rosters, eq(schema.klokEvents.rosterId, schema.rosters.id))
     .leftJoin(schema.departments, eq(schema.rosters.departmentId, schema.departments.id))
+    // Bound-window: events buckets'en we per NL-datum van de IN-event. Een
+    // shift die om 23:30 NL-tijd op de laatste van de maand begint en om
+    // 02:30 NL-tijd op de 1e van de volgende maand eindigt, valt qua OUT-
+    // event buiten een naïeve `tijdstempel <= eind T23:59:59Z` range
+    // (CEST = UTC+2 → OUT staat op 00:30 UTC volgende dag). We breiden de
+    // query daarom met 1 dag buffer aan beide kanten en filteren daarna in
+    // JS op de NL-datum van de IN-event.
     .where(and(
       eq(schema.klokEvents.medewerkerId, medewerkerId),
       gte(schema.klokEvents.tijdstempel, new Date(`${start}T00:00:00Z`)),
-      lte(schema.klokEvents.tijdstempel, new Date(`${eind}T23:59:59Z`)),
+      // 1 dag extra zodat OUT-events laat-in-de-nacht meekomen
+      lte(schema.klokEvents.tijdstempel, new Date(new Date(`${eind}T23:59:59Z`).getTime() + 26 * 60 * 60 * 1000)),
     ))
     .orderBy(asc(schema.klokEvents.tijdstempel));
 
@@ -116,11 +124,16 @@ async function urenPerDagVoorMedewerker(
     } else if (ev.type === "out" && openIn) {
       const uren = (ev.tijdstempel.getTime() - openIn.tijd.getTime()) / 1000 / 3600;
       const datum = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Amsterdam" }).format(openIn.tijd);
-      const slug = openIn.deptSlug;
-      const sleutel = `${datum}|${slug ?? ""}`;
-      const cur = perDagVestiging.get(sleutel) ?? { uren: 0, bron: "klok" as const, pauzeMin: 0, departmentSlug: slug };
-      cur.uren += Math.max(0, uren);
-      perDagVestiging.set(sleutel, cur);
+      // Filter: alleen shifts waarvan de IN-event NL-datum binnen [start, eind]
+      // valt. Anders krijgen we shifts mee uit de buffer-dag (de 1e van de
+      // volgende maand) die bij die maand horen, niet bij deze.
+      if (datum >= start && datum <= eind) {
+        const slug = openIn.deptSlug;
+        const sleutel = `${datum}|${slug ?? ""}`;
+        const cur = perDagVestiging.get(sleutel) ?? { uren: 0, bron: "klok" as const, pauzeMin: 0, departmentSlug: slug };
+        cur.uren += Math.max(0, uren);
+        perDagVestiging.set(sleutel, cur);
+      }
       openIn = null;
     }
   }

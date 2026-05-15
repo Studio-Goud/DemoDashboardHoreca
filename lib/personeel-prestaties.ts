@@ -14,7 +14,7 @@
  *
  * Plus team-gemiddelde voor benchmarks.
  */
-import { and, eq, gte, lte } from "drizzle-orm";
+import { and, eq, gte, lt } from "drizzle-orm";
 import { db, schema } from "./db/client";
 import { fetchAllZettlePurchases, type Bedrijf } from "./zettle";
 
@@ -101,7 +101,9 @@ async function shiftsInPeriode(
     .where(and(
       eq(schema.rosters.departmentId, deptId),
       gte(schema.rosters.datum, startDatum),
-      lte(schema.rosters.datum, eindDatum),
+      // Half-open [start, eind) — caller geeft eindDatum als 1e van volgende
+      // maand. lt voorkomt dat die dag dubbel telt in twee maand-rapporten.
+      lt(schema.rosters.datum, eindDatum),
     ));
 
   return rijen
@@ -136,7 +138,7 @@ async function transactiesInPeriode(
     .where(and(
       eq(schema.sumupTransacties.bedrijf, bedrijf),
       gte(schema.sumupTransacties.timestamp, new Date(startMs)),
-      lte(schema.sumupTransacties.timestamp, new Date(eindMs)),
+      lt(schema.sumupTransacties.timestamp, new Date(eindMs)),
     ));
 
   const sumupTxs = sumupRijen

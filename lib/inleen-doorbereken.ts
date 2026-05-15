@@ -14,7 +14,7 @@
  * de doorberekening houden we het simpel met geplande uren — vakantiegeld
  * + sociale lasten blijven bij de thuis-vestiging.
  */
-import { and, eq, gte, lte, isNotNull } from "drizzle-orm";
+import { and, eq, gte, lt, isNotNull } from "drizzle-orm";
 import { db, schema } from "./db/client";
 
 export interface InleenRegel {
@@ -72,7 +72,9 @@ export async function berekenInleenMaand(
   opties: InleenOpties = {},
 ): Promise<InleenMaand> {
   const startDatum = `${jaar}-${String(maand).padStart(2, "0")}-01`;
-  // Laatste dag van de maand (eenvoudige berekening via volgende-maand-0)
+  // Half-open interval [startDatum, eindDatum) — eindDatum is de 1e van de
+  // VOLGENDE maand, en we gebruiken `lt(...)` zodat die 1e dag NIET in deze
+  // maand telt (anders dubbeltelling op de maandgrens).
   const eindMaand = maand === 12 ? 1 : maand + 1;
   const eindJaar = maand === 12 ? jaar + 1 : jaar;
   const eindDatum = `${eindJaar}-${String(eindMaand).padStart(2, "0")}-01`;
@@ -97,9 +99,12 @@ export async function berekenInleenMaand(
     .innerJoin(schema.medewerkers, eq(schema.rosters.medewerkerId, schema.medewerkers.id))
     .where(and(
       gte(schema.rosters.datum, startDatum),
-      lte(schema.rosters.datum, eindDatum),
+      lt(schema.rosters.datum, eindDatum),
       // Alleen rijen waar we beide vestigingen weten
       isNotNull(schema.medewerkers.hoofdDepartmentId),
+      // Alleen gepubliceerde diensten — anders factureren we concepten
+      // die nog niet eens uitbetaald worden via salaris.ts.
+      eq(schema.rosters.gepubliceerd, true),
     ));
 
   // Departments-lookup voor namen + slugs + werkgeverslasten-percentage

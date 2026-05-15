@@ -11,7 +11,7 @@
  * Output: lijst van events met datum, mutatie, saldo-na — zodat de UI er
  * een lijngrafiek + event-lijst van kan maken.
  */
-import { and, eq, gte, lte } from "drizzle-orm";
+import { and, eq, gte, lt } from "drizzle-orm";
 import { db, schema } from "./db/client";
 import { haalIngOp } from "./boekhouding-kv";
 
@@ -127,16 +127,22 @@ async function plandeLoonPerDag(
       eind: schema.rosters.eind,
       pauzeMin: schema.rosters.pauzeMin,
       uurloon: schema.medewerkers.uurloon,
+      // Lees per medewerker hun ECHTE vakantiegeld + vakantie-uren-pct,
+      // ipv 8.33/8.00 hard-coded — salaris.ts gebruikt deze velden ook.
+      // Anders krijg je voor afwijkende medewerkers verkeerde loonkost-
+      // projectie en inconsistente cijfers tussen salaris en cashflow.
+      vakantiegeldPct: schema.medewerkers.vakantiegeldPct,
+      vakantieUrenPct: schema.medewerkers.vakantieUrenPct,
     })
     .from(schema.rosters)
     .innerJoin(schema.medewerkers, eq(schema.rosters.medewerkerId, schema.medewerkers.id))
     .where(and(
       eq(schema.rosters.departmentId, deptId),
       gte(schema.rosters.datum, startDatum),
-      lte(schema.rosters.datum, eindDatum),
+      lt(schema.rosters.datum, eindDatum),
+      eq(schema.rosters.gepubliceerd, true),
     ));
 
-  const opslagFactor = 1 + 0.0833 + 0.08 + werkgeverslastenPct / 100;
   const perDag = new Map<string, number>();
   for (const r of rosterRijen) {
     const uurloon = r.uurloon === null ? 0 : Number(r.uurloon);
@@ -146,6 +152,12 @@ async function plandeLoonPerDag(
     const minuten = (eh * 60 + em) - (sh * 60 + sm) - (r.pauzeMin ?? 0);
     if (minuten <= 0) continue;
     const uren = minuten / 60;
+    // Per-medewerker opslag — werkgeverslastenPct is bedrijfsbreed (uit
+    // departments.werkgeverslasten_pct), de andere twee komen uit
+    // medewerkers.{vakantiegeld_pct, vakantie_uren_pct}.
+    const vakgeldPct = r.vakantiegeldPct === null ? 8.33 : Number(r.vakantiegeldPct);
+    const vakUrenPct = r.vakantieUrenPct === null ? 8.00 : Number(r.vakantieUrenPct);
+    const opslagFactor = 1 + vakgeldPct / 100 + vakUrenPct / 100 + werkgeverslastenPct / 100;
     const kost = uren * uurloon * opslagFactor;
     perDag.set(r.datum, (perDag.get(r.datum) ?? 0) + kost);
   }
