@@ -14,7 +14,6 @@ import { huidigeAdminSessie } from "@/lib/admin-auth";
 import { db, schema } from "@/lib/db/client";
 import { hashPin, inloggenMedewerker } from "@/lib/auth";
 import { versleutelTekst } from "@/lib/documenten";
-import { runAllePendingMigraties } from "@/lib/db/init-sql";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +22,9 @@ const TEST_PIN = "1111";
 
 export async function POST() {
   try {
-    await runAllePendingMigraties().catch(() => null);
+    // GEEN runAllePendingMigraties hier — die loopt al in /api/admin/login,
+    // medewerker-goedkeuren, etc. Twee tegelijk kan ALTER TABLE-locks
+    // veroorzaken op `departments` waardoor zelfs simpele SELECT's falen.
 
     const adminSessie = huidigeAdminSessie();
     if (!adminSessie) return NextResponse.json({ error: "niet ingelogd" }, { status: 401 });
@@ -118,9 +119,17 @@ export async function POST() {
     });
   } catch (e) {
     console.error("[seed-test-medewerker] onverwachte fout:", e);
-    return NextResponse.json(
-      { error: e instanceof Error ? `${e.name}: ${e.message}` : "Onbekende fout" },
-      { status: 500 },
-    );
+    // Drizzle wrapt Postgres errors — onderliggende details zitten in `.cause`
+    let detail = "Onbekende fout";
+    if (e instanceof Error) {
+      detail = `${e.name}: ${e.message}`;
+      const cause = (e as Error & { cause?: unknown }).cause;
+      if (cause instanceof Error) {
+        detail += ` · oorzaak: ${cause.name}: ${cause.message}`;
+      } else if (cause && typeof cause === "object") {
+        try { detail += ` · oorzaak: ${JSON.stringify(cause)}`; } catch { /* niet serialiseerbaar */ }
+      }
+    }
+    return NextResponse.json({ error: detail }, { status: 500 });
   }
 }
