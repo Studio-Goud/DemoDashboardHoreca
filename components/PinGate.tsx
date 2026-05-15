@@ -155,6 +155,11 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
   // te brengen of fouten te tonen.
   const [serverProfiel, setServerProfiel] = useState<ServerSessieInfo | null>(null);
 
+  // Inline foutbericht — vervangt alert() (op iOS soms onderdrukt) en
+  // maakt rate-limit zichtbaar zonder modal. Wordt automatisch gewist
+  // zodra de gebruiker een nieuwe poging start.
+  const [foutBericht, setFoutBericht] = useState<string | null>(null);
+
   async function valideerPinServer(pin: string): Promise<void> {
     // Belangrijk: bij owner-PIN + verwachteRol="manager" sturen we
     // gewensteRol="manager" mee zodat de server de view-as flow doet
@@ -169,13 +174,14 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
       if (res.status === 429) {
         const j = await res.json().catch(() => ({}));
         setFout(true);
-        alert(j.error ?? "Te veel pogingen — even wachten.");
-        setTimeout(() => setInput(""), 600);
+        setFoutBericht(j.error ?? "Te veel pogingen — even wachten.");
+        setTimeout(() => { setInput(""); setFout(false); }, 800);
         return;
       }
       if (!res.ok) {
         setFout(true);
-        setTimeout(() => setInput(""), 600);
+        setFoutBericht("Onjuiste PIN");
+        setTimeout(() => { setInput(""); setFout(false); }, 800);
         return;
       }
       const j = (await res.json()) as
@@ -195,7 +201,8 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
       sessieAfronden(j.naam, j.rol, j.vestiging, true);
     } catch {
       setFout(true);
-      setTimeout(() => setInput(""), 600);
+      setFoutBericht("Geen verbinding — probeer opnieuw");
+      setTimeout(() => { setInput(""); setFout(false); }, 800);
     }
   }
 
@@ -204,6 +211,7 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
     const nieuw = input + cijfer;
     setInput(nieuw);
     setFout(false);
+    setFoutBericht(null);
     if (nieuw.length === 4) {
       valideerPinServer(nieuw);
     }
@@ -212,6 +220,7 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
   function wis() {
     setInput((v) => v.slice(0, -1));
     setFout(false);
+    setFoutBericht(null);
   }
 
   async function kiesVestiging(slug: "bb" | "sl" | "kl") {
@@ -497,27 +506,43 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
         )}
       </div>
 
-      <div className="flex gap-3.5 mb-10">
+      <div className="flex gap-3.5 mb-3">
         {[0, 1, 2, 3].map((i) => {
           const filled = i < input.length;
+          // Rood-staat alleen tonen op stippen die daadwerkelijk
+          // ingetypt zijn — voorkomt dat 4 lege rode stippen blijven
+          // hangen na een failed poging (verwarrend: lijkt of het
+          // systeem voorspelt dat de poging mislukt).
+          const rood = fout && filled;
           return (
             <div
               key={i}
               className="w-3 h-3 rounded-full transition-all duration-150"
               style={{
-                background: fout
+                background: rood
                   ? "#E5484D"
                   : filled
                   ? "var(--text)"
                   : "transparent",
                 border: `1.5px solid ${
-                  fout ? "#E5484D" : filled ? "var(--text)" : "var(--hairline)"
+                  rood ? "#E5484D" : filled ? "var(--text)" : "var(--hairline)"
                 }`,
               }}
             />
           );
         })}
       </div>
+      {foutBericht && (
+        <p
+          className="text-[12px] mb-6 text-center"
+          style={{ color: "#E5484D", minHeight: 16 }}
+          role="alert"
+          aria-live="polite"
+        >
+          {foutBericht}
+        </p>
+      )}
+      {!foutBericht && <div style={{ minHeight: 16 }} className="mb-6" />}
 
       <div className="grid grid-cols-3 gap-3 w-64">
         {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((c) => (

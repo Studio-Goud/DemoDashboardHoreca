@@ -26,7 +26,7 @@ import { ipUitRequest, registreerPoging, resetPoging } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
-const MAX_POGINGEN = 5;
+const MAX_POGINGEN = 10;
 const VENSTER_SEC = 15 * 60;
 
 export async function POST(req: Request) {
