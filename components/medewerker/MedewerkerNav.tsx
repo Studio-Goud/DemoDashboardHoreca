@@ -32,6 +32,14 @@ export default function MedewerkerNav({ naam, vestiging }: Props) {
   const pad = usePathname();
   const router = useRouter();
   const { t } = useT();
+
+  // Verberg de nav op login- en registratie-routes, ook als de gebruiker
+  // nog een oude sessie heeft. Dat voorkomt dat een nieuwe sollicitant op
+  // /m/registreren plotseling de rooster-knoppen van een vorige sessie ziet.
+  if (pad?.startsWith("/m/login") || pad?.startsWith("/m/registreren")) {
+    return null;
+  }
+
   const hex = VESTIGING_HEX[vestiging] ?? "#0A84FF";
 
   async function uitloggen() {
