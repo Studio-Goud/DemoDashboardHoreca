@@ -15,7 +15,7 @@
  *   - Impact = "hoog" of "dicht" (anders te veel ruis)
  */
 import { useMemo } from "react";
-import { format, addDays, startOfDay } from "date-fns";
+import { format, addDays, startOfDay, subYears, subDays } from "date-fns";
 import { nl } from "date-fns/locale";
 import { feestdagenVoorJaar, zoekFeestdagInJaar } from "@/lib/feestdagen";
 
@@ -33,6 +33,37 @@ interface Props {
 
 function fmtEur(n: number): string {
   return "€" + Math.round(n).toLocaleString("nl-NL");
+}
+
+/**
+ * Schat de YoY groei op basis van de laatste 90 dagen vs dezelfde 90
+ * dagen één jaar terug. Returnt een factor (1.12 = +12%). null als er
+ * te weinig data is — dan vallen we terug op vorigOmzet zonder groei.
+ *
+ * Clamp tussen 0.7 en 1.6 om absurde uitschieters te vermijden bij dunne
+ * historische data (één gekke uitschieter kan anders een +200% projectie
+ * geven).
+ */
+function schatYoYGroei(dagIndex: Map<string, DagOmzet>): number | null {
+  const vandaag = startOfDay(new Date());
+  let huidig = 0;
+  let eenJaarTerug = 0;
+  let dagenMetBeide = 0;
+  // Loop 90 dagen terug, sla vandaag zelf over (incomplete dag).
+  for (let i = 1; i <= 90; i++) {
+    const d = subDays(vandaag, i);
+    const dPrev = subYears(d, 1);
+    const a = dagIndex.get(format(d, "yyyy-MM-dd"))?.omzet;
+    const b = dagIndex.get(format(dPrev, "yyyy-MM-dd"))?.omzet;
+    if (a !== undefined && b !== undefined && b > 0) {
+      huidig += a;
+      eenJaarTerug += b;
+      dagenMetBeide++;
+    }
+  }
+  if (dagenMetBeide < 30 || eenJaarTerug === 0) return null;
+  const factor = huidig / eenJaarTerug;
+  return Math.max(0.7, Math.min(1.6, factor));
 }
 
 export default function KomendeFeestdagAlert({ dagOmzet, hex, binnenDagen = 14 }: Props) {
@@ -64,8 +95,20 @@ export default function KomendeFeestdagAlert({ dagOmzet, hex, binnenDagen = 14 }
 
     if (vorigOmzet === null && voorvorigOmzet === null) return null;
 
-    const beschikbaar = [vorigOmzet, voorvorigOmzet].filter((v): v is number => v !== null);
-    const gemiddeld = beschikbaar.reduce((s, v) => s + v, 0) / beschikbaar.length;
+    // Verwacht = meest recente referentie × YoY-groei (geen simpel
+    // gemiddelde — we doen het elk jaar beter). Als groei niet meetbaar
+    // is (te weinig data): geen aanpassing, gewoon vorigOmzet als basis.
+    const groei = schatYoYGroei(dagIndex);
+    let verwacht: number;
+    let basisJaar: 1 | 2;
+    if (vorigOmzet !== null) {
+      verwacht = vorigOmzet * (groei ?? 1);
+      basisJaar = 1;
+    } else {
+      // Alleen voorvorig jaar beschikbaar → 2× groei toepassen
+      verwacht = (voorvorigOmzet as number) * Math.pow(groei ?? 1, 2);
+      basisJaar = 2;
+    }
     const dagenVanNu = Math.ceil((f.datum.getTime() - nu.getTime()) / (1000 * 60 * 60 * 24));
 
     return {
@@ -73,7 +116,9 @@ export default function KomendeFeestdagAlert({ dagOmzet, hex, binnenDagen = 14 }
       datum: f.datum,
       impact: f.impact,
       dagenVanNu,
-      gemiddeld,
+      verwacht,
+      groei,
+      basisJaar,
       vorigOmzet,
       voorvorigOmzet,
       vorigJaar: vorigJaar?.datum ?? null,
@@ -82,6 +127,11 @@ export default function KomendeFeestdagAlert({ dagOmzet, hex, binnenDagen = 14 }
   }, [dagIndex, binnenDagen]);
 
   if (!alert) return null;
+
+  const groeiLabel =
+    alert.groei !== null
+      ? `${alert.groei >= 1 ? "+" : ""}${Math.round((alert.groei - 1) * 100)}% t.o.v. ${alert.basisJaar === 1 ? "vorig jr" : "2 jr terug"}`
+      : `${alert.basisJaar === 1 ? "vorig jaar" : "2 jaar terug"} als basis`;
 
   return (
     <div
@@ -129,10 +179,10 @@ export default function KomendeFeestdagAlert({ dagOmzet, hex, binnenDagen = 14 }
             className="font-display text-[20px] font-semibold tabular-nums leading-tight"
             style={{ color: hex, letterSpacing: "-0.018em" }}
           >
-            {fmtEur(alert.gemiddeld)}
+            {fmtEur(alert.verwacht)}
           </p>
           <p className="font-mono text-[10px]" style={{ color: "var(--muted)" }}>
-            gem. vorige jaren
+            {groeiLabel}
           </p>
         </div>
         <div>
