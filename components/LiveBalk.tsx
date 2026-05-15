@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useRol } from "@/lib/useRol";
 import AnimatedAmount from "@/components/AnimatedAmount";
 
@@ -343,6 +343,7 @@ export default function LiveBalk() {
 
 function LiveBalkBody() {
   const pathname   = usePathname();
+  const router     = useRouter();
   const { rol }    = useRol();
   const LEEG_STAAT: BedrijfStaat = { omzet: 0, klanten: 0, verwachtNu: 0 };
   const [staten, setStaten] = useState<Record<Slug, BedrijfStaat>>({
@@ -450,7 +451,14 @@ function LiveBalkBody() {
             (welkom-override heeft voorrang). */}
         <div className="flex" style={{ borderBottom: "1px solid var(--sf-hairline)" }}>
           {BEDRIJVEN.map((b, i) => {
-            const isActief    = pathname === `/${b.slug}`;
+            // Bewaar de sub-pagina (rooster/voorraad/rapporten) bij
+            // bedrijf-switch zodat de owner op dezelfde pagina blijft —
+            // /bb/rooster → klik SL → /sl/rooster.
+            // Pathname kan zijn: "/bb", "/bb/rooster", "/sl/voorraad" etc.
+            // Extract het stuk na de bedrijfsslug.
+            const pathRest = pathname?.replace(/^\/(bb|sl|kl)/, "") ?? "";
+            // Voor de "is actief" check: kijk of pathname start met de slug
+            const isActief    = pathname === `/${b.slug}` || pathname?.startsWith(`/${b.slug}/`);
             const welkomHere  = welkomOverride?.idx === i;
             const insightHere = !welkomOverride && huidigeInsight?.bedrijfIdx === i;
             const pulseAan    = welkomHere || insightHere;
@@ -458,7 +466,17 @@ function LiveBalkBody() {
             return (
               <Link
                 key={b.slug}
-                href={`/${b.slug}`}
+                href={`/${b.slug}${pathRest}`}
+                onClick={(e) => {
+                  // Behoud ook de URL-hash (DashboardNav gebruikt hash
+                  // voor tab-state). Soft-nav via router.push zodat de
+                  // app-state intact blijft (geen boot-replay, geen
+                  // re-fetch van data die al gecached is).
+                  if (typeof window !== "undefined" && window.location.hash) {
+                    e.preventDefault();
+                    router.push(`/${b.slug}${pathRest}${window.location.hash}`);
+                  }
+                }}
                 className={`flex-1 block relative ${pulseAan ? "kolom-pulse" : ""}`}
                 style={{
                   borderBottom: `2px solid ${borderKleur}`,

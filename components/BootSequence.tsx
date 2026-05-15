@@ -15,6 +15,16 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 
+/**
+ * sessionStorage flag — onthoudt of de boot deze tab-sessie al heeft
+ * gespeeld. Voorkomt dat de boot opnieuw afspeelt bij client-side
+ * navigatie (bv. tussen /[bedrijf] en /[bedrijf]/rooster, of bij
+ * navigeren van /m terug naar /bb). De boot speelt alleen bij echt
+ * fresh laden van de tab (refresh, nieuwe tab, cold open) — dan is
+ * sessionStorage leeg.
+ */
+const BOOT_GESPEELD_KEY = "sf_boot_done";
+
 interface Particle {
   x: number;
   y: number;
@@ -43,16 +53,40 @@ export default function BootSequence() {
     pathname.startsWith("/m") ||
     pathname.startsWith("/welkom");
 
-  const [fase, setFase] = useState<"chaos" | "convergeer" | "logo" | "fading" | "done">(
-    skipBoot ? "done" : "chaos",
-  );
+  // ALS de boot deze sessie al gespeeld heeft → niet opnieuw. Voorkomt
+  // dat client-side navigatie (bv. /bb → /bb/rooster) de boot replay'd.
+  // sessionStorage is leeg na hard refresh / nieuwe tab → dan boot wel.
+  const [fase, setFase] = useState<"chaos" | "convergeer" | "logo" | "fading" | "done">(() => {
+    if (skipBoot) return "done";
+    if (typeof window !== "undefined" && sessionStorage.getItem(BOOT_GESPEELD_KEY) === "1") {
+      return "done";
+    }
+    return "chaos";
+  });
+
+  // Dubbel-vangnet: useRef tracked of we deze mount al gestart zijn,
+  // zodat een useEffect-hertrigger door dependency-change geen tweede
+  // boot triggert.
+  const heeftGestart = useRef(false);
 
   useEffect(() => {
     if (skipBoot) return;
+    if (heeftGestart.current) return;
+    if (typeof window !== "undefined" && sessionStorage.getItem(BOOT_GESPEELD_KEY) === "1") {
+      return;
+    }
+    heeftGestart.current = true;
+
     const t1 = setTimeout(() => setFase("convergeer"), T_CONVERGEER);
     const t2 = setTimeout(() => setFase("logo"), T_LOGO);
     const t3 = setTimeout(() => setFase("fading"), T_FADE);
-    const t4 = setTimeout(() => setFase("done"), T_DONE);
+    const t4 = setTimeout(() => {
+      setFase("done");
+      // Markeer als gespeeld — geldt voor de hele tab-sessie tot refresh
+      try {
+        sessionStorage.setItem(BOOT_GESPEELD_KEY, "1");
+      } catch { /* private mode */ }
+    }, T_DONE);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);

@@ -16,6 +16,7 @@ import RecenteTransacties from "@/components/RecenteTransacties";
 import FeestdagenKalender from "@/components/FeestdagenKalender";
 import Vergelijken from "@/components/Vergelijken";
 import FeestdagVergelijking, { heeftFeestdagVergelijking } from "@/components/FeestdagVergelijking";
+import KomendeFeestdagAlert from "@/components/KomendeFeestdagAlert";
 import Reveal from "@/components/sf/Reveal";
 import CruiseAgenda from "@/components/CruiseAgenda";
 import WeerImpact from "@/components/WeerImpact";
@@ -273,6 +274,14 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
           <Reveal>
             <ManagerWidgets bedrijf={config.slug} hex={config.hex} />
           </Reveal>
+          {/* Pro-actieve waarschuwing voor hoog-impact feestdag binnen
+              14 dagen — mét historische omzet zodat owner weet wat te
+              verwachten. Rendert null als geen feestdag in zicht. */}
+          {dagOmzet.length > 0 && (
+            <Reveal delay={0.03}>
+              <KomendeFeestdagAlert dagOmzet={dagOmzet} hex={config.hex} />
+            </Reveal>
+          )}
           <Reveal delay={0.05}>
             <VoorraadAlerts bedrijf={config.slug} hex={config.hex} />
           </Reveal>
