@@ -69,6 +69,7 @@ export default function DocumentenUploaden({ onCompletheid }: Props) {
   const [docs, setDocs] = useState<DocRij[]>([]);
   const [bezig, setBezig] = useState<DocType | null>(null);
   const [fout, setFout] = useState<string | null>(null);
+  const [bekijkId, setBekijkId] = useState<number | null>(null);
 
   const laad = useCallback(async () => {
     const res = await fetch("/api/medewerker/document", { cache: "no-store" });
@@ -165,15 +166,14 @@ export default function DocumentenUploaden({ onCompletheid }: Props) {
 
         {doc ? (
           <div className="flex items-center gap-2 ml-7">
-            <a
-              href={`/api/medewerker/document/${doc.id}/inhoud`}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              type="button"
+              onClick={() => setBekijkId(doc.id)}
               className="text-[12px] px-3 py-1.5 rounded-md"
               style={{ background: "var(--bg)", border: "1px solid var(--hairline)", color: "var(--text)" }}
             >
               👁 Bekijken
-            </a>
+            </button>
             {!doc.goedgekeurd && (
               <button
                 onClick={() => verwijder(doc.id)}
@@ -236,6 +236,52 @@ export default function DocumentenUploaden({ onCompletheid }: Props) {
         <p className="text-[12px] mt-2 px-3 py-2 rounded-md" style={{ background: "#FFEEED", color: "#B91C1C" }}>
           ✗ {fout}
         </p>
+      )}
+
+      {/* Fullscreen viewer — blijft binnen de PWA, sluit-knop bovenaan.
+          Voorkomt dat 'Bekijken' de gebruiker naar Safari schiet zonder
+          terug-knop. */}
+      {bekijkId !== null && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col"
+          style={{ background: "rgba(0,0,0,0.92)" }}
+          onClick={() => setBekijkId(null)}
+        >
+          <div
+            className="flex items-center justify-between px-4 py-3"
+            style={{ paddingTop: "calc(0.75rem + env(safe-area-inset-top))" }}
+          >
+            <span className="text-[13px] font-medium" style={{ color: "rgba(255,255,255,0.85)" }}>
+              Document #{bekijkId}
+            </span>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setBekijkId(null); }}
+              className="w-10 h-10 rounded-full flex items-center justify-center text-[20px]"
+              style={{ background: "rgba(255,255,255,0.15)", color: "#fff" }}
+              aria-label="Sluiten"
+            >
+              ✕
+            </button>
+          </div>
+          <div
+            className="flex-1 flex items-center justify-center p-4 overflow-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={`/api/medewerker/document/${bekijkId}/inhoud`}
+              alt="Document"
+              className="max-w-full max-h-full object-contain rounded-lg"
+              style={{ touchAction: "manipulation" }}
+            />
+          </div>
+          <p
+            className="text-center pb-4 text-[11px]"
+            style={{ color: "rgba(255,255,255,0.5)", paddingBottom: "calc(1rem + env(safe-area-inset-bottom))" }}
+          >
+            Tik buiten de foto of op ✕ om te sluiten
+          </p>
+        </div>
       )}
     </div>
   );
