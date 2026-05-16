@@ -66,6 +66,7 @@ export default function MedewerkerActiviteitPanel({ hex }: Props) {
   const [rijen, setRijen] = useState<Rij[] | null>(null);
   const [filter, setFilter] = useState<Filter>("alle");
   const [fout, setFout] = useState<string | null>(null);
+  const [ingeklapt, setIngeklapt] = useState(true);
 
   async function laad() {
     try {
@@ -113,10 +114,30 @@ export default function MedewerkerActiviteitPanel({ hex }: Props) {
 
   return (
     <section className="rounded-2xl p-4" style={{ background: "var(--bg-elev)", border: "1px solid var(--hairline)" }}>
-      <div className="flex items-baseline justify-between mb-3">
-        <h3 className="text-[15px] font-semibold" style={{ color: "var(--text)" }}>
+      <button
+        type="button"
+        onClick={() => setIngeklapt((v) => !v)}
+        className="w-full flex items-center gap-2 text-left"
+      >
+        <h3 className="text-[15px] font-semibold flex-1" style={{ color: "var(--text)" }}>
           Gebruikers-activiteit
         </h3>
+        {ingeklapt && (
+          <span className="text-[11px] tabular-nums shrink-0" style={{ color: "var(--muted)" }}>
+            {tellingActief} actief · {tellingDefault} default · {tellingGeen} geen
+          </span>
+        )}
+        <span
+          className="text-[18px] shrink-0 transition-transform"
+          style={{ color: "var(--muted)", transform: ingeklapt ? "rotate(0deg)" : "rotate(90deg)" }}
+        >
+          ›
+        </span>
+      </button>
+
+      {!ingeklapt && (
+        <>
+      <div className="flex items-baseline justify-end mt-3 mb-3">
         <button onClick={laad} className="text-[11px]" style={{ color: hex }}>
           ↻ Ververs
         </button>
@@ -206,6 +227,8 @@ export default function MedewerkerActiviteitPanel({ hex }: Props) {
         Tip: medewerkers met "Default PIN" hebben hun login wel ontvangen maar nog niet hun eigen PIN gekozen.
         Stuur ze een berichtje om in te loggen op /m met PIN 1234 — daarna kiezen ze een eigen PIN.
       </p>
+        </>
+      )}
     </section>
   );
 }

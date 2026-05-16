@@ -71,6 +71,7 @@ export default function MedewerkerDocumentenPanel({ hex }: Props) {
   const [laden, setLaden] = useState(true);
   const [fout, setFout] = useState<string | null>(null);
   const [bekijkId, setBekijkId] = useState<number | null>(null);
+  const [ingeklapt, setIngeklapt] = useState(true);
 
   async function laadLijst() {
     setLaden(true);
@@ -157,19 +158,46 @@ export default function MedewerkerDocumentenPanel({ hex }: Props) {
     laadLijst();
   }
 
+  const aantalWachtend = rijen.filter((r) => !r.goedgekeurd).length;
+
   return (
     <div className="card">
-      <p className="eyebrow mb-1">Loonadministratie</p>
-      <h2 className="text-[16px] font-semibold mb-3" style={{ color: "var(--text)" }}>
-        🪪 Medewerker-documenten
-      </h2>
-      <p className="text-[12px] mb-3" style={{ color: "var(--muted)" }}>
-        Review NAW, IBAN, BSN en ID/bankpas-foto's. Foto's worden alleen
-        on-demand ontsleuteld. Goedgekeurde docs kan medewerker niet meer
-        zelf verwijderen.
-      </p>
+      <button
+        type="button"
+        onClick={() => setIngeklapt((v) => !v)}
+        className="w-full flex items-center gap-2 text-left"
+      >
+        <div className="flex-1 min-w-0">
+          <p className="eyebrow mb-1">Loonadministratie</p>
+          <h2 className="text-[16px] font-semibold" style={{ color: "var(--text)" }}>
+            🪪 Medewerker-documenten
+          </h2>
+        </div>
+        {aantalWachtend > 0 && ingeklapt && (
+          <span
+            className="text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0"
+            style={{ background: "rgba(240,183,49,0.15)", color: "#B47B00" }}
+          >
+            {aantalWachtend} wacht
+          </span>
+        )}
+        <span
+          className="text-[18px] shrink-0 transition-transform"
+          style={{ color: "var(--muted)", transform: ingeklapt ? "rotate(0deg)" : "rotate(90deg)" }}
+        >
+          ›
+        </span>
+      </button>
 
-      {laden ? (
+      {!ingeklapt && (
+        <>
+          <p className="text-[12px] mt-3 mb-3" style={{ color: "var(--muted)" }}>
+            Review NAW, IBAN, BSN en ID/bankpas-foto's. Foto's worden alleen
+            on-demand ontsleuteld. Goedgekeurde docs kan medewerker niet meer
+            zelf verwijderen.
+          </p>
+
+          {laden ? (
         <div className="h-20 bg-slate-50 rounded animate-pulse" />
       ) : rijen.length === 0 ? (
         <p className="text-sm" style={{ color: "var(--muted)" }}>Nog geen actieve medewerkers met documenten.</p>
@@ -314,6 +342,8 @@ export default function MedewerkerDocumentenPanel({ hex }: Props) {
             </li>
           ))}
         </ul>
+      )}
+        </>
       )}
 
       {fout && (
