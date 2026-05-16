@@ -7,6 +7,7 @@ import MijnScore from "@/components/MijnScore";
 import VerjaardagsViering from "@/components/medewerker/VerjaardagsViering";
 import RuilverzoekenInbox from "@/components/medewerker/RuilverzoekenInbox";
 import MedewerkerPushAanmelden from "@/components/medewerker/MedewerkerPushAanmelden";
+import MedewerkerPushBanner from "@/components/medewerker/MedewerkerPushBanner";
 
 export const dynamic = "force-dynamic";
 
@@ -85,6 +86,7 @@ export default async function MedewerkerHome() {
         geboortedatum={m.geboortedatum}
         vandaag={start}
       />
+      <MedewerkerPushBanner />
       <MedewerkerRooster
         naam={sessie.naam}
         diensten={diensten}
