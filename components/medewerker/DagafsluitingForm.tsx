@@ -222,10 +222,17 @@ export default function DagafsluitingForm() {
 
         <div className="grid grid-cols-2 gap-2 mb-4">
           {data.denominaties.map((d) => (
-            <div key={d.sleutel} className="flex items-center gap-2">
-              <label className="text-[12px] w-12 shrink-0 tabular-nums" style={{ color: "var(--text-2)" }}>
+            <label
+              key={d.sleutel}
+              className="flex items-center gap-2 rounded-lg px-2.5 py-2 cursor-text"
+              style={{ background: "var(--bg)", border: "1px solid var(--hairline)" }}
+            >
+              <span
+                className="text-[12px] tabular-nums shrink-0"
+                style={{ color: "var(--text-2)", minWidth: 34 }}
+              >
                 {d.label}
-              </label>
+              </span>
               <input
                 type="number"
                 inputMode="numeric"
@@ -236,11 +243,11 @@ export default function DagafsluitingForm() {
                   [d.sleutel]: Math.max(0, parseInt(e.target.value) || 0),
                 }))}
                 disabled={gecontroleerd}
-                className="flex-1 px-2 py-2 rounded-lg text-[14px] tabular-nums text-right disabled:opacity-50"
-                style={{ background: "var(--bg)", border: "1px solid var(--hairline)", color: "var(--text)" }}
+                className="flex-1 min-w-0 bg-transparent border-0 p-0 text-[15px] tabular-nums text-right outline-none disabled:opacity-50"
+                style={{ color: "var(--text)" }}
                 placeholder="0"
               />
-            </div>
+            </label>
           ))}
         </div>
 
@@ -248,13 +255,13 @@ export default function DagafsluitingForm() {
           <div className="flex items-baseline justify-between mb-1">
             <span className="text-[12px]" style={{ color: "var(--text-2)" }}>Contant in lade</span>
             <span className="text-[18px] font-semibold tabular-nums" style={{ color: "var(--text)" }}>
-              €{contantGeteld.toFixed(2)}
+              {fmtEur(contantGeteld)}
             </span>
           </div>
           <div className="flex items-baseline justify-between mb-1">
             <span className="text-[11px]" style={{ color: "var(--muted)" }}>− Startkassa-doel</span>
             <span className="text-[12px] tabular-nums" style={{ color: "var(--muted)" }}>
-              −€{startkassa.toFixed(2)}
+              −{fmtEur(startkassa)}
             </span>
           </div>
           <div className="flex items-baseline gap-2 justify-between mb-1">
@@ -277,43 +284,45 @@ export default function DagafsluitingForm() {
             <span className="text-[13px] font-medium" style={{ color: "var(--text)" }}>
               → Naar envelop
             </span>
-            <span className="text-[20px] font-semibold tabular-nums" style={{ color: "#0A84FF" }}>
-              €{enveloppe.toFixed(2)}
+            <span className="text-[20px] font-semibold tabular-nums" style={{ color: heeftMunten ? "#0A84FF" : "var(--muted)" }}>
+              {heeftMunten ? fmtEur(enveloppe) : "—"}
             </span>
           </div>
         </div>
 
-        {/* Verschil-banner */}
-        <div
-          className="rounded-xl p-3"
-          style={{
-            background: Math.abs(kasVerschil) > DREMPEL_TOELICHTING ? "#E5484D15" : "#30B26F15",
-            border: `1px solid ${Math.abs(kasVerschil) > DREMPEL_TOELICHTING ? "#E5484D55" : "#30B26F55"}`,
-          }}
-        >
-          <div className="flex items-baseline justify-between mb-1">
-            <span className="text-[11px]" style={{ color: "var(--muted)" }}>Verwacht volgens kassa</span>
-            <span className="text-[12px] tabular-nums" style={{ color: "var(--text-2)" }}>
-              €{verwachtContant.toFixed(2)}
-            </span>
+        {/* Verschil-banner — pas tonen als er getelt is */}
+        {heeftMunten && (
+          <div
+            className="rounded-xl p-3"
+            style={{
+              background: Math.abs(kasVerschil) > DREMPEL_TOELICHTING ? "#E5484D15" : "#30B26F15",
+              border: `1px solid ${Math.abs(kasVerschil) > DREMPEL_TOELICHTING ? "#E5484D55" : "#30B26F55"}`,
+            }}
+          >
+            <div className="flex items-baseline justify-between mb-1">
+              <span className="text-[11px]" style={{ color: "var(--muted)" }}>Verwacht volgens kassa</span>
+              <span className="text-[12px] tabular-nums" style={{ color: "var(--text-2)" }}>
+                {fmtEur(verwachtContant)}
+              </span>
+            </div>
+            <div className="flex items-baseline justify-between">
+              <span className="text-[12px] font-medium" style={{ color: "var(--text)" }}>
+                Verschil
+              </span>
+              <span
+                className="text-[16px] font-semibold tabular-nums"
+                style={{ color: Math.abs(kasVerschil) > DREMPEL_TOELICHTING ? "#E5484D" : "#30B26F" }}
+              >
+                {kasVerschil >= 0 ? "+" : "−"}{fmtEur(Math.abs(kasVerschil))}
+              </span>
+            </div>
+            {verwachtContant === 0 && (
+              <p className="text-[10px] mt-1.5" style={{ color: "var(--muted)" }}>
+                (Geen contante POS-transacties geregistreerd vandaag — verschil-check overgeslagen)
+              </p>
+            )}
           </div>
-          <div className="flex items-baseline justify-between">
-            <span className="text-[12px] font-medium" style={{ color: "var(--text)" }}>
-              Verschil
-            </span>
-            <span
-              className="text-[16px] font-semibold tabular-nums"
-              style={{ color: Math.abs(kasVerschil) > DREMPEL_TOELICHTING ? "#E5484D" : "#30B26F" }}
-            >
-              {kasVerschil >= 0 ? "+" : ""}€{kasVerschil.toFixed(2)}
-            </span>
-          </div>
-          {verwachtContant === 0 && (
-            <p className="text-[10px] mt-1.5" style={{ color: "var(--muted)" }}>
-              (Geen contante POS-transacties geregistreerd vandaag — verschil-check overgeslagen)
-            </p>
-          )}
-        </div>
+        )}
 
         {toelichtingVereist && (
           <div className="mt-3">
@@ -486,6 +495,11 @@ export default function DagafsluitingForm() {
       )}
     </div>
   );
+}
+
+function fmtEur(v: number): string {
+  const abs = Math.abs(v).toFixed(2).replace(".", ",");
+  return v < 0 ? `−€${abs}` : `€${abs}`;
 }
 
 function nlDatumLang(iso: string): string {

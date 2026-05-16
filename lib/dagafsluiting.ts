@@ -20,7 +20,6 @@ import type { Bedrijf } from "./sumup";
 // ─── Denominaties (Euro-coins/notes) ────────────────────────────────────────
 // Sleutels matchen de jsonb-keys van `munten_telling` in DB.
 export const DENOMINATIES: Array<{ sleutel: string; label: string; waardeCent: number }> = [
-  { sleutel: "200e", label: "€200", waardeCent: 20000 },
   { sleutel: "100e", label: "€100", waardeCent: 10000 },
   { sleutel: "50e",  label: "€50",  waardeCent: 5000 },
   { sleutel: "20e",  label: "€20",  waardeCent: 2000 },
