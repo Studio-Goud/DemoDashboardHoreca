@@ -297,17 +297,22 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
   // in ambient-modus achter dit scherm — logo MARKTHAL HQ staat boven, grid
   // en particles draaien op lage intensity. Daarom geen eigen "Markthal HQ"
   // eyebrow meer hier — de boot toont 'm.
+  //
+  // Dit scherm leeft ALTIJD op de donkere boot-gradient, óók wanneer de
+  // gebruiker z'n device in light-mode heeft staan. We pakken daarom de
+  // sf-tokens (altijd licht) i.p.v. --text/--muted die anders zwart-op-
+  // zwart zouden zijn voor light-mode users.
   if (fase === "rolKiezen") {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-8 relative z-10">
         <div className="mb-10 text-center mt-20">
           <h1
             className="text-[22px] font-semibold tracking-tight"
-            style={{ color: "var(--text)", letterSpacing: "-0.019em" }}
+            style={{ color: "var(--sf-fg, #E8ECF4)", letterSpacing: "-0.019em" }}
           >
             {t("login.who_are_you")}
           </h1>
-          <p className="text-[13px] mt-2" style={{ color: "var(--muted)" }}>
+          <p className="text-[13px] mt-2" style={{ color: "var(--sf-fg-muted, #8B95A8)" }}>
             {t("login.role_intro")}
           </p>
         </div>
@@ -334,10 +339,10 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
                 <Icon name="user" size={22} strokeWidth={2.2} />
               </span>
               <div>
-                <p className="text-[16px] font-semibold" style={{ color: "var(--text)" }}>
+                <p className="text-[16px] font-semibold" style={{ color: "var(--sf-fg, #E8ECF4)" }}>
                   {t("login.role_employee")}
                 </p>
-                <p className="text-[12px]" style={{ color: "var(--muted)" }}>
+                <p className="text-[12px]" style={{ color: "var(--sf-fg-muted, #8B95A8)" }}>
                   {t("login.role_employee_sub")}
                 </p>
               </div>
@@ -365,10 +370,10 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
                 <Icon name="trending-up" size={22} strokeWidth={2.2} />
               </span>
               <div>
-                <p className="text-[16px] font-semibold" style={{ color: "var(--text)" }}>
+                <p className="text-[16px] font-semibold" style={{ color: "var(--sf-fg, #E8ECF4)" }}>
                   Management
                 </p>
-                <p className="text-[12px]" style={{ color: "var(--muted)" }}>
+                <p className="text-[12px]" style={{ color: "var(--sf-fg-muted, #8B95A8)" }}>
                   Dagelijkse aansturing van de vestiging
                 </p>
               </div>
@@ -397,10 +402,10 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
                 <Icon name="lock" size={22} strokeWidth={2.2} />
               </span>
               <div>
-                <p className="text-[16px] font-semibold" style={{ color: "var(--text)" }}>
+                <p className="text-[16px] font-semibold" style={{ color: "var(--sf-fg, #E8ECF4)" }}>
                   Eigenaar
                 </p>
-                <p className="text-[12px]" style={{ color: "var(--muted)" }}>
+                <p className="text-[12px]" style={{ color: "var(--sf-fg-muted, #8B95A8)" }}>
                   Volledige toegang incl. administratie + salaris
                 </p>
               </div>
