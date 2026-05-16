@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { DagOmzet, Prognose } from "@/lib/analytics";
 import type { Bedrijf } from "@/lib/sumup";
+import type { HistorischAdvies, VergelijkbareDag } from "@/lib/bezetting-historisch";
 import Icon from "./Icon";
 import { useTaal } from "@/lib/i18n/TaalProvider";
 import DetailSheet from "./sf/DetailSheet";
@@ -186,16 +187,24 @@ interface Props {
   dagOmzet: DagOmzet[];
   prognose: Prognose[];
   geplandVandaag: number | null;
+  /**
+   * Historisch advies: aanbevolen mensen-aantal afgeleid van vergelijkbare
+   * dagen (zelfde weekdag, seizoen, vergelijkbare verwachte omzet). Null
+   * als er onvoldoende historie is — dan valt UI terug op de template-only
+   * drukte-logica hieronder.
+   */
+  historischAdvies?: HistorischAdvies | null;
 }
 
-// Bepaal drukte-niveau op basis van historische omzet-percentielen voor die weekdag
+// Bepaal drukte-niveau op basis van omzet-percentielen voor die weekdag.
+// Wordt enkel gebruikt voor (a) shift-tijden-template en (b) fallback als
+// er geen historisch advies is. Het rauwe aantal mensen komt bij voorkeur
+// uit historischAdvies.aanbevolenMensen.
 function bepaalDrukte(
   verwacht: number,
   weekdag: number,
   dagOmzet: DagOmzet[]
 ): "normaal" | "druk" | "extreem" {
-  if (weekdag === 6) return "extreem"; // zaterdag altijd extreem
-
   const zelfde = dagOmzet
     .filter((d) => new Date(d.datum).getDay() === weekdag && d.omzet > 0)
     .map((d) => d.omzet)
@@ -224,7 +233,38 @@ const ROL_KEY: Record<ShiftSlot["rol"], string> = {
   sluiter: "bezetting.role_sluiter",
 };
 
-export default function BezettingAdvies({ hex, bedrijf, dagOmzet, prognose, geplandVandaag }: Props) {
+function nlDatumKort(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Intl.DateTimeFormat("nl-NL", {
+    weekday: "short", day: "numeric", month: "short", timeZone: "UTC",
+  }).format(new Date(Date.UTC(y, m - 1, d)));
+}
+
+function VergelijkbareDagRij({ dag, hex }: { dag: VergelijkbareDag; hex: string }) {
+  return (
+    <div
+      className="flex items-center gap-3 px-3 py-2 rounded-lg"
+      style={{ border: "1px solid var(--sf-hairline)" }}
+    >
+      <span className="text-[11px] tabular-nums w-24 shrink-0" style={{ color: "var(--muted)" }}>
+        {nlDatumKort(dag.datum)}
+      </span>
+      <span
+        className="text-[12px] font-semibold tabular-nums px-2 py-0.5 rounded-md"
+        style={{ background: hex + "1A", color: hex }}
+      >
+        {dag.aantalMensen} {dag.aantalMensen === 1 ? "persoon" : "mensen"}
+      </span>
+      <span className="text-[11px] tabular-nums ml-auto" style={{ color: "var(--text-2)" }}>
+        {dag.omzet > 0
+          ? "€" + dag.omzet.toLocaleString("nl-NL", { maximumFractionDigits: 0 })
+          : "—"}
+      </span>
+    </div>
+  );
+}
+
+export default function BezettingAdvies({ hex, bedrijf, dagOmzet, prognose, geplandVandaag, historischAdvies }: Props) {
   const { t } = useTaal();
   const [open, setOpen] = useState(false);
   const vandaagStr = new Date().toISOString().slice(0, 10);
@@ -240,7 +280,12 @@ export default function BezettingAdvies({ hex, bedrijf, dagOmzet, prognose, gepl
     : isZondag
     ? ZONDAG_TEMPLATES[bedrijf]
     : TEMPLATES[bedrijf][bepaalDrukte(vandaagPrognose.verwacht, vandaagPrognose.weekdag, dagOmzet)];
-  const aanbevolen = template.shifts.length;
+
+  // Aantal komt bij voorkeur uit historie; template levert alleen shift-tijden
+  const aanbevolen = historischAdvies?.aanbevolenMensen ?? template.shifts.length;
+  const verschilMetTemplate = historischAdvies
+    ? historischAdvies.aanbevolenMensen - template.shifts.length
+    : 0;
 
   const status = (() => {
     if (geplandVandaag === null) return null;
@@ -302,10 +347,41 @@ export default function BezettingAdvies({ hex, bedrijf, dagOmzet, prognose, gepl
         </div>
       </button>
 
-      {/* Shift-indeling */}
+      {/* Historisch advies (als beschikbaar) */}
+      {historischAdvies && (
+        <div
+          className="rounded-[10px] px-3 py-2.5"
+          style={{
+            background: "var(--bg-elev)",
+            border: "1px solid var(--hairline)",
+          }}
+        >
+          <p className="text-[12px] leading-relaxed" style={{ color: "var(--text)" }}>
+            Op <strong>{historischAdvies.aantalDagen}</strong> vergelijkbare dag
+            {historischAdvies.aantalDagen === 1 ? "" : "en"} stonden er meestal{" "}
+            <strong>
+              {historischAdvies.p25Mensen === historischAdvies.p75Mensen
+                ? historischAdvies.p25Mensen
+                : `${historischAdvies.p25Mensen}–${historischAdvies.p75Mensen}`}
+            </strong>{" "}
+            mensen — mediaan{" "}
+            <strong style={{ color: hex }}>{historischAdvies.aanbevolenMensen}</strong>.
+          </p>
+          {historischAdvies.mediaanOmzet > 0 && (
+            <p className="text-[11px] mt-1" style={{ color: "var(--muted)" }}>
+              Mediaan omzet die dagen: €{historischAdvies.mediaanOmzet.toLocaleString("nl-NL", { maximumFractionDigits: 0 })}
+              {historischAdvies.omzetFilterMarge === null && " · alleen op weekdag+seizoen gematcht"}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Shift-indeling — uit standaard-template */}
       <div>
         <p className="eyebrow mb-2">
-          {t("bezetting.recommended")} {aanbevolen} {aanbevolen === 1 ? t("schedule.person_singular") : t("schedule.person_plural")}
+          {historischAdvies
+            ? `Standaard shift-indeling (${template.shifts.length})`
+            : `${t("bezetting.recommended")} ${aanbevolen} ${aanbevolen === 1 ? t("schedule.person_singular") : t("schedule.person_plural")}`}
         </p>
         <div className="space-y-1.5">
           {template.shifts.map((s, i) => (
@@ -322,6 +398,15 @@ export default function BezettingAdvies({ hex, bedrijf, dagOmzet, prognose, gepl
             </div>
           ))}
         </div>
+        {historischAdvies && verschilMetTemplate !== 0 && (
+          <p className="text-[11px] mt-2" style={{ color: "var(--muted)" }}>
+            ⚠ Standaard-template heeft {template.shifts.length}, historie suggereert{" "}
+            {historischAdvies.aanbevolenMensen}
+            {verschilMetTemplate > 0
+              ? ` — overweeg ${verschilMetTemplate} extra in te plannen`
+              : ` — je zou er ${Math.abs(verschilMetTemplate)} kunnen weglaten`}.
+          </p>
+        )}
       </div>
 
       <DetailSheet
@@ -348,44 +433,90 @@ export default function BezettingAdvies({ hex, bedrijf, dagOmzet, prognose, gepl
             </p>
           </div>
 
-          <div>
-            <p className="font-mono text-[9px] tracking-[0.18em] uppercase mb-2" style={{ color: "var(--muted)" }}>
-              Waarom {templateLabel.toLowerCase()}?
-            </p>
-            <div className="rounded-xl p-3 space-y-2" style={{ border: "1px solid var(--sf-hairline)" }}>
-              {isMarathon ? (
-                <p className="text-[12px]" style={{ color: "var(--text)" }}>
-                  🏃 Vandaag is er een marathon — historisch is dat een uitzonderlijk drukke dag.
-                  Speciale marathon-template wordt toegepast.
+          {historischAdvies ? (
+            <div>
+              <p className="font-mono text-[9px] tracking-[0.18em] uppercase mb-2" style={{ color: "var(--muted)" }}>
+                Waarop is dit gebaseerd?
+              </p>
+              <div className="rounded-xl p-3 mb-3" style={{ border: "1px solid var(--sf-hairline)" }}>
+                <p className="text-[12px] mb-1" style={{ color: "var(--text)" }}>
+                  We zoeken naar dagen in het verleden met dezelfde weekdag, in een vergelijkbaar seizoen,
+                  {historischAdvies.omzetFilterMarge !== null
+                    ? ` en met een omzet binnen ±${Math.round(historischAdvies.omzetFilterMarge * 100)}% van de verwachting voor vandaag.`
+                    : " ongeacht omzet (te weinig matches met omzet-filter)."}
                 </p>
-              ) : isZondag ? (
-                <p className="text-[12px]" style={{ color: "var(--text)" }}>
-                  📅 Zondagen hebben een afwijkend patroon — andere openingstijden en/of
-                  drukteverdeling. Speciale zondag-template wordt toegepast.
+                <p className="text-[11px]" style={{ color: "var(--muted)" }}>
+                  Resultaat: <strong>{historischAdvies.aantalDagen} vergelijkbare dagen</strong> ·{" "}
+                  mediaan <strong>{historischAdvies.aanbevolenMensen}</strong> mensen ·{" "}
+                  spreiding {historischAdvies.p25Mensen}–{historischAdvies.p75Mensen}
                 </p>
-              ) : (
-                <>
-                  <p className="text-[12px]" style={{ color: "var(--text)" }}>
-                    Drukte wordt bepaald door de verwachte omzet voor vandaag (€{vandaagPrognose.verwacht.toLocaleString("nl-NL", { maximumFractionDigits: 0 })})
-                    af te zetten tegen vergelijkbare dagen in de historie.
-                  </p>
-                  <p className="text-[11px]" style={{ color: "var(--muted)" }}>
-                    Boven de 80e percentiel = extreem druk · 60–80% = druk · daaronder = normaal.
-                  </p>
-                </>
-              )}
-              {vandaagPrognose.feestdag && (
-                <p className="text-[12px]" style={{ color: "var(--sf-accent)" }}>
-                  🎉 Feestdag: <strong>{vandaagPrognose.feestdag}</strong>
-                </p>
-              )}
-              {vandaagPrognose.vakantie && (
-                <p className="text-[12px]" style={{ color: "var(--sf-accent)" }}>
-                  🏖 Schoolvakantie: <strong>{vandaagPrognose.vakantie}</strong>
-                </p>
+              </div>
+              <p className="font-mono text-[9px] tracking-[0.18em] uppercase mb-2" style={{ color: "var(--muted)" }}>
+                Recentste vergelijkbare dagen
+              </p>
+              <div className="space-y-1">
+                {historischAdvies.vergelijkbareDagen.map((d) => (
+                  <VergelijkbareDagRij key={d.datum} dag={d} hex={hex} />
+                ))}
+              </div>
+              {(vandaagPrognose.feestdag || vandaagPrognose.vakantie) && (
+                <div className="mt-3 space-y-1">
+                  {vandaagPrognose.feestdag && (
+                    <p className="text-[12px]" style={{ color: "var(--sf-accent)" }}>
+                      🎉 Feestdag: <strong>{vandaagPrognose.feestdag}</strong>
+                    </p>
+                  )}
+                  {vandaagPrognose.vakantie && (
+                    <p className="text-[12px]" style={{ color: "var(--sf-accent)" }}>
+                      🏖 Schoolvakantie: <strong>{vandaagPrognose.vakantie}</strong>
+                    </p>
+                  )}
+                </div>
               )}
             </div>
-          </div>
+          ) : (
+            <div>
+              <p className="font-mono text-[9px] tracking-[0.18em] uppercase mb-2" style={{ color: "var(--muted)" }}>
+                Waarom {templateLabel.toLowerCase()}?
+              </p>
+              <div className="rounded-xl p-3 space-y-2" style={{ border: "1px solid var(--sf-hairline)" }}>
+                {isMarathon ? (
+                  <p className="text-[12px]" style={{ color: "var(--text)" }}>
+                    🏃 Vandaag is er een marathon — historisch is dat een uitzonderlijk drukke dag.
+                    Speciale marathon-template wordt toegepast.
+                  </p>
+                ) : isZondag ? (
+                  <p className="text-[12px]" style={{ color: "var(--text)" }}>
+                    📅 Zondagen hebben een afwijkend patroon — andere openingstijden en/of
+                    drukteverdeling. Speciale zondag-template wordt toegepast.
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-[12px]" style={{ color: "var(--text)" }}>
+                      Drukte wordt bepaald door de verwachte omzet voor vandaag (€{vandaagPrognose.verwacht.toLocaleString("nl-NL", { maximumFractionDigits: 0 })})
+                      af te zetten tegen vergelijkbare dagen in de historie.
+                    </p>
+                    <p className="text-[11px]" style={{ color: "var(--muted)" }}>
+                      Boven de 80e percentiel = extreem druk · 60–80% = druk · daaronder = normaal.
+                    </p>
+                    <p className="text-[11px]" style={{ color: "var(--muted)" }}>
+                      ℹ Onvoldoende rooster-historie om een data-gedreven advies te geven (importeer Shiftbase-data voor betere voorspelling).
+                    </p>
+                  </>
+                )}
+                {vandaagPrognose.feestdag && (
+                  <p className="text-[12px]" style={{ color: "var(--sf-accent)" }}>
+                    🎉 Feestdag: <strong>{vandaagPrognose.feestdag}</strong>
+                  </p>
+                )}
+                {vandaagPrognose.vakantie && (
+                  <p className="text-[12px]" style={{ color: "var(--sf-accent)" }}>
+                    🏖 Schoolvakantie: <strong>{vandaagPrognose.vakantie}</strong>
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
 
           <div>
             <p className="font-mono text-[9px] tracking-[0.18em] uppercase mb-2" style={{ color: "var(--muted)" }}>

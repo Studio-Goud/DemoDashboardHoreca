@@ -34,6 +34,7 @@ import {
 import { dashboardAggregaten } from "@/lib/dashboard-cache";
 import { getWeer, weerInfo } from "@/lib/weer";
 import { dienstenVandaag, bezettingKomendePeriode } from "@/lib/rooster";
+import { historischeBezetting } from "@/lib/bezetting-historisch";
 import RoosterVandaag from "@/components/RoosterVandaag";
 import RoosterWeek from "@/components/RoosterWeek";
 import ManagerWidgets from "@/components/ManagerWidgets";
@@ -150,6 +151,23 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
   });
 
   const heeftData = dagOmzet.length > 0;
+
+  // Historisch bezettingsadvies — kijkt naar vergelijkbare dagen in het
+  // verleden (zelfde weekdag, zelfde seizoen, vergelijkbare verwachte omzet)
+  // en geeft mediaan aantal mensen + bewijslijst. Null als <3 hits.
+  const vandaagStr = new Date().toISOString().slice(0, 10);
+  const vandaagPrognoseVoorAdvies = prognose.find((p) => p.datum === vandaagStr);
+  const historischAdvies = vandaagPrognoseVoorAdvies
+    ? await historischeBezetting(
+        config.slug,
+        vandaagStr,
+        vandaagPrognoseVoorAdvies.verwacht,
+        dagOmzet,
+      ).catch((e) => {
+        console.error("historischeBezetting fout:", e);
+        return null;
+      })
+    : null;
 
   // Jaartotalen combineren: Excel historie + SumUp/Zettle aggregaat
   const jaarTotalenMap = new Map<number, { jaar: number; omzet: number; txs: number }>();
@@ -308,6 +326,7 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
               dagOmzet={dagOmzet}
               prognose={prognose}
               geplandVandaag={bezVandaag}
+              historischAdvies={historischAdvies}
             />
           </Reveal>
 
