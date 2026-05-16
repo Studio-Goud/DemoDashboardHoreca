@@ -20,6 +20,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "PIN moet 4 tot 6 cijfers zijn" }, { status: 400 });
   }
 
+  // Default-PIN expliciet weigeren — moet_pin_resetten zou anders gewist worden
+  // zonder dat de medewerker er werkelijk een eigen code voor in de plaats zet.
+  // Andere zwakke PINs (0000 / 1111 / opeenvolgend) laten we tot owner-policy.
+  if (body.pin === "1234") {
+    return NextResponse.json(
+      { error: "Kies een andere PIN dan 1234" },
+      { status: 400 },
+    );
+  }
+
   try {
     await zetMedewerkerPin(sessie.medewerkerId, body.pin);
     return NextResponse.json({ ok: true });

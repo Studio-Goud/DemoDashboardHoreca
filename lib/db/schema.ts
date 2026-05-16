@@ -57,6 +57,10 @@ export const medewerkers = pgTable("medewerkers", {
   registratieToken:       varchar("registratie_token", { length: 64 }),
   registratieVerloopt:    timestamp("registratie_verloopt", { withTimezone: true }),
   laatsteLogin:           timestamp("laatste_login",        { withTimezone: true }),
+  // Bulk-geseede accounts krijgen pin_hash = bcrypt("1234") en deze vlag op true.
+  // Na login wordt de medewerker dwingend naar /m/pin-resetten gestuurd; de
+  // vlag wordt gewist zodra een eigen PIN gekozen is.
+  moetPinResetten:        boolean("moet_pin_resetten").notNull().default(false),
 
   avatarUrl: text("avatar_url"),
   actief:    boolean("actief").notNull().default(true),
@@ -512,6 +516,85 @@ export const feedbackReviews = pgTable("feedback_reviews", {
   bedrijfDatumIdx: index("feedback_reviews_bedrijf_datum_idx").on(t.bedrijfSlug, t.datum),
   ingediendIdx: index("feedback_reviews_ingediend_idx").on(t.ingediendOp),
 }));
+
+// ─── Medewerker passkeys (WebAuthn voor Face ID / Touch ID) ─────────────────
+// Analoog aan het admin-passkey systeem in lib/webauthn.ts (KV-based), maar
+// gekoppeld aan medewerker-id ipv admin-PIN. Eén medewerker kan meerdere
+// apparaten registreren (iPhone + iPad). Counter wordt na elke succesvolle
+// auth bijgewerkt — niet kritiek bij iCloud-keychain (sync zonder counter)
+// maar netjes om te onderhouden.
+export const medewerkerPasskeys = pgTable("medewerker_passkeys", {
+  id: serial("id").primaryKey(),
+  medewerkerId: integer("medewerker_id").notNull().references(() => medewerkers.id, { onDelete: "cascade" }),
+  credentialId: varchar("credential_id", { length: 255 }).notNull(),  // base64url van browser
+  publicKey:    text("public_key").notNull(),                          // base64url cose-key
+  counter:      integer("counter").notNull().default(0),
+  deviceLabel:  varchar("device_label", { length: 80 }).notNull(),     // bv. "iPhone Sara"
+  aangemaakt:   timestamp("aangemaakt", { withTimezone: true }).notNull().defaultNow(),
+  laatsteGebruikt: timestamp("laatste_gebruikt", { withTimezone: true }),
+}, (t) => ({
+  credIdx:       uniqueIndex("medewerker_passkeys_cred_idx").on(t.credentialId),
+  medewerkerIdx: index("medewerker_passkeys_medewerker_idx").on(t.medewerkerId),
+}));
+
+// ─── Push subscriptions per medewerker (DB-backed) ──────────────────────────
+// Apart van het bestaande KV-systeem (lib/push.ts) dat voor admin/eigenaar
+// gebruikt wordt. Voor targeted notificaties willen we kunnen joinen op
+// medewerker_id; daarom DB. Eén medewerker kan meerdere apparaten hebben.
+export const medewerkerPushSubs = pgTable("medewerker_push_subs", {
+  id: serial("id").primaryKey(),
+  medewerkerId: integer("medewerker_id").notNull().references(() => medewerkers.id, { onDelete: "cascade" }),
+  endpoint:    text("endpoint").notNull(),
+  p256dh:      text("p256dh").notNull(),
+  auth:        text("auth").notNull(),
+  deviceLabel: varchar("device_label", { length: 80 }),
+  aangemaakt:  timestamp("aangemaakt", { withTimezone: true }).notNull().defaultNow(),
+  laatsteSucces: timestamp("laatste_succes", { withTimezone: true }),
+}, (t) => ({
+  endpointIdx:   uniqueIndex("mw_push_endpoint_idx").on(t.endpoint),
+  medewerkerIdx: index("mw_push_medewerker_idx").on(t.medewerkerId),
+}));
+
+// ─── Ruilverzoeken ──────────────────────────────────────────────────────────
+// Medewerker A kan voor een toekomstige dienst een ruilverzoek aanmaken.
+// Collega's binnen dezelfde vestiging krijgen push + zien 'm in hun inbox.
+// Eerste die "Ik neem 'm over" klikt reserveert (status=gereserveerd) en
+// triggert een manager-notificatie. Manager keurt goed → rooster wordt
+// automatisch aangepast (medewerker_id van het roster wijzigt naar overnemer).
+//
+// Status-flow:
+//   open          → aanvrager wacht op iemand die wil overnemen
+//   gereserveerd  → een collega heeft geklikt, wacht op manager-goedkeuring
+//   goedgekeurd   → rooster is aangepast (terminal)
+//   geweigerd     → manager wijst af; aanvraag gaat terug naar 'open'
+//   ingetrokken   → aanvrager trekt 'm zelf terug (terminal)
+//   verlopen      → dienst-datum is gepasseerd zonder overname (terminal)
+export const ruilverzoeken = pgTable("ruilverzoeken", {
+  id: serial("id").primaryKey(),
+  rosterId: integer("roster_id").notNull().references(() => rosters.id, { onDelete: "cascade" }),
+  aanvragerId: integer("aanvrager_id").notNull().references(() => medewerkers.id, { onDelete: "cascade" }),
+  toelichting: text("toelichting"),
+
+  status: varchar("status", { length: 16 }).notNull().default("open"),
+
+  overnemerId:  integer("overnemer_id").references(() => medewerkers.id, { onDelete: "set null" }),
+  overnemerGereserveerdOp: timestamp("overnemer_gereserveerd_op", { withTimezone: true }),
+
+  managerId: integer("manager_id").references(() => medewerkers.id, { onDelete: "set null" }),
+  beoordeeldOp: timestamp("beoordeeld_op", { withTimezone: true }),
+  beoordelingsNotitie: text("beoordelings_notitie"),
+
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  statusIdx:    index("ruilverzoeken_status_idx").on(t.status),
+  rosterIdx:    index("ruilverzoeken_roster_idx").on(t.rosterId),
+  aanvragerIdx: index("ruilverzoeken_aanvrager_idx").on(t.aanvragerId),
+  recentIdx:    index("ruilverzoeken_recent_idx").on(t.createdAt),
+}));
+
+export type Ruilverzoek = typeof ruilverzoeken.$inferSelect;
+export type NieuwRuilverzoek = typeof ruilverzoeken.$inferInsert;
 
 // Type-helpers voor consumers
 export type Department      = typeof departments.$inferSelect;

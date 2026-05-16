@@ -15,6 +15,7 @@ import { db, schema } from "./db/client";
 export async function vereistGoedgekeurdeMedewerker() {
   const sessie = await huidigeSessie();
   if (!sessie || sessie.rol !== "medewerker") redirect("/m/login");
+  if (sessie.moetPinResetten) redirect("/m/pin-resetten");
 
   const [m] = await db.select({
     onboardingVoltooid: schema.medewerkers.onboardingVoltooid,

@@ -347,10 +347,91 @@ const MIGRATIE_0010: Migratie = {
   ],
 };
 
+/**
+ * Migratie 0011: medewerker bulk-onboarding (forced PIN-reset + passkeys).
+ *
+ * - moet_pin_resetten: gezet door scripts/seed-default-pin.ts voor medewerkers
+ *   die met PIN "1234" worden geseed. Na login redirect naar /m/pin-resetten;
+ *   wordt op false gezet zodra een eigen PIN is gekozen.
+ * - medewerker_passkeys: medewerker-scoped WebAuthn credentials, los van het
+ *   admin-passkey systeem (dat zit in Vercel KV en is gekoppeld aan admin-PIN).
+ */
+const MIGRATIE_0011: Migratie = {
+  naam: "0011_medewerker_pin_reset_en_passkeys",
+  statements: [
+    `ALTER TABLE "medewerkers"
+       ADD COLUMN IF NOT EXISTS "moet_pin_resetten" boolean NOT NULL DEFAULT false`,
+    `CREATE TABLE IF NOT EXISTS "medewerker_passkeys" (
+       "id"             serial PRIMARY KEY,
+       "medewerker_id"  integer NOT NULL REFERENCES "medewerkers"("id") ON DELETE CASCADE,
+       "credential_id"  varchar(255) NOT NULL,
+       "public_key"     text NOT NULL,
+       "counter"        integer NOT NULL DEFAULT 0,
+       "device_label"   varchar(80) NOT NULL,
+       "aangemaakt"     timestamptz NOT NULL DEFAULT now(),
+       "laatste_gebruikt" timestamptz
+     )`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS "medewerker_passkeys_cred_idx"
+       ON "medewerker_passkeys" ("credential_id")`,
+    `CREATE INDEX IF NOT EXISTS "medewerker_passkeys_medewerker_idx"
+       ON "medewerker_passkeys" ("medewerker_id")`,
+  ],
+};
+
+/**
+ * Migratie 0012: medewerker push-subscriptions + ruilverzoeken.
+ *
+ * Push-subs zijn los van het bestaande KV-systeem (lib/push.ts) zodat we
+ * kunnen targeten op medewerker_id (per vestiging filteren). Ruilverzoeken
+ * leven helemaal in DB met status-flow open → gereserveerd → goedgekeurd.
+ */
+const MIGRATIE_0012: Migratie = {
+  naam: "0012_medewerker_push_en_ruilverzoeken",
+  statements: [
+    `CREATE TABLE IF NOT EXISTS "medewerker_push_subs" (
+       "id"             serial PRIMARY KEY,
+       "medewerker_id"  integer NOT NULL REFERENCES "medewerkers"("id") ON DELETE CASCADE,
+       "endpoint"       text NOT NULL,
+       "p256dh"         text NOT NULL,
+       "auth"           text NOT NULL,
+       "device_label"   varchar(80),
+       "aangemaakt"     timestamptz NOT NULL DEFAULT now(),
+       "laatste_succes" timestamptz
+     )`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS "mw_push_endpoint_idx"
+       ON "medewerker_push_subs" ("endpoint")`,
+    `CREATE INDEX IF NOT EXISTS "mw_push_medewerker_idx"
+       ON "medewerker_push_subs" ("medewerker_id")`,
+
+    `CREATE TABLE IF NOT EXISTS "ruilverzoeken" (
+       "id"            serial PRIMARY KEY,
+       "roster_id"     integer NOT NULL REFERENCES "rosters"("id") ON DELETE CASCADE,
+       "aanvrager_id"  integer NOT NULL REFERENCES "medewerkers"("id") ON DELETE CASCADE,
+       "toelichting"   text,
+       "status"        varchar(16) NOT NULL DEFAULT 'open',
+       "overnemer_id"  integer REFERENCES "medewerkers"("id") ON DELETE SET NULL,
+       "overnemer_gereserveerd_op" timestamptz,
+       "manager_id"    integer REFERENCES "medewerkers"("id") ON DELETE SET NULL,
+       "beoordeeld_op" timestamptz,
+       "beoordelings_notitie" text,
+       "created_at"    timestamptz NOT NULL DEFAULT now(),
+       "updated_at"    timestamptz NOT NULL DEFAULT now()
+     )`,
+    `CREATE INDEX IF NOT EXISTS "ruilverzoeken_status_idx"
+       ON "ruilverzoeken" ("status")`,
+    `CREATE INDEX IF NOT EXISTS "ruilverzoeken_roster_idx"
+       ON "ruilverzoeken" ("roster_id")`,
+    `CREATE INDEX IF NOT EXISTS "ruilverzoeken_aanvrager_idx"
+       ON "ruilverzoeken" ("aanvrager_id")`,
+    `CREATE INDEX IF NOT EXISTS "ruilverzoeken_recent_idx"
+       ON "ruilverzoeken" ("created_at")`,
+  ],
+};
+
 const ALLE_MIGRATIES: Migratie[] = [
   MIGRATIE_0001, MIGRATIE_0002, MIGRATIE_0003, MIGRATIE_0004,
   MIGRATIE_0005, MIGRATIE_0006, MIGRATIE_0007, MIGRATIE_0008,
-  MIGRATIE_0009, MIGRATIE_0010,
+  MIGRATIE_0009, MIGRATIE_0010, MIGRATIE_0011, MIGRATIE_0012,
 ];
 
 async function voerMigratieUit(m: Migratie): Promise<DbInitResultaat> {

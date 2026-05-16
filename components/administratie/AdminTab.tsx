@@ -11,6 +11,9 @@ import SetupPanel from "@/components/administratie/SetupPanel";
 import DgaEnergiePanel from "@/components/administratie/DgaEnergiePanel";
 import CashflowProjectie from "@/components/administratie/CashflowProjectie";
 import MedewerkerDocumentenPanel from "@/components/administratie/MedewerkerDocumentenPanel";
+import MedewerkerActiviteitPanel from "@/components/administratie/MedewerkerActiviteitPanel";
+import PushVersturen from "@/components/administratie/PushVersturen";
+import RuilverzoekenBeoordelen from "@/components/administratie/RuilverzoekenBeoordelen";
 import TestAccountSeed from "@/components/administratie/TestAccountSeed";
 
 interface Props {
@@ -39,6 +42,9 @@ export default function AdminTab({ bedrijf, hex }: Props) {
       <FacturenPanel bedrijf={bedrijf} hex={hex} jaar={jaar} />
       <ContantInvoer bedrijf={bedrijf} hex={hex} jaar={jaar} onWijziging={refresh} />
       <KwartaalRapport bedrijf={bedrijf} hex={hex} />
+      <RuilverzoekenBeoordelen hex={hex} />
+      <PushVersturen hex={hex} bedrijf={bedrijf} />
+      <MedewerkerActiviteitPanel hex={hex} />
       <MedewerkerDocumentenPanel hex={hex} />
       <SetupPanel hex={hex} />
       <TestAccountSeed hex={hex} />

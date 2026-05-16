@@ -31,6 +31,7 @@ export async function POST(req: Request) {
       ok: true,
       naam: sessie.naam,
       vestiging: sessie.vestiging,
+      moetPinResetten: sessie.moetPinResetten,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "onbekend";

@@ -43,6 +43,12 @@ export default function DevIndex() {
       ondertitel: "10 basiscomponenten · Button, TextField, Modal, Toggle, Progress…",
       vibe: "FASE 4 · klaar voor gebruik in de app",
     },
+    {
+      slug: "verjaardag",
+      titel: "🎂 Verjaardags-viering",
+      ondertitel: "Happy Birthday + confetti + vuurwerk · preview met eigen naam",
+      vibe: "Speel af zonder echte verjaardag",
+    },
   ];
 
   return (

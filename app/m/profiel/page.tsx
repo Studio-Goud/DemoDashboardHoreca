@@ -11,6 +11,7 @@ interface Props { searchParams: { welkom?: string } }
 export default async function MedewerkerProfielPagina({ searchParams }: Props) {
   const sessie = await huidigeSessie();
   if (!sessie) redirect("/m/login");
+  if (sessie.moetPinResetten) redirect("/m/pin-resetten");
 
   // Als onboarding al voltooid is maar nog niet goedgekeurd → naar
   // wachten-pagina (anders blijft 'ie tweaken aan IBAN/BSN nadat owner

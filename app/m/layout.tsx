@@ -1,5 +1,6 @@
 import { huidigeSessie } from "@/lib/auth";
 import MedewerkerNav from "@/components/medewerker/MedewerkerNav";
+import MedewerkerFaceIDPrompt from "@/components/medewerker/MedewerkerFaceIDPrompt";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,7 @@ export default async function MedewerkerLayout({ children }: { children: React.R
       >
         {children}
       </main>
+      {heeftSessie && <MedewerkerFaceIDPrompt />}
     </div>
   );
 }

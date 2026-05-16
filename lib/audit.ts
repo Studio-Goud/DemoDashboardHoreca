@@ -22,7 +22,10 @@ export type AuditEntiteit =
   // elke goedkeuring/intrekking ook. Voldoet aan art.30 verwerking.
   | "medewerker_bsn"
   | "medewerker_document"
-  | "medewerker_goedkeuring";
+  | "medewerker_goedkeuring"
+  // Communicatie-trail voor push-berichten + ruilverzoek state-transitions
+  | "push_bericht"
+  | "ruilverzoek";
 export type AuditActie = "create" | "update" | "delete" | "decrypt" | "approve" | "revoke";
 export type AuditRol = "owner" | "manager" | "medewerker" | "systeem";
 

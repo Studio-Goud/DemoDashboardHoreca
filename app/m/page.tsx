@@ -4,6 +4,9 @@ import { eq, and, gte, lte, asc } from "drizzle-orm";
 import { db, schema } from "@/lib/db/client";
 import MedewerkerRooster from "@/components/medewerker/MedewerkerRooster";
 import MijnScore from "@/components/MijnScore";
+import VerjaardagsViering from "@/components/medewerker/VerjaardagsViering";
+import RuilverzoekenInbox from "@/components/medewerker/RuilverzoekenInbox";
+import MedewerkerPushAanmelden from "@/components/medewerker/MedewerkerPushAanmelden";
 
 export const dynamic = "force-dynamic";
 
@@ -20,10 +23,16 @@ export default async function MedewerkerHome() {
   const sessie = await huidigeSessie();
   if (!sessie || sessie.rol !== "medewerker") redirect("/m/login");
 
+  // Eerst PIN-reset afdwingen bij bulk-geseede accounts (default "1234")
+  if (sessie.moetPinResetten) redirect("/m/pin-resetten");
+
   // Gate-check: medewerker moet onboarding voltooid + goedgekeurd hebben.
+  // Tegelijk halen we voornaam + geboortedatum op voor de verjaardags-viering.
   const [m] = await db.select({
+    voornaam: schema.medewerkers.voornaam,
     onboardingVoltooid: schema.medewerkers.onboardingVoltooid,
     goedgekeurd: schema.medewerkers.goedgekeurd,
+    geboortedatum: schema.medewerkers.geboortedatum,
   }).from(schema.medewerkers).where(eq(schema.medewerkers.id, sessie.medewerkerId));
   if (!m) redirect("/m/login");
   if (!m.onboardingVoltooid) redirect("/m/profiel");
@@ -71,12 +80,19 @@ export default async function MedewerkerHome() {
 
   return (
     <div className="space-y-5">
+      <VerjaardagsViering
+        voornaam={m.voornaam}
+        geboortedatum={m.geboortedatum}
+        vandaag={start}
+      />
       <MedewerkerRooster
         naam={sessie.naam}
         diensten={diensten}
         vandaag={start}
       />
+      <RuilverzoekenInbox />
       <MijnScore />
+      <MedewerkerPushAanmelden />
     </div>
   );
 }

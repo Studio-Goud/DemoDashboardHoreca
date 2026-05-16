@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import Icon from "../Icon";
 import { useTaal } from "@/lib/i18n/TaalProvider";
 import type { Taal } from "@/lib/i18n/dictionaries";
+import RuilverzoekModal from "./RuilverzoekModal";
 
 interface Dienst {
   id: string;
@@ -54,6 +56,9 @@ function urenVoor(d: Dienst): number {
 
 export default function MedewerkerRooster({ naam, diensten, vandaag }: Props) {
   const { t, taal } = useTaal();
+  const [ruilDienst, setRuilDienst] = useState<Dienst | null>(null);
+  const [succesId, setSuccesId] = useState<string | null>(null);
+
   // Groepeer per datum
   const perDag = new Map<string, Dienst[]>();
   for (const d of diensten) {
@@ -76,6 +81,20 @@ export default function MedewerkerRooster({ naam, diensten, vandaag }: Props) {
           {diensten.length === 1 ? t("m.shift_singular") : t("m.shift_plural")} · {totaalUren.toFixed(1)}{t("schedule.total_hours_suffix")}
         </p>
       </div>
+
+      {ruilDienst && (
+        <RuilverzoekModal
+          rosterId={Number(ruilDienst.id)}
+          dienstLabel={`${dagLabel(ruilDienst.datum, vandaag, taal, t)} · ${ruilDienst.start}–${ruilDienst.eind} · ${ruilDienst.vestiging.naam}`}
+          hex={ruilDienst.vestiging.hex}
+          onAfsluiten={() => setRuilDienst(null)}
+          onSucces={() => {
+            setSuccesId(ruilDienst.id);
+            setRuilDienst(null);
+            setTimeout(() => setSuccesId(null), 5000);
+          }}
+        />
+      )}
 
       {dagen.length === 0 ? (
         <div className="card text-center py-8">
@@ -111,31 +130,52 @@ export default function MedewerkerRooster({ naam, diensten, vandaag }: Props) {
                   {dagDiensten.map((d) => (
                     <div
                       key={d.id}
-                      className="flex items-center justify-between gap-3 p-2.5 rounded-[10px]"
+                      className="p-2.5 rounded-[10px]"
                       style={{
                         background: `${d.vestiging.hex}10`,
                         border: `1px solid ${d.vestiging.hex}33`,
                       }}
                     >
-                      <div className="min-w-0">
-                        <p
-                          className="text-[15px] font-semibold tabular-nums"
-                          style={{ color: d.vestiging.hex }}
-                        >
-                          {d.start} – {d.eind}
-                        </p>
-                        <p className="text-[11px]" style={{ color: "var(--muted)" }}>
-                          {d.vestiging.naam}{d.shiftType ? ` · ${d.shiftType}` : ""}
-                        </p>
-                        {d.notitie && (
-                          <p className="text-[11px] mt-0.5 italic" style={{ color: "var(--muted)" }}>
-                            {d.notitie}
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p
+                            className="text-[15px] font-semibold tabular-nums"
+                            style={{ color: d.vestiging.hex }}
+                          >
+                            {d.start} – {d.eind}
                           </p>
-                        )}
+                          <p className="text-[11px]" style={{ color: "var(--muted)" }}>
+                            {d.vestiging.naam}{d.shiftType ? ` · ${d.shiftType}` : ""}
+                          </p>
+                          {d.notitie && (
+                            <p className="text-[11px] mt-0.5 italic" style={{ color: "var(--muted)" }}>
+                              {d.notitie}
+                            </p>
+                          )}
+                        </div>
+                        <p className="text-[11px] tabular-nums shrink-0" style={{ color: "var(--text-2)" }}>
+                          {urenVoor(d).toFixed(1)}u
+                        </p>
                       </div>
-                      <p className="text-[11px] tabular-nums shrink-0" style={{ color: "var(--text-2)" }}>
-                        {urenVoor(d).toFixed(1)}u
-                      </p>
+                      {succesId === d.id ? (
+                        <p className="text-[11px] mt-2 text-right" style={{ color: "#30B26F" }}>
+                          ✓ Ruilverzoek verstuurd naar collega's
+                        </p>
+                      ) : (
+                        <div className="flex justify-end mt-2">
+                          <button
+                            onClick={() => setRuilDienst(d)}
+                            className="text-[11px] px-2.5 py-1 rounded-full"
+                            style={{
+                              color: d.vestiging.hex,
+                              border: `1px solid ${d.vestiging.hex}55`,
+                              background: "transparent",
+                            }}
+                          >
+                            🔄 Ruil aanvragen
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

@@ -22,6 +22,9 @@ export interface SessieInfo {
   rol: Rol;
   vestiging: string | null;
   naam: string;
+  /** True wanneer pin_hash een bulk-geseede default ("1234") is. UI moet dan
+   *  naar /m/pin-resetten redirecten tot een eigen PIN is gekozen. */
+  moetPinResetten: boolean;
 }
 
 // ─── Token helpers ─────────────────────────────────────────────────────────
@@ -155,7 +158,11 @@ export async function voltooidRegistratie(
 // ─── Inloggen: maak sessie + cookie ────────────────────────────────────────
 
 /** Maakt sessie + cookie voor een al-geverifieerde medewerker. */
-async function maakSessie(medewerkerId: number, naam: string): Promise<SessieInfo> {
+async function maakSessie(
+  medewerkerId: number,
+  naam: string,
+  moetPinResetten: boolean,
+): Promise<SessieInfo> {
   const token = genereerToken();
   const verloopt = new Date();
   verloopt.setDate(verloopt.getDate() + SESSIE_DUUR_DAGEN);
@@ -181,7 +188,7 @@ async function maakSessie(medewerkerId: number, naam: string): Promise<SessieInf
     expires: verloopt,
   });
 
-  return { medewerkerId, rol: "medewerker", vestiging, naam };
+  return { medewerkerId, rol: "medewerker", vestiging, naam, moetPinResetten };
 }
 
 /**
@@ -217,7 +224,7 @@ export async function registreerMedewerker(opties: {
     actief: true,
   }).returning({ id: schema.medewerkers.id });
 
-  return maakSessie(m.id, `${opties.voornaam} ${opties.achternaam}`.trim());
+  return maakSessie(m.id, `${opties.voornaam} ${opties.achternaam}`.trim(), false);
 }
 
 /** Wachtwoord-login (fallback voor wanneer PIN vergeten is). */
@@ -233,14 +240,16 @@ export async function inloggenViaWachtwoord(email: string, wachtwoord: string): 
   if (!m.wachtwoordHash) return null;
   const ok = await checkWachtwoord(wachtwoord, m.wachtwoordHash);
   if (!ok) return null;
-  return maakSessie(m.id, `${m.voornaam} ${m.achternaam}`.trim());
+  return maakSessie(m.id, `${m.voornaam} ${m.achternaam}`.trim(), m.moetPinResetten);
 }
 
-/** Zet/wijzig de PIN van een ingelogde medewerker. */
+/** Zet/wijzig de PIN van een ingelogde medewerker. Wist de moet_pin_resetten
+ *  vlag — wie hier komt heeft per definitie een eigen PIN gekozen. */
 export async function zetMedewerkerPin(medewerkerId: number, pin: string): Promise<void> {
   const hash = await hashPin(pin);
   await db.update(schema.medewerkers).set({
     pinHash: hash,
+    moetPinResetten: false,
     updatedAt: new Date(),
   }).where(eq(schema.medewerkers.id, medewerkerId));
 }
@@ -257,7 +266,21 @@ export async function inloggenMedewerker(email: string, pin: string): Promise<Se
   if (!m.pinHash) return null;
   const ok = await checkPin(pin, m.pinHash);
   if (!ok) return null;
-  return maakSessie(m.id, `${m.voornaam} ${m.achternaam}`.trim());
+  return maakSessie(m.id, `${m.voornaam} ${m.achternaam}`.trim(), m.moetPinResetten);
+}
+
+/** Login via een geverifieerde passkey (WebAuthn-flow). De caller heeft
+ *  signature al gecheckt; deze functie maakt enkel de sessie. */
+export async function inloggenMedewerkerViaPasskey(medewerkerId: number): Promise<SessieInfo | null> {
+  const rows = await db.select()
+    .from(schema.medewerkers)
+    .where(and(
+      eq(schema.medewerkers.id, medewerkerId),
+      eq(schema.medewerkers.actief, true),
+    ));
+  if (rows.length === 0) return null;
+  const m = rows[0];
+  return maakSessie(m.id, `${m.voornaam} ${m.achternaam}`.trim(), m.moetPinResetten);
 }
 
 // ─── Sessie lezen (op elke server request) ────────────────────────────────
@@ -287,6 +310,7 @@ export async function huidigeSessie(): Promise<SessieInfo | null> {
     rol: sessie.rol as Rol,
     vestiging: sessie.vestiging,
     naam: `${medewerker.voornaam} ${medewerker.achternaam}`.trim(),
+    moetPinResetten: medewerker.moetPinResetten,
   };
 }
 

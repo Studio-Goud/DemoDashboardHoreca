@@ -50,7 +50,14 @@ export default function MedewerkerLoginFlow({ ingevuldEmail }: Props) {
         const j = await res.json().catch(() => ({ error: "fout" }));
         throw new Error(j.error || t("login.failed"));
       }
-      router.replace("/m");
+      const data = (await res.json().catch(() => ({}))) as { moetPinResetten?: boolean };
+      // Flag voor MedewerkerFaceIDPrompt — pas tonen ná PIN-flow.
+      sessionStorage.setItem("sg_mw_via_pin", "1");
+      if (data.moetPinResetten) {
+        router.replace("/m/pin-resetten");
+      } else {
+        router.replace("/m");
+      }
     } catch (e) {
       setFout(e instanceof Error ? e.message : "fout");
       setPin("");
