@@ -168,6 +168,22 @@ body {
   box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.03);
 }
 
+/* Op het bedrijfs-dashboard krijgen alle .card-elementen een subtiele tint
+ * + accent-border in de brand-kleur van die vestiging. Zelfde visuele
+ * behandeling als KomendeFeestdagAlert had, nu consistent over alle
+ * widgets — informatie wordt visueel duidelijker per blok afgescheiden.
+ * Scope via [data-accent-cards] zodat de admin/medewerker-pagina's
+ * onaangetast blijven (die hebben hun eigen styling). */
+[data-accent-cards] .card {
+  background-color: var(--bg-elev);
+  background-image: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent-hex, var(--accent)) 8%, transparent) 0%,
+    transparent 60%
+  );
+  border: 1px solid color-mix(in srgb, var(--accent-hex, var(--accent)) 28%, var(--hairline));
+}
+
 @media (prefers-color-scheme: dark) {
   .card {
     box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.5);

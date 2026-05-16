@@ -83,7 +83,11 @@ export default function DashboardPage({ params }: { params: Params }) {
 
   return (
     <PullToRefresh>
-      <main className="min-h-screen p-4 sm:p-6 max-w-7xl mx-auto">
+      <main
+        className="min-h-screen p-4 sm:p-6 max-w-7xl mx-auto"
+        data-accent-cards
+        style={{ ["--accent-hex" as string]: config.hex }}
+      >
         <Suspense fallback={<DashboardSkeleton hex={config.hex} />}>
           <DashboardData config={config} />
         </Suspense>
@@ -303,12 +307,23 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
               <KomendeFeestdagAlert dagOmzet={dagOmzet} hex={config.hex} />
             </Reveal>
           )}
+
+          {/* Bezetting volgt direct op feestdag: dat past inhoudelijk —
+              hoog-impact-dag in beeld → meteen weten of er genoeg mensen
+              ingepland zijn. */}
           <Reveal delay={0.05}>
-            <VoorraadAlerts bedrijf={config.slug} hex={config.hex} />
+            <BezettingAdvies
+              hex={config.hex}
+              bedrijf={config.slug}
+              dagOmzet={dagOmzet}
+              prognose={prognose}
+              geplandVandaag={bezVandaag}
+              historischAdvies={historischAdvies}
+            />
           </Reveal>
 
           {heeftData && (
-            <Reveal delay={0.1}>
+            <Reveal delay={0.08}>
               <LiveRevenue
                 bedrijf={config.slug}
                 kleur={kleurNaam}
@@ -319,15 +334,8 @@ async function DashboardData({ config }: { config: BedrijfConfig }) {
             </Reveal>
           )}
 
-          <Reveal>
-            <BezettingAdvies
-              hex={config.hex}
-              bedrijf={config.slug}
-              dagOmzet={dagOmzet}
-              prognose={prognose}
-              geplandVandaag={bezVandaag}
-              historischAdvies={historischAdvies}
-            />
+          <Reveal delay={0.1}>
+            <VoorraadAlerts bedrijf={config.slug} hex={config.hex} />
           </Reveal>
 
           {kerncijfers && (
