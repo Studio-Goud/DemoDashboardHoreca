@@ -1,6 +1,6 @@
 import {
   pgTable, serial, varchar, text, integer, boolean, timestamp, date, time,
-  decimal, primaryKey, index, uniqueIndex,
+  decimal, primaryKey, index, uniqueIndex, jsonb,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -595,6 +595,86 @@ export const ruilverzoeken = pgTable("ruilverzoeken", {
 
 export type Ruilverzoek = typeof ruilverzoeken.$inferSelect;
 export type NieuwRuilverzoek = typeof ruilverzoeken.$inferInsert;
+
+// ─── Dagafsluiting ──────────────────────────────────────────────────────────
+// Eind-van-de-dag formulier dat medewerker invult: kas tellen + temperaturen
+// (HACCP) + schoonmaak-checks + notities. Vervangt het WhatsApp-rapport.
+//
+// Eén rij per dept × datum (UNIQUE-index hieronder). Bij her-indienen mag
+// medewerker hetzelfde record updaten tot het door manager is goedgekeurd.
+//
+// Kas-velden zijn ALLE in euro met 2 decimalen. Berekening is server-side:
+//   contant_geteld = sum(munten_telling.aantal × waarde)
+//   kas_omzet      = contant_geteld - startkassa_doel (≈ wat naar envelop ging
+//                                                       minus fooi)
+//   kas_verschil   = kas_omzet - (verwachte_contante_omzet_uit_pos)
+// Bij |kas_verschil| > €2 is `verschil_toelichting` verplicht.
+//
+// JSONB-kolommen om flexibel te zijn met locaties/checks per vestiging zonder
+// schema-migraties bij wijziging. Wel queryable via Postgres JSONB-operators.
+export const dagafsluitingen = pgTable("dagafsluitingen", {
+  id: serial("id").primaryKey(),
+  departmentId: integer("department_id").notNull().references(() => departments.id, { onDelete: "cascade" }),
+  datum: date("datum").notNull(),
+
+  // Indiening
+  ingediendDoorId: integer("ingediend_door_id").references(() => medewerkers.id, { onDelete: "set null" }),
+  ingediendOp: timestamp("ingediend_op", { withTimezone: true }).notNull().defaultNow(),
+
+  // Kas-telling
+  startkassaDoel:    decimal("startkassa_doel",    { precision: 8, scale: 2 }).notNull().default("100.00"),
+  contantGeteldEur:  decimal("contant_geteld_eur", { precision: 8, scale: 2 }).notNull(),
+  fooiEur:           decimal("fooi_eur",           { precision: 8, scale: 2 }).notNull().default("0"),
+  enveloppeEur:      decimal("enveloppe_eur",      { precision: 8, scale: 2 }).notNull(),
+  // Verwachte contante omzet (uit SumUp+Zettle cash-transacties), gecached
+  // tijdens indienen voor latere vergelijking ook als POS-data wijzigt.
+  verwachtContantEur: decimal("verwacht_contant_eur", { precision: 8, scale: 2 }),
+  kasVerschilEur:     decimal("kas_verschil_eur",     { precision: 8, scale: 2 }),
+  verschilToelichting: text("verschil_toelichting"),
+
+  // POS-omzet snapshot (totaal incl. pin) voor referentie
+  posOmzetTotaalEur:   decimal("pos_omzet_totaal_eur", { precision: 10, scale: 2 }),
+
+  // Munten-telling (detail-bewijs van contantGeteldEur)
+  // Schema: { "5c": n, "10c": n, "20c": n, "50c": n, "1e": n, "2e": n,
+  //          "5e": n, "10e": n, "20e": n, "50e": n, "100e": n, "200e": n }
+  muntenTelling: jsonb("munten_telling").$type<Record<string, number>>(),
+
+  // Temperaturen — array met { locatie, waardeC, opmerking, tijdstip }
+  temperaturen: jsonb("temperaturen").$type<Array<{
+    locatie: string;
+    waardeC: number;
+    opmerking?: string;
+    tijdstip?: string; // ISO timestamp
+  }>>().notNull().default([] as never),
+
+  // Schoonmaak-checks — array met { label, gedaan, opmerking }
+  schoonmaakChecks: jsonb("schoonmaak_checks").$type<Array<{
+    label: string;
+    gedaan: boolean;
+    opmerking?: string;
+  }>>().notNull().default([] as never),
+
+  // Boolean toggles
+  enveloppeInKluis: boolean("enveloppe_in_kluis").notNull().default(false),
+  alleSchoonmaakVoltooid: boolean("alle_schoonmaak_voltooid").notNull().default(false),
+
+  notitie: text("notitie"),
+
+  // Manager-controle
+  gecontroleerdDoor: varchar("gecontroleerd_door", { length: 80 }),
+  gecontroleerdOp:   timestamp("gecontroleerd_op", { withTimezone: true }),
+  gecontroleerdeNotitie: text("gecontroleerde_notitie"),
+
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  uq:        uniqueIndex("dagafsluitingen_dept_datum_uq").on(t.departmentId, t.datum),
+  datumIdx:  index("dagafsluitingen_datum_idx").on(t.datum),
+}));
+
+export type Dagafsluiting = typeof dagafsluitingen.$inferSelect;
+export type NieuweDagafsluiting = typeof dagafsluitingen.$inferInsert;
 
 // Type-helpers voor consumers
 export type Department      = typeof departments.$inferSelect;

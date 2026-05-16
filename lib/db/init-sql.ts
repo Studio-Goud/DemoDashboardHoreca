@@ -428,10 +428,62 @@ const MIGRATIE_0012: Migratie = {
   ],
 };
 
+/**
+ * Migratie 0013: dagafsluiting-formulier.
+ *
+ * Vervangt het WhatsApp-rapport (Schoonmaak + Kas + Temperaturen). Eén rij
+ * per vestiging × datum. Munten-telling en temperaturen als JSONB voor
+ * flexibele structuur zonder migraties bij wijziging.
+ */
+const MIGRATIE_0013: Migratie = {
+  naam: "0013_dagafsluitingen",
+  statements: [
+    `CREATE TABLE IF NOT EXISTS "dagafsluitingen" (
+       "id"                serial PRIMARY KEY,
+       "department_id"     integer NOT NULL REFERENCES "departments"("id") ON DELETE CASCADE,
+       "datum"             date NOT NULL,
+
+       "ingediend_door_id" integer REFERENCES "medewerkers"("id") ON DELETE SET NULL,
+       "ingediend_op"      timestamptz NOT NULL DEFAULT now(),
+
+       "startkassa_doel"        numeric(8,2)  NOT NULL DEFAULT 100.00,
+       "contant_geteld_eur"     numeric(8,2)  NOT NULL,
+       "fooi_eur"               numeric(8,2)  NOT NULL DEFAULT 0,
+       "enveloppe_eur"          numeric(8,2)  NOT NULL,
+       "verwacht_contant_eur"   numeric(8,2),
+       "kas_verschil_eur"       numeric(8,2),
+       "verschil_toelichting"   text,
+
+       "pos_omzet_totaal_eur"   numeric(10,2),
+
+       "munten_telling"     jsonb,
+       "temperaturen"       jsonb NOT NULL DEFAULT '[]'::jsonb,
+       "schoonmaak_checks"  jsonb NOT NULL DEFAULT '[]'::jsonb,
+
+       "enveloppe_in_kluis"        boolean NOT NULL DEFAULT false,
+       "alle_schoonmaak_voltooid"  boolean NOT NULL DEFAULT false,
+
+       "notitie"                   text,
+
+       "gecontroleerd_door"        varchar(80),
+       "gecontroleerd_op"          timestamptz,
+       "gecontroleerde_notitie"    text,
+
+       "created_at"  timestamptz NOT NULL DEFAULT now(),
+       "updated_at"  timestamptz NOT NULL DEFAULT now()
+     )`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS "dagafsluitingen_dept_datum_uq"
+       ON "dagafsluitingen" ("department_id", "datum")`,
+    `CREATE INDEX IF NOT EXISTS "dagafsluitingen_datum_idx"
+       ON "dagafsluitingen" ("datum")`,
+  ],
+};
+
 const ALLE_MIGRATIES: Migratie[] = [
   MIGRATIE_0001, MIGRATIE_0002, MIGRATIE_0003, MIGRATIE_0004,
   MIGRATIE_0005, MIGRATIE_0006, MIGRATIE_0007, MIGRATIE_0008,
   MIGRATIE_0009, MIGRATIE_0010, MIGRATIE_0011, MIGRATIE_0012,
+  MIGRATIE_0013,
 ];
 
 async function voerMigratieUit(m: Migratie): Promise<DbInitResultaat> {

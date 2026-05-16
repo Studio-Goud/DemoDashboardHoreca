@@ -14,6 +14,7 @@ import MedewerkerDocumentenPanel from "@/components/administratie/MedewerkerDocu
 import MedewerkerActiviteitPanel from "@/components/administratie/MedewerkerActiviteitPanel";
 import PushVersturen from "@/components/administratie/PushVersturen";
 import RuilverzoekenBeoordelen from "@/components/administratie/RuilverzoekenBeoordelen";
+import DagafsluitingOverzicht from "@/components/administratie/DagafsluitingOverzicht";
 import ShiftbaseHistorieSync from "@/components/administratie/ShiftbaseHistorieSync";
 import TestAccountSeed from "@/components/administratie/TestAccountSeed";
 
@@ -44,6 +45,7 @@ export default function AdminTab({ bedrijf, hex }: Props) {
       <ContantInvoer bedrijf={bedrijf} hex={hex} jaar={jaar} onWijziging={refresh} />
       <KwartaalRapport bedrijf={bedrijf} hex={hex} />
       <RuilverzoekenBeoordelen hex={hex} />
+      <DagafsluitingOverzicht hex={hex} />
       <PushVersturen hex={hex} bedrijf={bedrijf} />
       <ShiftbaseHistorieSync hex={hex} />
       <MedewerkerActiviteitPanel hex={hex} />

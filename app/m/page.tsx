@@ -8,6 +8,7 @@ import VerjaardagsViering from "@/components/medewerker/VerjaardagsViering";
 import RuilverzoekenInbox from "@/components/medewerker/RuilverzoekenInbox";
 import MedewerkerPushAanmelden from "@/components/medewerker/MedewerkerPushAanmelden";
 import MedewerkerPushBanner from "@/components/medewerker/MedewerkerPushBanner";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -93,6 +94,29 @@ export default async function MedewerkerHome() {
         vandaag={start}
       />
       <RuilverzoekenInbox />
+
+      <Link
+        href="/m/dagafsluiting"
+        className="block rounded-2xl p-4 transition-transform active:scale-[0.98]"
+        style={{
+          background: "linear-gradient(135deg, #0A84FF15 0%, #30B26F15 100%)",
+          border: "1px solid #0A84FF55",
+        }}
+      >
+        <div className="flex items-center gap-3">
+          <span className="text-[28px]">🧹</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-[14px] font-semibold" style={{ color: "var(--text)" }}>
+              Schoonmaak &amp; Kasrapport
+            </p>
+            <p className="text-[12px]" style={{ color: "var(--muted)" }}>
+              Einde van je dienst — vul kas, temperaturen en schoonmaak in
+            </p>
+          </div>
+          <span className="text-[18px]" style={{ color: "#0A84FF" }}>→</span>
+        </div>
+      </Link>
+
       <MijnScore />
       <MedewerkerPushAanmelden />
     </div>
