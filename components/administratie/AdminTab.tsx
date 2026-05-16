@@ -14,6 +14,7 @@ import MedewerkerDocumentenPanel from "@/components/administratie/MedewerkerDocu
 import MedewerkerActiviteitPanel from "@/components/administratie/MedewerkerActiviteitPanel";
 import PushVersturen from "@/components/administratie/PushVersturen";
 import RuilverzoekenBeoordelen from "@/components/administratie/RuilverzoekenBeoordelen";
+import ShiftbaseHistorieSync from "@/components/administratie/ShiftbaseHistorieSync";
 import TestAccountSeed from "@/components/administratie/TestAccountSeed";
 
 interface Props {
@@ -44,6 +45,7 @@ export default function AdminTab({ bedrijf, hex }: Props) {
       <KwartaalRapport bedrijf={bedrijf} hex={hex} />
       <RuilverzoekenBeoordelen hex={hex} />
       <PushVersturen hex={hex} bedrijf={bedrijf} />
+      <ShiftbaseHistorieSync hex={hex} />
       <MedewerkerActiviteitPanel hex={hex} />
       <MedewerkerDocumentenPanel hex={hex} />
       <SetupPanel hex={hex} />
