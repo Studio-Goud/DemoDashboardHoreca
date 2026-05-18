@@ -13,11 +13,12 @@
  * 'm uitzetten zodat het sneller draait — nieuwe medewerkers komen dan toch
  * binnen via de volgende historie-sync.
  */
-import { eq } from "drizzle-orm";
+import { eq, gte, lte, and } from "drizzle-orm";
 import { db, schema } from "./db/client";
 import {
   _fetchMedewerkers     as fetchMedewerkers,
   _fetchDienstenInRange as fetchDienstenInRange,
+  _fetchBeschikbaarheid as fetchBeschikbaarheid,
 } from "./shiftbase";
 
 const VESTIGINGEN = [
@@ -222,6 +223,128 @@ export async function syncShiftbaseRosters(opts: {
 
   result.duurMs = Date.now() - start;
   return result;
+}
+
+// ─── Beschikbaarheid sync ───────────────────────────────────────────────────
+// Transitie-feature: medewerkers geven hun beschikbaarheid nog grotendeels in
+// Shiftbase door. Tot ze allemaal /m/beschikbaarheid gebruiken halen we hun
+// Shiftbase-availability hierheen zodat managers in het rooster zien wie er
+// daadwerkelijk beschikbaar is. Idempotent — bestaande rij gevonden via
+// shiftbaseId (primair) of (medewerkerId, datum) (vangt records op die in
+// Shiftbase werden weggegooid en opnieuw aangemaakt met een ander id).
+export interface BeschikbaarheidSyncResultaat {
+  nieuw: number;
+  bijgewerkt: number;
+  overgeslagen: number;
+  vanDatum: string;
+  totDatum: string;
+  duurMs: number;
+  errors: string[];
+}
+
+export async function syncShiftbaseBeschikbaarheid(opts: {
+  vanDatum?: string;
+  totDatum?: string;
+} = {}): Promise<BeschikbaarheidSyncResultaat> {
+  const vanDatum = opts.vanDatum ?? isoMinusDays(0);
+  const totDatum = opts.totDatum ?? isoPlusDays(56); // 8 weken vooruit
+  const start = Date.now();
+  const result: BeschikbaarheidSyncResultaat = {
+    nieuw: 0, bijgewerkt: 0, overgeslagen: 0,
+    vanDatum, totDatum, duurMs: 0, errors: [],
+  };
+
+  // Shiftbase user_id → app medewerker.id
+  const medewerkerRows = await db.select({
+    id: schema.medewerkers.id,
+    sbId: schema.medewerkers.shiftbaseUserId,
+  }).from(schema.medewerkers);
+  const sbIdToDbId: Record<string, number> = Object.fromEntries(
+    medewerkerRows
+      .filter((r): r is { id: number; sbId: string } => r.sbId !== null)
+      .map((r) => [r.sbId, r.id]),
+  );
+
+  let sbBeschikbaarheid: Awaited<ReturnType<typeof fetchBeschikbaarheid>>;
+  try {
+    sbBeschikbaarheid = await fetchBeschikbaarheid(vanDatum, totDatum);
+  } catch (e) {
+    result.errors.push(`Shiftbase /availabilities: ${e instanceof Error ? e.message : "fout"}`);
+    result.duurMs = Date.now() - start;
+    return result;
+  }
+
+  for (const b of sbBeschikbaarheid) {
+    const medewerkerId = sbIdToDbId[b.userId];
+    if (!medewerkerId) {
+      result.overgeslagen++;
+      continue;
+    }
+    // "onbekend" = Shiftbase heeft geen expliciete melding; behandel als
+    // "geen invoer" en stop niets in DB
+    if (b.status === "onbekend") {
+      result.overgeslagen++;
+      continue;
+    }
+
+    // Eerst zoeken op shiftbaseId, dan fallback op (medewerkerId, datum)
+    let bestaand: { id: number } | undefined;
+    if (b.id) {
+      [bestaand] = await db.select({ id: schema.beschikbaarheid.id })
+        .from(schema.beschikbaarheid)
+        .where(eq(schema.beschikbaarheid.shiftbaseId, b.id));
+    }
+    if (!bestaand) {
+      [bestaand] = await db.select({ id: schema.beschikbaarheid.id })
+        .from(schema.beschikbaarheid)
+        .where(and(
+          eq(schema.beschikbaarheid.medewerkerId, medewerkerId),
+          eq(schema.beschikbaarheid.datum, b.datum),
+        ));
+    }
+
+    const waarden = {
+      medewerkerId,
+      datum: b.datum,
+      status: b.status,
+      start: b.start ? `${b.start}:00` : null,
+      eind:  b.eind  ? `${b.eind}:00`  : null,
+      reden: b.reden ?? null,
+      shiftbaseId: b.id || null,
+      updatedAt: new Date(),
+    };
+
+    if (bestaand) {
+      await db.update(schema.beschikbaarheid).set(waarden)
+        .where(eq(schema.beschikbaarheid.id, bestaand.id));
+      result.bijgewerkt++;
+    } else {
+      await db.insert(schema.beschikbaarheid).values(waarden);
+      result.nieuw++;
+    }
+  }
+
+  result.duurMs = Date.now() - start;
+  return result;
+}
+
+/**
+ * Triggert sync on-demand als de DB voor die week (nog) leeg is. Wordt
+ * door de rooster-page aangeroepen om cold-start-leegte op te vangen.
+ */
+export async function ensureBeschikbaarheidGesynct(
+  vanDatum: string,
+  totDatum: string,
+): Promise<void> {
+  const [bestaand] = await db.select({ id: schema.beschikbaarheid.id })
+    .from(schema.beschikbaarheid)
+    .where(and(
+      gte(schema.beschikbaarheid.datum, vanDatum),
+      lte(schema.beschikbaarheid.datum, totDatum),
+    ))
+    .limit(1);
+  if (bestaand) return;
+  await syncShiftbaseBeschikbaarheid({ vanDatum, totDatum }).catch(() => {});
 }
 
 // Voor het VESTIGINGEN-array; gebruikt door eventuele toekomstige helpers.

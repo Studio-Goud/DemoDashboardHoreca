@@ -19,6 +19,7 @@ export default function BeschikbaarheidRefreshKnop({ hex }: Props) {
   const router = useRouter();
   const [bezig, setBezig] = useState(false);
   const [stempel, setStempel] = useState<Date | null>(null);
+  const [samenvatting, setSamenvatting] = useState<string | null>(null);
 
   async function refresh() {
     setBezig(true);
@@ -32,6 +33,10 @@ export default function BeschikbaarheidRefreshKnop({ hex }: Props) {
       if (!res.ok) {
         alert("Refresh mislukt.");
         return;
+      }
+      const j = await res.json().catch(() => ({}));
+      if (typeof j.nieuw === "number") {
+        setSamenvatting(`${j.nieuw} nieuw · ${j.bijgewerkt} bijgewerkt`);
       }
       router.refresh();
       setStempel(new Date());
@@ -56,7 +61,7 @@ export default function BeschikbaarheidRefreshKnop({ hex }: Props) {
       <span>{bezig ? "Bezig…" : "Beschikbaarheid sync"}</span>
       {stempel && !bezig && (
         <span className="text-[10px]" style={{ color: "var(--muted)" }}>
-          {stempel.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" })}
+          {samenvatting ?? stempel.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" })}
         </span>
       )}
     </button>

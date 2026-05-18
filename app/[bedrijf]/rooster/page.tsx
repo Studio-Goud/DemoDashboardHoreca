@@ -15,6 +15,7 @@ import BedrijfTabBar from "@/components/BedrijfTabBar";
 import TabHero from "@/components/TabHero";
 import BeschikbaarheidRefreshKnop from "@/components/BeschikbaarheidRefreshKnop";
 import { huidigeAdminSessie } from "@/lib/admin-auth";
+import { ensureBeschikbaarheidGesynct } from "@/lib/shiftbase-sync";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -79,6 +80,12 @@ export default async function RoosterEditorPage({ params, searchParams }: Props)
     ? maandagVanWeek(new Date(searchParams.week))
     : maandagVanWeek(new Date());
   const eindDatum = plusDagen(startDatum, 6);
+
+  // Transitie-vangnet: als de DB nog niets voor deze week heeft (cron is nog
+  // niet gedraaid, of er is nooit gesynct), haal beschikbaarheid van
+  // Shiftbase op vóór de page-load. Voegt 1-2s toe op een koude week, daarna
+  // 0. Niet blokkerend bij fout — de page rendert dan zonder beschikbaarheid.
+  await ensureBeschikbaarheidGesynct(startDatum, eindDatum).catch(() => {});
 
   // Privacy: alleen owner krijgt uurloon/vakantie-percentages mee. Manager
   // ziet wel namen + thuis-vestiging maar geen salaris-data — ook niet via

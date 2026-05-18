@@ -1,20 +1,22 @@
 /**
  * POST /api/shiftbase/refresh-beschikbaarheid
- *   → { ok: true }
+ *   → { ok: true, nieuw, bijgewerkt, overgeslagen, duurMs }
  *
- * Forceert revalidation van de Shiftbase-beschikbaarheid-cache zodat de
- * volgende GET op de rooster-pagina een verse fetch doet (i.p.v. de
- * 30-seconden cache te wachten). Gebruikt door de "Refresh"-knop op de
- * rooster-pagina, totdat medewerkers hun beschikbaarheid via de app
- * zelf invoeren.
+ * Synct beschikbaarheid uit Shiftbase naar de eigen DB voor de komende 8
+ * weken. Gebruikt door de "Beschikbaarheid sync"-knop op de rooster-pagina
+ * — voor wanneer medewerkers net iets in Shiftbase hebben aangepast en de
+ * manager dat direct in het rooster wil zien.
  *
- * Owner of manager mag dit triggeren. Rate-limit: 1× per 5s per IP zodat
- * iemand 'm niet kan spammen.
+ * Verdwijnt zodra medewerkers volledig via /m/beschikbaarheid werken —
+ * Shiftbase is dan niet meer de bron.
+ *
+ * Owner of manager mag dit triggeren. Rate-limit: 6× per minuut per IP.
  */
 import { NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
 import { huidigeAdminSessie } from "@/lib/admin-auth";
 import { ipUitRequest, registreerPoging } from "@/lib/rate-limit";
+import { syncShiftbaseBeschikbaarheid } from "@/lib/shiftbase-sync";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +27,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "alleen owner/manager" }, { status: 403 });
   }
 
-  // Max 6 refreshes per minuut per IP — voorkomt accidentele knop-spam.
   const rate = await registreerPoging(`sb-refresh:${ipUitRequest(req)}`, 6, 60);
   if (rate.geblokkeerd) {
     return NextResponse.json(
@@ -34,6 +35,8 @@ export async function POST(req: Request) {
     );
   }
 
+  // Invalideer de oude in-memory cache van Shiftbase-fetcher, dan sync naar DB.
   revalidateTag("shiftbase-beschikbaarheid");
-  return NextResponse.json({ ok: true });
+  const result = await syncShiftbaseBeschikbaarheid();
+  return NextResponse.json({ ok: true, ...result });
 }

@@ -8,7 +8,7 @@
  * Voor backfill van een vol jaar: gebruik /api/admin/shiftbase/sync.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { syncShiftbaseRosters } from "@/lib/shiftbase-sync";
+import { syncShiftbaseRosters, syncShiftbaseBeschikbaarheid } from "@/lib/shiftbase-sync";
 
 export const maxDuration = 300; // 5 min
 
@@ -18,12 +18,19 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   try {
-    const result = await syncShiftbaseRosters({
+    const rosters = await syncShiftbaseRosters({
       dagenTerug: 30,
       dagenVooruit: 90,
       ookMedewerkers: true,
     });
-    return NextResponse.json({ ok: true, ...result });
+    // Beschikbaarheid alleen voor komende 8 weken — verleden is irrelevant
+    // en de Shiftbase API geeft anders enorme dumps.
+    const beschikbaarheid = await syncShiftbaseBeschikbaarheid().catch((e) => ({
+      nieuw: 0, bijgewerkt: 0, overgeslagen: 0,
+      vanDatum: "", totDatum: "", duurMs: 0,
+      errors: [e instanceof Error ? e.message : "fout"],
+    }));
+    return NextResponse.json({ ok: true, rosters, beschikbaarheid });
   } catch (e) {
     return NextResponse.json(
       { ok: false, error: e instanceof Error ? e.message : "fout" },
