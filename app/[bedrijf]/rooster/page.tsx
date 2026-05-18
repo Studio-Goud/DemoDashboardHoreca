@@ -14,6 +14,7 @@ import RoosterEditor from "@/components/RoosterEditor";
 import BedrijfTabBar from "@/components/BedrijfTabBar";
 import TabHero from "@/components/TabHero";
 import BeschikbaarheidRefreshKnop from "@/components/BeschikbaarheidRefreshKnop";
+import BeschikbaarheidOverzicht from "@/components/BeschikbaarheidOverzicht";
 import { huidigeAdminSessie } from "@/lib/admin-auth";
 import { ensureBeschikbaarheidGesynct } from "@/lib/shiftbase-sync";
 
@@ -177,6 +178,13 @@ export default async function RoosterEditorPage({ params, searchParams }: Props)
       <div className="flex justify-end mb-3">
         <BeschikbaarheidRefreshKnop hex={config.hex} />
       </div>
+      <BeschikbaarheidOverzicht
+        weekStart={startDatum}
+        dagen={dagContexten.map((d) => ({ datum: d.datum, weekdag: d.weekdag }))}
+        medewerkers={medewerkers}
+        beschikbaarheid={beschikbaarheid}
+        hex={config.hex}
+      />
       <div>
       <RoosterEditor
         bedrijf={config.slug}

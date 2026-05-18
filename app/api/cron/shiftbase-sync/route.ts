@@ -26,7 +26,9 @@ export async function GET(req: NextRequest) {
     // Beschikbaarheid alleen voor komende 8 weken — verleden is irrelevant
     // en de Shiftbase API geeft anders enorme dumps.
     const beschikbaarheid = await syncShiftbaseBeschikbaarheid().catch((e) => ({
-      nieuw: 0, bijgewerkt: 0, overgeslagen: 0,
+      opgehaald: 0, nieuw: 0, bijgewerkt: 0,
+      overgeslagenOnbekend: 0, overgeslagenGeenKoppeling: 0,
+      ongekoppeldeShiftbaseIds: [],
       vanDatum: "", totDatum: "", duurMs: 0,
       errors: [e instanceof Error ? e.message : "fout"],
     }));

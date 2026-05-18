@@ -233,9 +233,12 @@ export async function syncShiftbaseRosters(opts: {
 // shiftbaseId (primair) of (medewerkerId, datum) (vangt records op die in
 // Shiftbase werden weggegooid en opnieuw aangemaakt met een ander id).
 export interface BeschikbaarheidSyncResultaat {
+  opgehaald: number;             // totaal records uit Shiftbase
   nieuw: number;
   bijgewerkt: number;
-  overgeslagen: number;
+  overgeslagenOnbekend: number;  // Shiftbase status = "onbekend" (geen invoer)
+  overgeslagenGeenKoppeling: number; // medewerker.shiftbase_user_id ontbreekt
+  ongekoppeldeShiftbaseIds: string[]; // welke sb_user_ids hebben geen match
   vanDatum: string;
   totDatum: string;
   duurMs: number;
@@ -250,7 +253,9 @@ export async function syncShiftbaseBeschikbaarheid(opts: {
   const totDatum = opts.totDatum ?? isoPlusDays(56); // 8 weken vooruit
   const start = Date.now();
   const result: BeschikbaarheidSyncResultaat = {
-    nieuw: 0, bijgewerkt: 0, overgeslagen: 0,
+    opgehaald: 0, nieuw: 0, bijgewerkt: 0,
+    overgeslagenOnbekend: 0, overgeslagenGeenKoppeling: 0,
+    ongekoppeldeShiftbaseIds: [],
     vanDatum, totDatum, duurMs: 0, errors: [],
   };
 
@@ -274,16 +279,20 @@ export async function syncShiftbaseBeschikbaarheid(opts: {
     return result;
   }
 
+  result.opgehaald = sbBeschikbaarheid.length;
+  const ongekoppeldeSet = new Set<string>();
+
   for (const b of sbBeschikbaarheid) {
-    const medewerkerId = sbIdToDbId[b.userId];
-    if (!medewerkerId) {
-      result.overgeslagen++;
-      continue;
-    }
     // "onbekend" = Shiftbase heeft geen expliciete melding; behandel als
     // "geen invoer" en stop niets in DB
     if (b.status === "onbekend") {
-      result.overgeslagen++;
+      result.overgeslagenOnbekend++;
+      continue;
+    }
+    const medewerkerId = sbIdToDbId[b.userId];
+    if (!medewerkerId) {
+      result.overgeslagenGeenKoppeling++;
+      ongekoppeldeSet.add(b.userId);
       continue;
     }
 
@@ -324,6 +333,7 @@ export async function syncShiftbaseBeschikbaarheid(opts: {
     }
   }
 
+  result.ongekoppeldeShiftbaseIds = Array.from(ongekoppeldeSet);
   result.duurMs = Date.now() - start;
   return result;
 }
