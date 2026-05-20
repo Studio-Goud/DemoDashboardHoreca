@@ -19,6 +19,9 @@ import { NextResponse } from "next/server";
 import { huidigeAdminSessie } from "@/lib/admin-auth";
 import { genereerMaandrapport, maandrapportNaarCsv, berekenSalarisVoorBedrijf } from "@/lib/salaris";
 import type { Bedrijf } from "@/lib/sumup";
+import { getDemoSalaris } from "@/lib/demo/api-responses";
+
+const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +58,19 @@ export async function GET(
 
   const url = new URL(req.url);
   const format = url.searchParams.get("format") ?? "json";
+
+  if (DEMO_MODE) {
+    const rijen = getDemoSalaris(params.bedrijf as Bedrijf, jaar, maand);
+    const totaal = rijen.reduce((s, r) => s + r.totaalEur, 0);
+    return NextResponse.json({
+      bedrijf: params.bedrijf, jaar, maand,
+      medewerkers: sessie.rol === "owner" ? rijen : [],
+      aantalMedewerkers: rijen.length,
+      totaalLoonkosten: Math.round(totaal * 100) / 100,
+      totaalUren: rijen.reduce((s, r) => s + r.brutoUren, 0),
+      demo: true,
+    });
+  }
 
   // ─── MANAGER: alleen aggregaat ───────────────────────────────────────────
   if (sessie.rol === "manager") {

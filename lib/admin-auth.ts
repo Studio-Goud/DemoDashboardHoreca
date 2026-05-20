@@ -27,15 +27,31 @@ const COOKIE_DUUR_DAGEN = 7;
 // Managers krijgen elk hun eigen PIN ipv één gedeelde 2222 — zo blijft
 // audit-trail per persoon traceerbaar en kan een individuele manager
 // uitgesloten worden zonder dat anderen geraakt worden.
-export const ADMIN_PIN_PROFIEL: Record<
+const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+
+const DEMO_PIN_PROFIEL: Record<
   string,
   { naam: string; rol: "owner" | "manager"; vestiging?: "bb" | "sl" | "kl" }
 > = {
-  "2026": { naam: "Ricardo",  rol: "owner",   vestiging: "bb" },
-  "2580": { naam: "Matthieu", rol: "owner",   vestiging: "kl" },
-  "3001": { naam: "Gianni",   rol: "manager" },
-  "3002": { naam: "Theresa",  rol: "manager" },
+  "1111": { naam: "Demo Owner",   rol: "owner",   vestiging: "bb" },
+  "2222": { naam: "Demo Manager", rol: "manager" },
 };
+
+// In productie worden de echte PIN-profielen via ADMIN_PINS_JSON env var geladen.
+// Format: JSON object met dezelfde structuur als bovenstaand.
+function laadProductiePinProfiel(): Record<string, { naam: string; rol: "owner" | "manager"; vestiging?: "bb" | "sl" | "kl" }> {
+  const json = process.env.ADMIN_PINS_JSON;
+  if (json) {
+    try { return JSON.parse(json); } catch { /* val terug op leeg */ }
+  }
+  // Fallback voor dev zonder ADMIN_PINS_JSON
+  return {};
+}
+
+export const ADMIN_PIN_PROFIEL: Record<
+  string,
+  { naam: string; rol: "owner" | "manager"; vestiging?: "bb" | "sl" | "kl" }
+> = DEMO_MODE ? DEMO_PIN_PROFIEL : laadProductiePinProfiel();
 
 export interface AdminSessie {
   rol: "owner" | "manager";

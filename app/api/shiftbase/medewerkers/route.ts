@@ -8,6 +8,9 @@ import {
 } from "@/lib/rooster";
 import type { Bedrijf } from "@/lib/sumup";
 import { huidigeAdminSessie } from "@/lib/admin-auth";
+import { DEMO_MEDEWERKERS } from "@/lib/demo/medewerkers";
+
+const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +41,29 @@ export async function GET(req: Request) {
   const effectievBedrijf = sessie.rol === "manager" && sessie.vestiging
     ? (sessie.vestiging as Bedrijf)
     : (isBedrijf(bedrijf) ? bedrijf : null);
+
+  if (DEMO_MODE) {
+    const demoLijst = DEMO_MEDEWERKERS
+      .filter((m) => !effectievBedrijf || m.bedrijven.includes(effectievBedrijf))
+      .map((m) => ({
+        id: String(m.id),
+        voornaam: m.voornaam,
+        achternaam: m.achternaam,
+        naam: `${m.voornaam} ${m.achternaam}`,
+        email: m.email,
+        startdatum: m.startdatum,
+        einddatum: null,
+        actief: m.actief,
+        anoniem: false,
+        bedrijven: m.bedrijven,
+        uurloon: isOwner ? m.uurloon : null,
+        vakantiegeldPct: 8.33,
+        vakantieUrenPct: 8.00,
+        hoofdDepartmentId: null,
+        heeftPin: true,
+      }));
+    return NextResponse.json({ medewerkers: demoLijst });
+  }
 
   try {
     const lijst = effectievBedrijf

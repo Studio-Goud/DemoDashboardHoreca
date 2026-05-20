@@ -9,6 +9,9 @@ import { NextResponse } from "next/server";
 import { huidigeAdminSessie } from "@/lib/admin-auth";
 import { cashflowProjectie, type BedrijfSlug } from "@/lib/cashflow";
 import { runAllePendingMigraties } from "@/lib/db/init-sql";
+import { getDemoCashflow } from "@/lib/demo/api-responses";
+
+const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -24,9 +27,12 @@ export async function GET(req: Request, { params }: { params: { bedrijf: string 
   if (!GELDIGE.has(params.bedrijf as BedrijfSlug)) {
     return NextResponse.json({ error: "ongeldig bedrijf" }, { status: 400 });
   }
-  await runAllePendingMigraties().catch(() => null);
   const { searchParams } = new URL(req.url);
   const dagen = Math.min(180, Math.max(7, Number(searchParams.get("dagen") ?? 90)));
+  if (DEMO_MODE) {
+    return NextResponse.json(getDemoCashflow(params.bedrijf as BedrijfSlug, dagen));
+  }
+  await runAllePendingMigraties().catch(() => null);
   const projectie = await cashflowProjectie(params.bedrijf as BedrijfSlug, dagen);
   return NextResponse.json(projectie);
 }

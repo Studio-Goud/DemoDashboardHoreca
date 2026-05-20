@@ -3,30 +3,9 @@
   "buildCommand": "next build",
   "devCommand": "next dev",
   "installCommand": "npm install",
-  "crons": [
-    {
-      "path": "/api/cron/ing-sync",
-      "schedule": "0 6 * * *"
-    },
-    {
-      "path": "/api/cron/facturen-sync",
-      "schedule": "0 6 * * *"
-    },
-    {
-      "path": "/api/cron/sumup-sync",
-      "schedule": "*/10 * * * *"
-    },
-    {
-      "path": "/api/cron/zettle-sync",
-      "schedule": "10 6 * * *"
-    },
-    {
-      "path": "/api/cron/voorraad-alert",
-      "schedule": "0 7 * * *"
-    },
-    {
-      "path": "/api/cron/shiftbase-sync",
-      "schedule": "30 5 * * *"
-    }
-  ]
+  "env": {
+    "NEXT_PUBLIC_DEMO_MODE": "true",
+    "ADMIN_COOKIE_SECRET": "demo-horecahq-secret-change-me-32chars!"
+  },
+  "crons": []
 }

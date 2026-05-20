@@ -4,11 +4,21 @@ import type { Bedrijf } from "@/lib/sumup";
 
 export const dynamic = "force-dynamic";
 
-const BEDRIJVEN: { slug: Bedrijf; naam: string; hex: string }[] = [
+const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+
+const BEDRIJVEN_ECHT: { slug: Bedrijf; naam: string; hex: string }[] = [
   { slug: "bb", naam: "Brunch & Brew",    hex: "#0A84FF" },
   { slug: "sl", naam: "Saté Lounge",      hex: "#30B26F" },
   { slug: "kl", naam: "Het Kroket Loket", hex: "#E07A1F" },
 ];
+
+const BEDRIJVEN_DEMO: { slug: Bedrijf; naam: string; hex: string }[] = [
+  { slug: "bb", naam: "Grand Café De Zon",  hex: "#0A84FF" },
+  { slug: "sl", naam: "Brasserie Noord",    hex: "#30B26F" },
+  { slug: "kl", naam: "Bar & Kitchen West", hex: "#E07A1F" },
+];
+
+const BEDRIJVEN = DEMO_MODE ? BEDRIJVEN_DEMO : BEDRIJVEN_ECHT;
 
 interface BedrijfRij {
   slug: Bedrijf;

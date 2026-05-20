@@ -4,6 +4,7 @@ import "./globals.css";
 import PinGate from "@/components/PinGate";
 import LiveBalk from "@/components/LiveBalk";
 import BootSequence from "@/components/BootSequence";
+import DemoBanner from "@/components/DemoBanner";
 import { TaalProvider } from "@/lib/i18n/TaalProvider";
 import { getTaal, htmlLang } from "@/lib/i18n/server";
 
@@ -27,15 +28,20 @@ const mono = JetBrains_Mono({
   weight: ["400", "500", "600"],
 });
 
+const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+const APP_NAAM = DEMO_MODE ? "HorecaHQ Demo" : "Markthal HQ";
+
 export const metadata: Metadata = {
-  title: "Markthal HQ",
-  description: "Business intelligence dashboard voor Markthal HQ ondernemingen",
+  title: APP_NAAM,
+  description: DEMO_MODE
+    ? "Live demo van het HorecaHQ dashboard — fictieve data"
+    : "Business intelligence dashboard voor Markthal HQ ondernemingen",
   manifest: "/manifest.json",
-  applicationName: "Markthal HQ",
+  applicationName: APP_NAAM,
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Markthal HQ",
+    title: APP_NAAM,
   },
   formatDetection: {
     telephone: false,
@@ -63,6 +69,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang={htmlLang(taal)} className={`${grotesk.variable} ${mono.variable}`}>
       <body className="min-h-screen antialiased">
         <TaalProvider initieelTaal={taal}>
+          <DemoBanner />
           {/* Boot-sequence sit als fixed overlay (z-100). Speelt elke
               keer dat de app fresh mount (hard refresh, nieuwe tab,
               cold open). Skipt op /dev/*, /m/*, /welkom*. Soft-nav

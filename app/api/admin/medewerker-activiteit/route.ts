@@ -12,6 +12,9 @@ import { NextResponse } from "next/server";
 import { eq, sql } from "drizzle-orm";
 import { huidigeAdminSessie } from "@/lib/admin-auth";
 import { db, schema } from "@/lib/db/client";
+import { DEMO_MEDEWERKERS } from "@/lib/demo/medewerkers";
+
+const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +23,24 @@ export async function GET() {
   if (!sessie) return NextResponse.json({ error: "niet ingelogd" }, { status: 401 });
   if (sessie.rol !== "owner") {
     return NextResponse.json({ error: "alleen owner" }, { status: 403 });
+  }
+
+  if (DEMO_MODE) {
+    return NextResponse.json({
+      medewerkers: DEMO_MEDEWERKERS.map((m) => ({
+        id: m.id,
+        naam: `${m.voornaam} ${m.achternaam}`,
+        email: m.email,
+        heeftPin: true,
+        heeftDefaultPin: false,
+        heeftPasskey: m.id % 3 === 0,
+        passkeyAantal: m.id % 3 === 0 ? 1 : 0,
+        laatsteLogin: new Date(Date.now() - m.id * 3600000).toISOString(),
+        onboardingVoltooid: true,
+        goedgekeurd: true,
+      })),
+      gegenereerd: new Date().toISOString(),
+    });
   }
 
   // Eén query met LEFT JOIN op een passkey-count subquery zodat we niet N+1

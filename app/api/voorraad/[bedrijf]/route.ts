@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { listProducten, createProduct } from "@/lib/voorraad";
 import type { Bedrijf } from "@/lib/sumup";
+import { getDemoVoorraad } from "@/lib/demo/api-responses";
+
+const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +15,9 @@ function isBedrijf(s: unknown): s is Bedrijf {
 export async function GET(_req: Request, { params }: { params: { bedrijf: string } }) {
   if (!isBedrijf(params.bedrijf)) {
     return NextResponse.json({ error: "ongeldig bedrijf" }, { status: 400 });
+  }
+  if (DEMO_MODE) {
+    return NextResponse.json({ producten: getDemoVoorraad(params.bedrijf) });
   }
   try {
     const producten = await listProducten(params.bedrijf);

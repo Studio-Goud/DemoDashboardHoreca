@@ -1,4 +1,7 @@
 import { unstable_cache } from "next/cache";
+import { getDemoTransacties } from "./demo/data";
+
+const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
 const SUMUP_BASE = "https://api.sumup.com";
 
@@ -71,6 +74,7 @@ export async function fetchTransactions(
   bedrijf: Bedrijf,
   options: { oldest_time?: string; newest_time?: string; limit?: number } = {}
 ): Promise<SumUpTransaction[]> {
+  if (DEMO_MODE) return getDemoTransacties(bedrijf);
   const { items } = await fetchPage(bedrijf, options);
   return items;
 }
@@ -82,6 +86,7 @@ export async function fetchTransactions(
 export async function fetchAllTransactions(
   bedrijf: Bedrijf
 ): Promise<SumUpTransaction[]> {
+  if (DEMO_MODE) return getDemoTransacties(bedrijf);
   const LIMIT = 500;
   const all: SumUpTransaction[] = [];
   let newestTime: string | undefined;

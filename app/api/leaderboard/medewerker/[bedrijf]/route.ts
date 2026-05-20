@@ -8,6 +8,9 @@
 import { NextResponse } from "next/server";
 import { huidigeAdminSessie } from "@/lib/admin-auth";
 import { berekenLeaderboard } from "@/lib/medewerker-score";
+import { getDemoLeaderboard } from "@/lib/demo/api-responses";
+
+const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +32,9 @@ export async function GET(req: Request, { params }: { params: { bedrijf: string 
   const venster = Number.isFinite(vensterRaw) && vensterRaw > 0 && vensterRaw <= 365
     ? vensterRaw : 30;
 
-  const rijen = await berekenLeaderboard({ bedrijfSlug, venster });
+  const rijen = DEMO_MODE
+    ? getDemoLeaderboard(bedrijfSlug as "bb" | "sl" | "kl", venster)
+    : await berekenLeaderboard({ bedrijfSlug, venster });
   return NextResponse.json({
     rijen,
     venster,

@@ -3,6 +3,8 @@ import path from "path";
 import fs from "fs";
 import type { Bedrijf } from "./sumup";
 
+const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+
 export interface JaarOmzet {
   jaar: number;
   omzetInclBtw: number;
@@ -157,6 +159,7 @@ function leesJaaroverzicht(pad: string, jaar: number): JaarOmzet | null {
 }
 
 export function getZettleJaaroverzicht(bedrijf: Bedrijf): JaarOmzet[] {
+  if (DEMO_MODE) return [];
   const cwd = process.cwd();
   const resultaten: JaarOmzet[] = [];
   for (const { bestand, jaar } of IZETTLE_BESTANDEN[bedrijf] ?? []) {
@@ -167,6 +170,7 @@ export function getZettleJaaroverzicht(bedrijf: Bedrijf): JaarOmzet[] {
 }
 
 export function getProductLevenshistorie(bedrijf: Bedrijf): ProductLevens[] {
+  if (DEMO_MODE) return [];
   const cwd = process.cwd();
   const bestand = PAYPAL_BESTANDEN[bedrijf];
   if (!bestand) return [];

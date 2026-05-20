@@ -12,6 +12,9 @@ import { eq, and, gte, lte, inArray } from "drizzle-orm";
 import { db, schema } from "./db/client";
 import type { Bedrijf } from "./sumup";
 import { logAudit, snapshotRoster } from "./audit";
+import { getDemoDiensten, getDemoBezettingWeek } from "./demo/medewerkers";
+
+const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
 // =============================================================================
 // Re-export types die de UI gebruikt (compat met oude lib/shiftbase.ts)
@@ -245,6 +248,7 @@ function groepeerPerDag(diensten: Dienst[], filterBedrijf?: Bedrijf): DagBezetti
 }
 
 export async function dienstenVandaag(bedrijf: Bedrijf): Promise<Dienst[]> {
+  if (DEMO_MODE) return getDemoDiensten(bedrijf, new Date());
   const vandaag = vandaagISO();
   const alle = await fetchDienstenInRange(vandaag, vandaag);
   return alle
@@ -256,6 +260,7 @@ export async function bezettingKomendePeriode(
   bedrijf: Bedrijf,
   dagenVooruit = 14,
 ): Promise<DagBezetting[]> {
+  if (DEMO_MODE) return getDemoBezettingWeek(bedrijf, dagenVooruit);
   const vandaag = vandaagISO();
   const grens = isoNDagenVooruit(dagenVooruit);
   const alle = await fetchDienstenInRange(vandaag, grens);

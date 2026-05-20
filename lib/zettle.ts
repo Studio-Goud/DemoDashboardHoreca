@@ -2,6 +2,8 @@ import { unstable_cache } from "next/cache";
 import fs from "node:fs";
 import path from "node:path";
 
+const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+
 const ZETTLE_AUTH_URL = "https://oauth.izettle.com/token";
 const ZETTLE_PURCHASE_BASE = "https://purchase.izettle.com";
 
@@ -236,6 +238,7 @@ const VANAF_DATUM = "2023-01-01T00:00:00.000Z";
 export async function fetchAllZettlePurchases(
   bedrijf: Bedrijf
 ): Promise<ZettlePurchase[]> {
+  if (DEMO_MODE) return [];
   // 1. DB-first
   try {
     const { leesZettleUitDb } = await import("./zettle-sync");

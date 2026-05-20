@@ -49,26 +49,21 @@ import PersoneelPrestaties from "@/components/administratie/PersoneelPrestaties"
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const BEDRIJVEN = {
-  bb: {
-    naam: "Brunch & Brew",
-    hex: "#0A84FF",
-    slug: "bb" as Bedrijf,
-    paypalPeriode: "apr 2022 – nu",
-  },
-  sl: {
-    naam: "Saté Lounge",
-    hex: "#30B26F",
-    slug: "sl" as Bedrijf,
-    paypalPeriode: "apr 2023 – nu",
-  },
-  kl: {
-    naam: "Het Kroket Loket",
-    hex: "#E07A1F",
-    slug: "kl" as Bedrijf,
-    paypalPeriode: "historie nog niet beschikbaar",
-  },
+const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+
+const BEDRIJVEN_ECHT = {
+  bb: { naam: "Brunch & Brew",     hex: "#0A84FF", slug: "bb" as Bedrijf, paypalPeriode: "apr 2022 – nu" },
+  sl: { naam: "Saté Lounge",       hex: "#30B26F", slug: "sl" as Bedrijf, paypalPeriode: "apr 2023 – nu" },
+  kl: { naam: "Het Kroket Loket",  hex: "#E07A1F", slug: "kl" as Bedrijf, paypalPeriode: "historie nog niet beschikbaar" },
 };
+
+const BEDRIJVEN_DEMO = {
+  bb: { naam: "Grand Café De Zon",  hex: "#0A84FF", slug: "bb" as Bedrijf, paypalPeriode: "jan 2023 – nu" },
+  sl: { naam: "Brasserie Noord",    hex: "#30B26F", slug: "sl" as Bedrijf, paypalPeriode: "jan 2023 – nu" },
+  kl: { naam: "Bar & Kitchen West", hex: "#E07A1F", slug: "kl" as Bedrijf, paypalPeriode: "jan 2023 – nu" },
+};
+
+const BEDRIJVEN = DEMO_MODE ? BEDRIJVEN_DEMO : BEDRIJVEN_ECHT;
 
 type Params = { bedrijf: string };
 type BedrijfConfig = (typeof BEDRIJVEN)[keyof typeof BEDRIJVEN];
