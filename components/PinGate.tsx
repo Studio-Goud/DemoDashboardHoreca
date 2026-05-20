@@ -34,11 +34,19 @@ const USER_KEY     = "sg_user";
 const ROL_KEY      = "sg_rol";
 const VESTIGING_KEY = "sg_vestiging";
 
-const VESTIGING_OPTIES = [
-  { slug: "bb" as const, naam: "Brunch & Brew",  accent: "#0A84FF" },
-  { slug: "sl" as const, naam: "Saté Lounge",    accent: "#30B26F" },
-  { slug: "kl" as const, naam: "Het Kroket Loket", accent: "#E07A1F" },
-];
+const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+
+const VESTIGING_OPTIES = DEMO_MODE
+  ? [
+      { slug: "bb" as const, naam: "Grand Café De Zon",  accent: "#0A84FF" },
+      { slug: "sl" as const, naam: "Brasserie Noord",    accent: "#30B26F" },
+      { slug: "kl" as const, naam: "Bar & Kitchen West", accent: "#E07A1F" },
+    ]
+  : [
+      { slug: "bb" as const, naam: "Brunch & Brew",      accent: "#0A84FF" },
+      { slug: "sl" as const, naam: "Saté Lounge",        accent: "#30B26F" },
+      { slug: "kl" as const, naam: "Het Kroket Loket",   accent: "#E07A1F" },
+    ];
 
 export default function PinGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
