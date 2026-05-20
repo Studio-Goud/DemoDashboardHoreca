@@ -4,22 +4,35 @@ import * as schema from "./schema";
 
 const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
-function getConnectionString(): string {
+// Lazy init — neon() wordt NOOIT aangeroepen tijdens module-import.
+// Pas op het moment dat db.iets() echt gebruikt wordt.
+// In demo mode gooit de proxy een fout (maar dat mag nooit bereikt worden
+// want alle routes checken DEMO_MODE al voor de db-aanroep).
+let _db: ReturnType<typeof drizzle<typeof schema>> | null = null;
+
+function getDb(): ReturnType<typeof drizzle<typeof schema>> {
+  if (DEMO_MODE) {
+    throw new Error("[demo] DB-aanroep onderschept — controleer DEMO_MODE check in de aanroepende route.");
+  }
+  if (_db) return _db;
   const url = process.env.DATABASE_URL ?? process.env.POSTGRES_URL;
   if (!url) {
-    if (DEMO_MODE) {
-      // In demo mode geven we een dummy URL terug. DB-calls mogen nooit
-      // daadwerkelijk uitgevoerd worden (alle routes checken DEMO_MODE eerst).
-      return "postgresql://demo:demo@localhost:5432/demo";
-    }
     throw new Error(
       "DATABASE_URL ontbreekt. Run `npx vercel env pull .env.local` om de Neon-URL binnen te halen.",
     );
   }
-  return url;
+  const sql = neon(url);
+  _db = drizzle(sql, { schema });
+  return _db;
 }
 
-const sql = neon(getConnectionString());
-export const db = drizzle(sql, { schema });
+// Proxy zodat `db.select(...)` etc. werken zonder aanpassing in de rest van de code.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const db = new Proxy({} as ReturnType<typeof drizzle<typeof schema>>, {
+  get(_, prop) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (getDb() as any)[prop];
+  },
+});
 
 export { schema };
